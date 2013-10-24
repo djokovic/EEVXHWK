@@ -1,3 +1,6 @@
+; local include files
+$INCLUDE(conversions.INC)
+
 ;Procedure:			Hex2String
 ;
 ;Description:      	This procedure will convert a value ‘n’ into a hex that 		
@@ -59,18 +62,18 @@ HexINIT:
         MOV     DX, AX              ;
         
 HexLoop: 
-        CMP     CX, 0               ; dd
+        CMP     CX, 0               ;Is the while loop done?
         JLE     Hex2StringEND       ;
         
-		AND     AX, 000FH           ;
+		AND     AX, Hex2StrMASK     ;
         
         CALL    StoreDaChar         ;Store Char, BX is changed, but that's OK
         DEC     SI                  ;
         
-        SHR     DX, 4               ;
+        SHR     DX, ByteSize        ;
         MOV     AX, DX              ;
         
-        DEC     CX                  ;		
+        DEC     CX                  ;Decrement the counter
 HexLoopEnd:		
 		JMP     HexLoop             ;
 
@@ -142,9 +145,6 @@ DecIsNeg:
         NEG     AX                      ;
         MOV     DS:[SI], '-'            ;Place the character in mem
         INC     SI                      ;Update the char pointer
-        
-        CALL    StoreDaChar             ; Store the char in AX with SI updated afterwards
-        INC     SI                      ;Update the char pointer
        
         JMP     Bin2BCDInit             ;
 DecIsPos:
@@ -153,7 +153,7 @@ DecIsPos:
 		;JMP    Bin2BCDInit
         
 Bin2BCDInit:                            ;initialization
-        MOV     BX, AX                  ;BX = arg
+        MOV     BX, AX                  ;BX = arg. Save the arg
 
         MOV     CX, 1000                ;start with 10^3 (1000's digit)
         CLC                             ;no error yet
@@ -162,13 +162,13 @@ Bin2BCDInit:                            ;initialization
 
 Bin2BCDLoop:                            ;loop getting the digits in arg
 
-        JC      EndBin2BCDLoop          ;if there is an error - we're done
+        JC      Dec2StringEND          ;if there is an error - we're done
         CMP     CX, 0                   ;check if pwr10 > 0
-        JLE     EndBin2BCDLoop          ;if not, have done all digits, done
+        JLE     Dec2StringEND          ;if not, have done all digits, done
         ;JMP    Bin2BCDLoopBody         ;else get the next digit
 
 Bin2BCDLoopBody:                        ;get a digit
-        MOV     DX, 0                   ;setup for arg/pwr10
+        MOV     DX, 0                   ;setup for arg/pwr10 remainder
         MOV     AX, BX
         DIV     CX                      ;digit (AX) = arg/pwr10
         CMP     AX, 10                  ;check if digit < 10
