@@ -24,3 +24,7 @@ ASCII_NULL      EQU     0              ;interrupt vector for timer
 
 Hex2StrMASK     EQU     000FH           ;number of interrupts per second * 10
 ByteSize        EQU     4               ; 4 Bits in a byte
+
+CounterEmpty	EQU		0				; Value for loop counter when empty
+
+MaxHexStrSize	EQU		4				; Value for max size of Hex string (=<4)
