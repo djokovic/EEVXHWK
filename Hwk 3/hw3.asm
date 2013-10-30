@@ -1,13 +1,23 @@
 NAME        HW3
 
+$INCLUDE(queue.inc);
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
-;                                 HW3 Pseudo-code                            ;
+;                                 HW3 Queue Functions                        ;
 ;                                 Code Outline                            	 ;
 ;                                 Anjian Wu                                  ;
 ;                                                                            ;
 ;                                 TA: Pipe-Mazo                              ;
 ;                                                                            ;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;                                 What's in here?
+;   QueueInit
+;   QueueEmpty
+;   QueueFull
+;   Enqueue
+;   Dequeue
+;
+;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;Procedure:			QueueInit
@@ -76,48 +86,56 @@ NAME        HW3
 ;Author:			Anjian Wu
 ;History:			Pseudo code - 10-27-2013
 ;-------------------------------------------------------------------------------
+;QUEUESTRUC      STRUC           	;structure containing all queue info
+;    head	    DW      ?       	;counter for debouncing the switch
+;    tail	    DW      ?       	;time until change repeat rates
+;    size	    DB      ?       	;rate at which to repeat the switch
+;    length		DW      ?  		    ;flag indicating have a debounced switch
+;    array		1024	DUP	?       ;pointer to the function to get switch status
+;SWSTRUC         ENDS
+;-------------------------------------------------------------------------------
+CGROUP  GROUP   CODE
 
-QueueInit(l, s, a)
-{
-    Headpointer(a) = 0; Clear Head Pointer @ address a in struc
-    Tailpointer(a) = 0; Clear Tail Pointer @ address a in struc
-    
-    If (s>0)
-    {
-        Queuesize(a) = 2; Queuesize is WORD
-    }
-    else
-    {
-        Queuesize(a) = 1; Queuesize is BYTE
-    }
+CODE SEGMENT PUBLIC 'CODE'
 
-    size = Queuesize(a); Get the normalization factor
+        ASSUME  CS:CGROUP
 
-    n = 0; reset counter
-    
-    error = false; reset error flag
-    
-    While (!error AND 2^n/(size) < l) ; grab the lowest n power of 2
-                                     ; such that 2^n > l
-                                     ; since s = 0 when byte and 1 when word
-                                     ; we can use that in denom to normalize.
-    {
-        
-        if (n > 9)                  ; Preset Queue Struc is 1024 = 2^10 bytes
-        {
-            error = true;           length too big, set error flag
-        }
-        
-        n++;   
-    }
-    
-    Queueleng(a) = 2^n/size; Record the queue leng in struc, as normalized by size
+;-------------------------------------------------------------------------------
 
+QueueInit		PROC    NEAR
+				PUBLIC  QueueInit
+                
+QICheck:
+    CMP     AX, MAX_LENG    ;
+    JL      QILengthtoobig  ;
+    ;JLE    QIStart
     
-    
+QIStart:
+    MOV     [SI].head,  0           ; Clear Head Pointer @ address a in struc
+    MOV     [SI].tail,  0           ; Clear Tail Pointer @ address a in struc
+    MOV     [SI].length, MAX_LENG   ;
+QIwordorbyte:    
+    CMP     BL, 0                   ; 
+    JLE     QIbytesize              ;
+    ;JG     QIwordsize              ;
 
-}
-Return Error
+QIwordsize:    
+
+    MOV     [SI].size, 2            ; Queuesize is WORD
+    JMP     QIleng                  ;
+    
+QIbytesize:
+    MOV     [SI].size, 1            ; Queuesize is WORD; Queuesize is BYTE
+    JMP     QIDone                  ;
+    
+QILengthtoobig:                     ; Queue too big
+
+    ;JMP    QIDone
+QIDone:
+
+    RET
+    
+ QueueInit      ENDP      
 
 
 
@@ -167,26 +185,27 @@ Return Error
 ;History:			Pseudo code - 10-27-2013
 ;-------------------------------------------------------------------------------
 
-QueueEmpty(a)
-{
-        
-    zeroflag = false; Assume to be not empty at first
-
-    Head = Headpointer(a); Grab current pointers from struc
-    Tail = Tailpointer(a);
+QueueEmpty		PROC    NEAR
+				PUBLIC  QueueEmpty
+       
+    PUSH    AX
+    PUSH    BX
+QEstart:
+                
+    MOV     AX, [SI].head   ; Grab current pointers from struc
+    MOV     BX, [SI].tail   ; Grab current pointers from struc
     
-    If(Head == Tail)
-    {
-        
-        zeroflag = true; Queue is empty, thus set flag
+QEflagtime:   
+    CMP     AX, BX          ; If head = tail -> head - tail = 0 -> zeroflag = 1
+                            ; Else zeroflag = 0
+                        
+QEdone:
+    POP    BX
+    POP    AX
     
-    }
-    
+    RET
 
-}
-Return zeroflag
-
-
+ QueueEmpty      ENDP      
 
 ;Procedure:			QueueFull
 ;
@@ -241,6 +260,37 @@ Return zeroflag
 ;Author:			Anjian Wu
 ;History:			Pseudo code - 10-27-2013
 ;-------------------------------------------------------------------------------
+
+QueueFull		PROC    NEAR
+				PUBLIC  QueueFull
+       
+    PUSH    AX
+    PUSH    BX
+    PUSH    DX
+QFstart:
+                
+    MOV     AX, [SI].tail   ; Grab current pointers from struc
+    MOV     BX, [SI].length ;
+ 
+QFmath: ; Calc (Tail + 1) % length
+    INC     AX              ; Check potential next tail pos
+    
+    MOV     DX, 0           ; Clear Remainder holder
+    DIV     BX              ; Proceed with modulo, MOD in DX
+    
+    MOV     BX, [SI].head   ; Reuse BX by replacing it with head
+    
+QFflagtime:   
+    CMP     DX, BX          ; If (Tail + 1) % length = Head -> zeroflag = 1
+                            ; Else zeroflag = 0
+                        
+QFdone:                     ; Flags are ready to be returned
+    POP    DX
+    POP    BX
+    POP    AX
+    
+    RET
+ QueueFull      ENDP      
 
 QueueFull(a)
 {
@@ -460,3 +510,11 @@ Enqueue(a, b)
     return ;
 
 }
+
+DATA    SEGMENT PUBLIC  'DATA'
+
+
+queue       QUEUESTRUC <>      ;"Minute Set" switch information
+
+
+DATA    ENDS
