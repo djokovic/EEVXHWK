@@ -272,7 +272,7 @@ QFstart:
     MOV     AX, [SI].tail   ; Grab current pointers from struc
     MOV     BX, [SI].length ;
  
-QFmath: ; Calc (Tail + 1) % length
+QFmath:                     ; Calc (Tail + 1) % length
     INC     AX              ; Check potential next tail pos
     
     MOV     DX, 0           ; Clear Remainder holder
@@ -292,25 +292,25 @@ QFdone:                     ; Flags are ready to be returned
     RET
  QueueFull      ENDP      
 
-QueueFull(a)
-{
+;QueueFull(a)
+;{
         
-    zeroflag = false; Assume to be not full at first
+;    zeroflag = false; Assume to be not full at first
     
-    Head = Headpointer(a); Grab all pointer values off struc
-    Tail = Tailpointer(a);
-    Leng = Queueleng(a);
+;    Head = Headpointer(a); Grab all pointer values off struc
+;    Tail = Tailpointer(a);
+;    Leng = Queueleng(a);
     
-    If((Tail + 1) % Leng(a) == Head) ; Check to see if next tail IS head
-    {
+;    If((Tail + 1) % Leng(a) == Head) ; Check to see if next tail IS head
+;    {
         
-        zeroflag = true; Queue is full
+;        zeroflag = true; Queue is full
     
-    }
+;    }
     
 
-}
-Return zeroflag
+;}
+;Return zeroflag
 
 ;Procedure:			Dequeue
 ;
@@ -371,6 +371,32 @@ Return zeroflag
 ;History:			Pseudo code - 10-27-2013
 ;-------------------------------------------------------------------------------
 
+Dequeue		    PROC    NEAR
+				PUBLIC  Dequeue
+				
+DQBlock:
+
+    CALL    QueueEmpty          ;
+
+    JZ      DQBlock             ;
+
+DQStart:
+
+    MOV     BX, [SI].size       ;
+    MOV     CX, [SI].length     ;
+    
+    CMP     BX, 2               ;
+    JGE     DQWORDGRAB          ;
+    ;JL     DQBYTEGRAB          ;
+    
+DQBYTEGRAB:
+
+    MOV     BX, [SI].head       ;
+    
+    
+
+DQWORDGRAB:
+				
 Dequeue(a)
 {
 
