@@ -382,7 +382,7 @@ DQBlock:
 
 DQStart:
 
-    MOV     BX, [SI].size       ;
+    MOV     BX, [SI].size       ;ss
     MOV     CX, [SI].length     ;
     
     CMP     BX, 2               ;
