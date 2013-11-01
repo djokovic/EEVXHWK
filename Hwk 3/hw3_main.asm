@@ -12,28 +12,27 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; Description:      This program tests the conversion functions for Homework
-;                   #2.  It calls each conversion function with a number of
-;                   test values.  If all tests pass it jumps to the label
-;                   AllTestsGood.  If any test fails it jumps to the label
-;                   TestFailed.
+;                   #3.  It calls Glenn's mystery functions with two passed
+;                   values, the queue struc address and max_queue length.
+;                   All test handling and breakpoints is inside QueueTest.
 ;
 ; Input:            None.
 ; Output:           None.
 ;
 ; User Interface:   No real user interface.  The user can set breakpoints at
-;                   AllTestsGood and TestFailed to see if the code is working
+;                   QueueGood and QueueError to see if the code is working
 ;                   or not.
-; Error Handling:   If a test fails the program jumps to TestFailed.
+; Error Handling:   If a test fails the program jumps to QueueError.
 ;
 ; Algorithms:       None.
 ; Data Structures:  None.
 ;
 ; Known Bugs:       None.
-; Limitations:      The returned strings must be less than MAX_STRING_SIZE
-;                   characters.
+; Limitations:      The max queue length is limited by Max_Length
 ;
 ; Revision History:
 ;    10/31/2013     Initial version -   Anjian Wu
+;    11/01/2013     Debugged and working - Anjian Wu
 
 $INCLUDE(queue.inc);
 
@@ -56,7 +55,7 @@ CODE    SEGMENT PUBLIC 'CODE'
         EXTRN   QueueFull:NEAR          ;convert a number to a decimal string
         EXTRN   Dequeue:NEAR            ;convert a number to a hex string
         EXTRN   Enqueue:NEAR            ;convert a number to a hex string
-        EXTRN   QueueTest:NEAR          ; Glenn's Test Code
+        EXTRN   QueueTest:NEAR          ;Glenn's Test Code
 
 START:  
 
@@ -69,9 +68,9 @@ MAIN:
         MOV     DS, AX
 
 
-TestSetup:                             ;a test failed
+TestSetup:                             ; Time to get ready for tests
         LEA     SI, QUEUE              ; Grab address of Queue
-        MOV     CX, 512                ; Load queue's max length
+        MOV     CX, MAX_LENG           ; Load queue's max length
 TestGO:                                 
         CALL    QueueTest              ;Call Glenn's tests
 
@@ -86,7 +85,7 @@ CODE    ENDS
 DATA    SEGMENT PUBLIC  'DATA'
 
 
-QUEUE          QUEUESTRUC <>           ;Holds the String
+QUEUE          QUEUESTRUC <>           ;Holds the Queue struc
 
 
 DATA    ENDS

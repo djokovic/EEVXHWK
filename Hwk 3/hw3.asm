@@ -11,23 +11,31 @@ $INCLUDE(queue.inc);
 ;                                                                            ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                 What's in here?
-;   QueueInit
-;   QueueEmpty
-;   QueueFull
-;   Enqueue
-;   Dequeue
 ;
+;   QueueInit   -    Initializes the queue. Needs address - SI, Size - BL
+;                    and length - AX.
+;   QueueEmpty  -    Checks whether queue is empty. Needs address - SI
+;   QueueFull   -    Checks whether queue is full. Needs address - SI
+;   Enqueue     -    Adds a new element to queue. Needs address - SI and
+;                    value to be added - AX.
+;   Dequeue     -    Removed a value from queue at address SI and into AX
+;
+;                                 What's was last edit?
+;
+;       			Pseudo code - 10-27-2013
+;                   Debugged,Documented, and working - 11/01/2013 - Anjian Wu
 ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;Procedure:			QueueInit
 ;
-;Description:      	This procedure will intialize the queue of passed length 'l',
-;                   size ''s', and pointed address 'a'. It does this by simply
+;Description:      	This procedure will intialize the queue of passed length AX,
+;                   size BL, and pointed address SI. It does this by simply
 ;                   setting the queue head and tail pinters to the same (zero).
-;                   It will also store the length 'l' of the queue and size 's'
+;                   It will also store the length of the queue and size
 ;                   on the data memory. Notice also that the values of head, tail,
 ;                   and length are NORMALIZED to the size.
+;
 ;                   Thus the struc will be initialized to contain.
 ;                   1. Headpointer - normalized pointer to first ele to be dequeued
 ;                   2. Tailpointer - normalized pointer to first empty ele
@@ -37,41 +45,43 @@ $INCLUDE(queue.inc);
 ;                   The total size of the struc allocated is 1024 bytes ONLY.
 ;                   
 ;                   
-;Operation:			
-;                   1.  Reset Head and tail pointer val in struc
-;                   2.  Set queue size accordingly (either 1 or 2)
-;                   3.  Grab the LOWEST 2's power queue size that can fit
-;                       the queue length requirement. We do this with a while
-;                       that increments n from 0 to 10 and testing compared
-;                       to the queue length.
-;                   2.  Save that 2^n/size value to Queueleng in queue struc
+;Operation:			*   Determine if queue length can fit
+;                   *   Reset Head and tail pointer, and store leng val in struc
+;                   *   Set queue size accordingly (either 1 or 2), this is determined
+;                       by BL being 0 or > 0.
+;                   *   DONE
 ;
-;Arguments:        	l   -> length of queue
-;                   s   -> size of each unit (byte or word)
-;                   a   -> address of where queue is
+;Arguments:        	AX   -> length of queue
+;                   BL   -> size of each unit (byte or word)
+;                   SI   -> address of where queue is
 ;
-;Return Values:    	Error flag -> indicated size of length is too large or not;
+;Return Values:    	None.
 ;
-;Shared Variables: 	None.
+;Result:            An initialized queue strucata SI with pointers, length, size, and array.
 ;
-;Local Variables:	size -> byte normalized value of queuesize (either 1 or 2)
-;                   error -> error flag for if 'l' is too large.
-;                   n -> integer counter for while loop
+;Shared Variables: 	The queue structure created is shared with HW3Test
+;
+;Local Variables:	    [SI].leng -> Word holding leng 
+;                       [SI].head -> Word holding head pointer
+;                       [SI].tail -> Word holding tail pointer
+;                       [SI].qsize-> Word holding size 
+;
 ;
 ;Global Variables:	None.
 ;					
 ;					
 ;Input:            	None.
 ;
-;Output:           	An initialized queue struc with pointers, length, and size;
+;Output:           	None.
 ;
-;Registers Used:	To be arranged
+;Registers Used:	BL - Used for compare
+;                   AX - Used to compare max length
 ;
-;Stack Depth:		To be arranged
+;Stack Depth:		Two words.
 ;
 ;Known Bugs:		None for now.
 ;
-;Data Structures:	Queue struc (1024 bytes)
+;Data Structures:	Queue struc (1024 bytes + 8 words)
 ;
 ;Error Handling:   	If passed queue length 'l' is too large, then return error flag;
 ;                   
@@ -85,15 +95,9 @@ $INCLUDE(queue.inc);
 ;
 ;Author:			Anjian Wu
 ;History:			Pseudo code - 10-27-2013
+;                   Debugged,Documented, and working - 11/01/2013 - Anjian Wu
 ;-------------------------------------------------------------------------------
-;QUEUESTRUC      STRUC           	;structure containing all queue info
-;    head	    DW      ?       	;counter for debouncing the switch
-;    tail	    DW      ?       	;time until change repeat rates
-;    size	    DB      ?       	;rate at which to repeat the switch
-;    length		DW      ?  		    ;flag indicating have a debounced switch
-;    array		1024	DUP	?       ;pointer to the function to get switch status
-;SWSTRUC         ENDS
-;-------------------------------------------------------------------------------
+
 CGROUP  GROUP   CODE
 
 CODE SEGMENT PUBLIC 'CODE'
@@ -104,17 +108,24 @@ CODE SEGMENT PUBLIC 'CODE'
 
 QueueInit		PROC    NEAR
 				PUBLIC  QueueInit
+				
+    PUSH    AX          ; Save used regs
+    PUSH    BX
                 
 QICheck:; Reg changed: None
-    CMP     AX, MAX_LENG    ;
-    JG      QILengthtoobig  ;
-    ;JLE    QIStart
+    CMP     AX, MAX_LENG                    ; Is this queue too long?
+    JLE     QIStart 
     
+QILengthtoobig:; Reg changed: None
+                                            ; Queue too big, so just initialize as largest
+    MOV     AX, MAX_LENG
+    ;JMP    QIStart                         ;
+
 QIStart:; Reg changed: None
 
-    MOV     [SI].leng,  AX                  ;
-    MOV     [SI].head,  ArrayEmpty          ; Clear Head Pointer @ address a in struc
-    MOV     [SI].tail,  ArrayEmpty          ; Clear Tail Pointer @ address a in struc
+    MOV     [SI].leng,  AX                  ; Stored the length value.
+    MOV     [SI].head,  ArrayEmpty          ; Clear Head Pointer @ address SI in struc
+    MOV     [SI].tail,  ArrayEmpty          ; Clear Tail Pointer @ address SI in struc
     
 QIwordorbyte:; Reg changed: BL, BX
     CMP     BL, ByteSizeQueue               ; Is this a byte queue?
@@ -129,10 +140,12 @@ QIbytesize:; Reg changed: None
     MOV     [SI].qsize, ByteQ               ; Queuesize is WORD; Queuesize is BYTE
     JMP     QIDone                          ;
     
-QILengthtoobig:                             ; Queue too big
 
     ;JMP    QIDone
 QIDone:
+
+    POP     BX         ;Restore used regs
+    POP     AX
 
     RET
     
@@ -142,25 +155,28 @@ QIDone:
 
 ;Procedure:			QueueEmpty
 ;
-;Description:      	This procedure will check the queue at address 'a' and 
+;Description:      	This procedure will check the queue at address SI and 
 ;                   see if it is empty. It does this by checking whether
 ;                   The headpointer is equal to the tail pointer.
+;
 ;                   If it is empty zeroflag -> true
 ;                   If it is not empty zeroflag -> reset
 ;
 ;Operation:			
-;                   1. Grab head and tail pointer values from struc @ addr 'a'
+;                   1. Grab head and tail pointer values from struc @ addr SI
 ;                   2. Compare head and tail
 ;                   3. Set flag true if head = tail, else false
 ;
-;Arguments:         a (DS:SI) -> location in memory (DS:SI)
+;Arguments:         SI -> location in memory (DS:SI)
 ;
 ;Return Values:    	zeroflag -> whether or not queue is empty
 ;
-;Shared Variables: 	None.
+;Result:            Information regarding whether queue is empty or not in ZF
 ;
-;Local Variables:	Head -> Headpointer value
-;					Tail -> Tailpointer value
+;Shared Variables: 	The queue structure created is shared with HW3Test
+;
+;Local Variables:	[SI].head  -> Headpointer value
+;					[SI].tail  -> Tailpointer value
 ;
 ;Global Variables:	None.
 ;					
@@ -168,13 +184,14 @@ QIDone:
 ;Input:            	None.
 ;Output:           	None.
 ;
-;Registers Used:	To be determined.
+;Registers Used:	AX - for head
+;                   BX - for tail
 ;
-;Stack Depth:		None for now.
+;Stack Depth:		2 Words
 ;
-;Known Bugs:		None for now.
+;Known Bugs:		None.
 ;
-;Data Structures:	Queue struc (1024 bytes)
+;Data Structures:	Queue struc (1024 bytes + 8 words)
 ;
 ;Error Handling:   	None.
 ;
@@ -184,12 +201,13 @@ QIDone:
 ;
 ;Author:			Anjian Wu
 ;History:			Pseudo code - 10-27-2013
+;                   Debugged,Documented, and working - 11/01/2013 - Anjian Wu
 ;-------------------------------------------------------------------------------
 
 QueueEmpty		PROC    NEAR
 				PUBLIC  QueueEmpty
        
-    PUSH    AX
+    PUSH    AX              ; Store used regs
     PUSH    BX
     
 QEstart:; Reg changed: AX, BX
@@ -203,7 +221,7 @@ QEflagtime:; Reg changed: None
                         
 QEdone:
     POP    BX
-    POP    AX
+    POP    AX               ;Restore used regs
     
     RET
 
@@ -211,32 +229,38 @@ QEdone:
 
 ;Procedure:			QueueFull
 ;
-;Description:       This function take the address of the queue at 'a' to
+;Description:       This function take the address of the queue at SI to
 ;                   see if it is FULL. It does this by looking at the
-;                   head/tailed pointers and queue length of address 'a'
+;                   head/tailed pointers and queue length of address SI queue
 ;                   doing the following calculation.
-;                   else it is not full.
+;                   
+;                   COMAPRE (Tail + 1 MOD length + 1) with HEAD pointer
+;                   
+;                   If this is true, then queue is full, else it is not full.
 ;                   Note as said before, tail pointer is at next EMPTY spot.
 ;
 ;                   If it is full zeroflag -> true
 ;                   If it is not full; zeroflag -> reset
 ;
 ;Operation:			
-;                   1. Grab head and tail pointer values from struc @ addr 'a'
-;                      as well as the leng value.
-;                   2. Check if (Tail + 1) mod length =  H, if so it is full,
-;                      else it is not full.
-;                   3. Set flag true if it is full, else false.
+;                   1. Grab length and tail pointer values from struc @ addr SI
+;                      
+;                   2. DO (Tail + 1 MOD length + 1), then grab head from struc
+;                   3. Compare the remainder value to head
+;                   4. ZF is automatically set after compare(true -> full)
 ;
-;Arguments:         a (DS:SI) -> location in memory (DS:SI)
+;Arguments:         SI -> location in memory (DS:SI)
 ;
 ;Return Values:    	zeroflag -> whether or not queue is full
 ;
-;Shared Variables: 	None.
+;Result:            Information regarding whether queue is full or not in ZF
+
 ;
-;Local Variables:	Head -> Headpointer value
-;					Tail -> Tailpointer value
-;					Leng -> leng of queue value
+;Shared Variables: 	The queue structure created is shared with HW3Test
+;
+;Local Variables:	[SI].head  -> Headpointer value
+;					[SI].tail  -> Tailpointer value
+;					[SI].leng  -> queue length value
 ;
 ;Global Variables:	None.
 ;					
@@ -244,35 +268,37 @@ QEdone:
 ;Input:            	None.
 ;Output:           	None.
 ;
-;Registers Used:	To be determined.
+;Registers Used:	AX, BX, DX
 ;
-;Stack Depth:		None for now.
+;Stack Depth:		3 Words
 ;
-;Known Bugs:		None for now.
+;Known Bugs:		None
 ;
-;Data Structures:	Queue struc (1024 bytes)
+;Data Structures:	Queue struc (1024 bytes + 8 words)
 ;
 ;Error Handling:   	None.
 ;
-;Algorithms:       	None.
+;Algorithms:       	Next position is determined by using (Tail + 1 MOD length + 1)
+;                   and comparing that to the Head pointer.
 ;
 ;Limitations:  		None.
 ;
 ;Author:			Anjian Wu
 ;History:			Pseudo code - 10-27-2013
+;                   Debugged,Documented, and working - 11/01/2013 - Anjian Wu
 ;-------------------------------------------------------------------------------
 
 QueueFull		PROC    NEAR
 				PUBLIC  QueueFull
        
-    PUSH    AX
+    PUSH    AX              ;Save used regs
     PUSH    BX
     PUSH    DX
 
 QFstart:; Reg changed: None   
                 
     MOV     AX, [SI].tail   ; Grab current pointers from struc
-    MOV     BX, [SI].leng   ;
+    MOV     BX, [SI].leng   ; Grab leng  from struc
 ;
  
 QFmath:; Reg changed: AX, DX, BX                        
@@ -280,31 +306,28 @@ QFmath:; Reg changed: AX, DX, BX
     INC     BX
     INC     AX                  ; Check potential next tail pos
     
-    MOV     DX, 0               ;
-    DIV     BX                  ;
+    MOV     DX, 0               ; Clear the remainder holder
+    DIV     BX                  ; Divide to get remainder
     
     MOV     BX, [SI].head       ; The mod is the next position
     
 QFflagtime:; Reg changed: None     
-    CMP     DX, BX          ; If (Tail + 1) mod length = Head -> zeroflag = 1
-                            ; Else zeroflag = 0
+    CMP     DX, BX              ; If (Tail + 1) mod length +1 = Head -> zeroflag = 1
+                                ; Else zeroflag = 0
                         
-QFdone:                     ; Flags are ready to be returned
+QFdone:                         ; Flags are ready to be returned
 
     POP    DX
     POP    BX
-    POP    AX
+    POP    AX                   ; restore used regs
     
     RET
  QueueFull      ENDP      
 
 
-
-;Return zeroflag
-
 ;Procedure:			Dequeue
 ;
-;Description:       This function take the address of the queue at 'a' 
+;Description:       This function take the address of the queue at SI 
 ;                   and returns the value of the data (byte or word) stored at
 ;                   head pointer. This is a blocking function in that if the
 ;                   queue is empty, the function will wait until the queue is
@@ -316,7 +339,7 @@ QFdone:                     ; Flags are ready to be returned
 ;                   2. If is it empty then loop polling the Queueempty
 ;                      until the queue is not empty and ready.
 ;                   3. Grab the values of head, size, and leng of queue
-;                      off the queue struc at address 'a'
+;                      off the queue struc at address SI
 ;                   4. If the size is word, retreive the WORD from location
 ;                      HEAD*2 since Head is normalized to WORD, and there 
 ;                      two bytes in a word.
@@ -324,46 +347,57 @@ QFdone:                     ; Flags are ready to be returned
 ;                   5. Update head pointer with (Head + 1) mod Leng;
     
 ;
-;Arguments:         a (DS:SI) -> location in memory (DS:SI)
+;Arguments:         SI -> location in memory (DS:SI)
 ;
-;Return Values:    	ReturnValue -> The value from queue from head pointer
+;Return Values:    	AX -> The value from queue from head pointer
 ;
-;Shared Variables: 	None.
+;Results:           Updates queue pointers after extracting an element.
 ;
-;Local Variables:	Head -> Headpointer value
-;					Leng -> leng of queue value
-;					Size -> size of element (byte or word)
-;                   next_pos -> next normalized position of head pointer
-;                   Empty -> the flag indicating queue is empty or not
+;Shared Variables: 	The queue structure created is shared with HW3Test
+;
+;Local Variables:	[SI].head  -> Headpointer value
+;					[SI].tail  -> Tailpointer value
+;					[SI].leng  -> queue length value
+;					[SI].qsize -> queue size (type) either byte or word
+;                   AX         -> Result from division
+;                   BX         -> pointer, div operand, queue size
+;                   DX         -> Remaineder for modulo
+;                   qvar.dequeued -> Temporarily holds return arg
 ;
 ;Global Variables:	None.
 ;					
 ;					
 ;Input:            	None.
 ;
-;Output:           	Updates queue after extracting an element.
+;Output:           	None.
 ;
-;Registers Used:	To be determined.
+;Registers Used:	AX, BX, DX
 ;
-;Stack Depth:		None for now.
+;Stack Depth:		3 Words
 ;
-;Known Bugs:		None for now.
+;Known Bugs:		Never
 ;
-;Data Structures:	Queue struc (1024 bytes)
+;Data Structures:	Queue struc (1024 bytes + 8 words)
+;                   Queue vars struc (1 word)
 ;
 ;Error Handling:   	None.
 ;
-;Algorithms:       	None.
+;Algorithms:       	Next position is determined by using (Tail + 1 MOD length + 1)
 ;
-;Limitations:  		Only dequeues one element at a time.
+;Limitations:  		None.
 ;
 ;Author:			Anjian Wu
 ;History:			Pseudo code - 10-27-2013
+;                   Debugged,Documented, and working - 11/01/2013 - Anjian Wu
 ;-------------------------------------------------------------------------------
 
 Dequeue		    PROC    NEAR
 				PUBLIC  Dequeue
 				
+    PUSH    AX              ;Save used regs
+    PUSH    BX
+    PUSH    DX
+    
 DQBlock:; Reg changed: None  
 
     CALL    QueueEmpty          ; Blocking function, keep checking whether queue
@@ -376,8 +410,8 @@ DQStart:; Reg changed: BX
 
     MOV     BX, [SI].qsize      ; Grab the queue size (Byte or Word)     
     CMP     BX, WORDQ           ; Is the Queue WORD queue?
-    JE     DQWORDGRAB          ; Yes it is word queue
-    ;JNE     DQBYTEGRAB          ; No it is byte queue
+    JE     DQWORDGRAB           ; Yes it is word queue
+    ;JNE     DQBYTEGRAB         ; No it is byte queue
     
 DQBYTEGRAB:; Reg changed: AX, BX, AL  
     MOV     AX, 0               ; Clear AH and AL
@@ -387,30 +421,35 @@ DQBYTEGRAB:; Reg changed: AX, BX, AL
    
 DQWORDGRAB:; Reg changed: AX, BX  
     MOV     BX, [SI].head       ; Grab the head element index
-    SHL     BX, 1                  ; Actual Position maps to every other address
+    SHL     BX, 1               ; Actual Position maps to every other address, thus do 2x
     MOV     AX, WORD PTR [SI].array[BX]  ; Now use the index as offset @ array @ SI
 
 DQsaveret:; Reg changed: BX  
     
     LEA     BX, qvars           ; Grab queue vars struc offset
-    MOV     [BX].dequeued , AX   ; Stored the return value
+    MOV     [BX].dequeued , AX  ; Stored the return value
    
 DQNextPos:; Reg changed: BX, AX, DX  
     MOV     BX, [SI].leng       ; Grab the fixed Queue length
     INC     BX
     
     MOV     AX, [SI].head       ; Grab the head element index
-    INC     AX                  ; Check potential next tail pos
+    INC     AX                  ; Next potential pointer location
     
-    MOV     DX, 0               ;
-    DIV     BX                  ;
+    MOV     DX, 0               ; Clear Remainder
+    DIV     BX                  ; Do modulo through DIV and grabbing remainder
     
-    MOV     [SI].head, DX       ; The mod is the next position
+    MOV     [SI].head, DX       ; The mod is the next position, so save it
     
 DQdone:; Reg changed: BX, AX  
     
-    LEA     BX, qvars         ;
+    LEA     BX, qvars           ; Prepare to retrieve return arg
     MOV     AX, [BX].dequeued   ; Restore the return value
+    
+    
+    POP    DX
+    POP    BX
+    POP    AX               ; restore used regs
     
     RET
     
@@ -419,7 +458,7 @@ DQdone:; Reg changed: BX, AX
 
 ;Procedure:			Enqueue
 ;
-;Description:       This function take the address of the queue at 'a' 
+;Description:       This function take the address of the queue at SI 
 ;                   and sets the value of the data (byte or word) to 
 ;                   tail pointer. This is a blocking function in that if the
 ;                   queue is full, the function will wait until the queue is
@@ -430,59 +469,70 @@ DQdone:; Reg changed: BX, AX
 ;                   1. Grab the queue full flag
 ;                   2. If is it full then loop polling the Queuefull
 ;                      until the queue is not full and ready.
-;                   3. Grab the values of tail, size, and leng of queue
-;                      off the queue struc at address 'a'
+;                   3. Grab the values of qsize and jump to word or byte
+;                      labels such that proper insertion is made.
+;
 ;                   4. If the size is word, write the WORD to location
 ;                      Tail*2 since Tail is normalized to WORD, and there 
 ;                      two bytes in a word.
-;                      Otherwise write to the byte at Tail.
+;                      If the queue is byte queue, the simply write directly
+;                      to location at tail pointer
+;
 ;                   5. Update tail pointer with (Tail + 1) mod Leng;
     
 ;
-;Arguments:         a (DS:SI) -> location in memory (DS:SI)
-;                   b         -> WORD or BYTE
+;Arguments:         SI -> location in memory (DS:SI)
+;                   AX/AL -> The value to be added to queue
 ;
-;Return Values:    	ReturnValue -> The value from queue from head pointer
+;Return Values:    	None.
 ;
-;Shared Variables: 	None.
+;Result:            Updates queue after inserting an element.
 ;
-;Local Variables:	Tail -> Tailpointer value
-;					Leng -> leng of queue value
-;					Size -> size of element (byte or word)
-;                   next_pos -> next normalized position of head pointer
-;                   Empty -> the flag indicating queue is empty or not
+;Shared Variables: 	The queue structure created is shared with HW3Test
+;
+;Local Variables:	[SI].head  -> Headpointer value
+;					[SI].tail  -> Tailpointer value
+;					[SI].leng  -> queue length value
+;					[SI].qsize -> queue size (type) either byte or word
+;                   AX         -> Result from division
+;                   BX         -> pointer, div operand, queue size
+;                   DX         -> Remaineder for modulo
 ;
 ;Global Variables:	None.
 ;					
 ;					
 ;Input:            	None.
 ;
-;Output:           	Updates queue after inserting an element.
+;Output:           	None.
 ;
-;Registers Used:	To be determined.
+;Registers Used:	AX, BX, DX
 ;
-;Stack Depth:		None for now.
+;Stack Depth:		3 Words
 ;
-;Known Bugs:		None for now.
+;Known Bugs:		None
 ;
-;Data Structures:	Queue struc (1024 bytes)
+;Data Structures:	Queue struc (1024 bytes + 8 words)
 ;
 ;Error Handling:   	None.
 ;
-;Algorithms:       	None.
+;Algorithms:       	Next position is determined by using (Head + 1 MOD length + 1)
 ;
-;Limitations:  		Only enqueues one element at a time.
-;                   If b is intended as WORD and size is BYTE, 
-;                   only the lower BYTE will be written.
+;Limitations:  		If AX is intended as WORD and size is BYTE, 
+;                   only the lower AL will be written.
 ;
-;                   If b is intended as BYTE and size is WORD, 
-;                   the full WORD will be written.
+;                   If AL is intended as BYTE and size is WORD, 
+;                   the full AX will be written.
 ;
 ;Author:			Anjian Wu
 ;History:			Pseudo code - 10-27-2013
+;                   Debugged,Documented, and working - 11/01/2013 - Anjian Wu
 ;-------------------------------------------------------------------------------
 Enqueue		    PROC    NEAR
 				PUBLIC  Enqueue
+				
+    PUSH    AX              ;Save used regs
+    PUSH    BX
+    PUSH    DX
 				
 EQBlock:; Reg changed: None  
 
@@ -495,7 +545,7 @@ EQStart:; Reg changed: BX
 
     MOV     BX, [SI].qsize      ; Grab the queue size (Byte or Word)     
     CMP     BX, WORDQ           ; Is the Queue WORD queue?
-    JE     EQWORDPUT          ; Yes it is word queue
+    JE      EQWORDPUT           ; Yes it is word queue
     ;JNE     EQBYTEPUT          ; No it is byte queue
     
 EQBYTEPUT:; Reg changed: BX, AL  
@@ -509,24 +559,28 @@ EQBYTEPUT:; Reg changed: BX, AL
 EQWORDPUT:; Reg changed: CX, AX, BX
       
     MOV     BX, [SI].tail       ; Grab the tail element index
-    SHL     BX, 1                  ; Actual Position maps to every other address (MUL 2x)
+    SHL     BX, 1               ; Actual Position maps to every other address (MUL 2x)
 ;;;    
     MOV     WORD PTR [SI].array[BX], AX  ; Now use the index as offset @ array @ SI
 ;;;   
 
 EQNextPos:; Reg changed: None  
-    MOV     BX, [SI].leng       ; Grab the fixed Queue length
-    INc     BX                              ;
+    MOV     BX, [SI].leng       ; Grab the  Queue length
+    INC     BX                  ; Length + 1
 
     MOV     AX, [SI].tail       ; Grab the tail element index
-    INC     AX                  ; Check potential next tail pos
+    INC     AX                  ; Update to potential next tail pos
     
-    MOV     DX, 0
-    DIV     BX                  ;
+    MOV     DX, 0               ; Clear the remainder
+    DIV     BX                  ; Do the modulus, answer in remainder
     
     MOV     [SI].tail, DX       ; The mod is the next position
     
 EQdone:; Reg changed: None  
+
+    POP    DX
+    POP    BX
+    POP    AX               ; restore used regs
     
     RET
     
@@ -539,7 +593,7 @@ CODE    ENDS
 DATA    SEGMENT PUBLIC  'DATA'
 
 
-qvars       QUEUEVARS <>      ;"Minute Set" switch information
+qvars       QUEUEVARS <>      ; Local struc used to store return arg for Dequeue
 
 
 DATA    ENDS
