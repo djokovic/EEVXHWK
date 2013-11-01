@@ -18,7 +18,8 @@ QUEUESTRUC      STRUC           	;structure containing all queue info
     head	    DW      ?       	;counter for debouncing the switch
     tail	    DW      ?       	;time until change repeat rates
     qsize	    DW      ?       	;rate at which to repeat the switch
-    array		DB	ARRAY_SIZE	DUP	(?) ;pointer to the function to get switch status
+    leng	    DW      ?       	;rate at which to repeat the switch
+    array		DB	1024	DUP	(?) ;pointer to the function to get switch status
 QUEUESTRUC      ENDS
 
 ;Structure for storing Queue return values or args

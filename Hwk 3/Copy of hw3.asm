@@ -112,7 +112,6 @@ QICheck:; Reg changed: None
     
 QIStart:; Reg changed: None
 
-    MOV     [SI].leng,  AX                  ;
     MOV     [SI].head,  ArrayEmpty          ; Clear Head Pointer @ address a in struc
     MOV     [SI].tail,  ArrayEmpty          ; Clear Tail Pointer @ address a in struc
     
@@ -267,31 +266,28 @@ QueueFull		PROC    NEAR
        
     PUSH    AX
     PUSH    BX
-    PUSH    DX
 
 QFstart:; Reg changed: None   
                 
     MOV     AX, [SI].tail   ; Grab current pointers from struc
-    MOV     BX, [SI].leng   ;
-;
+    MOV     BX, MAX_LENG;
  
 QFmath:; Reg changed: AX, DX, BX                        
                             
-    INC     BX
+    DEC     BX                  ;
+    
     INC     AX                  ; Check potential next tail pos
     
-    MOV     DX, 0               ;
-    DIV     BX                  ;
+    AND     AX, BX              ;
     
     MOV     BX, [SI].head       ; The mod is the next position
     
 QFflagtime:; Reg changed: None     
-    CMP     DX, BX          ; If (Tail + 1) mod length = Head -> zeroflag = 1
+    CMP     AX, BX          ; If (Tail + 1) mod length = Head -> zeroflag = 1
                             ; Else zeroflag = 0
                         
 QFdone:                     ; Flags are ready to be returned
 
-    POP    DX
     POP    BX
     POP    AX
     
@@ -396,16 +392,15 @@ DQsaveret:; Reg changed: BX
     MOV     [BX].dequeued , AX   ; Stored the return value
    
 DQNextPos:; Reg changed: BX, AX, DX  
-    MOV     BX, [SI].leng       ; Grab the fixed Queue length
-    INC     BX
+    MOV     BX, MAX_LENG       ; Grab the fixed Queue length
+    DEC     BX                  ;
     
     MOV     AX, [SI].head       ; Grab the head element index
     INC     AX                  ; Check potential next tail pos
     
-    MOV     DX, 0               ;
-    DIV     BX                  ;
+    AND     AX, BX              ;
     
-    MOV     [SI].head, DX       ; The mod is the next position
+    MOV     [SI].head, AX       ; The mod is the next position
     
 DQdone:; Reg changed: BX, AX  
     
@@ -515,16 +510,15 @@ EQWORDPUT:; Reg changed: CX, AX, BX
 ;;;   
 
 EQNextPos:; Reg changed: None  
-    MOV     BX, [SI].leng       ; Grab the fixed Queue length
-    INc     BX                              ;
+    MOV     BX, MAX_LENG       ; Grab the fixed Queue length
+    DEC     BX                  ;
 
     MOV     AX, [SI].tail       ; Grab the tail element index
     INC     AX                  ; Check potential next tail pos
     
-    MOV     DX, 0
-    DIV     BX                  ;
+    AND     AX, BX              ;
     
-    MOV     [SI].tail, DX       ; The mod is the next position
+    MOV     [SI].tail, AX       ; The mod is the next position
     
 EQdone:; Reg changed: None  
     

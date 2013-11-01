@@ -71,7 +71,7 @@ MAIN:
 
 TestSetup:                             ;a test failed
         LEA     SI, QUEUE              ; Grab address of Queue
-        MOV     CX, MAX_LENG           ; Load queue's max length
+        MOV     CX, 512                ; Load queue's max length
 TestGO:                                 
         CALL    QueueTest              ;Call Glenn's tests
 

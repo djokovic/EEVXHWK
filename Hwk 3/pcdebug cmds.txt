@@ -1,0 +1,18 @@
+set 0 queueinit
+set 1 queuefull
+set 2 queueempty
+set 3 dequeue
+set 4 enqueue
+set 5 hw3test.QueueError
+set 6 hw3test.QueueGood
+set 7 hw3.dqdone
+set 8 hw3.eqdone
+
+clear 0
+clear 1
+clear 2
+clear 3
+clear 4
+
+go
+dump 0040:0010
