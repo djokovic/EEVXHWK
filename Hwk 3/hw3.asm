@@ -105,30 +105,29 @@ CODE SEGMENT PUBLIC 'CODE'
 QueueInit		PROC    NEAR
 				PUBLIC  QueueInit
                 
-QICheck:
+QICheck:; Reg changed: None
     CMP     AX, MAX_LENG    ;
     JL      QILengthtoobig  ;
     ;JLE    QIStart
     
-QIStart:
-    MOV     [SI].head,  0           ; Clear Head Pointer @ address a in struc
-    MOV     [SI].tail,  0           ; Clear Tail Pointer @ address a in struc
-    MOV     [SI].length, MAX_LENG   ;
-QIwordorbyte:    
-    CMP     BL, 0                   ; 
-    JLE     QIbytesize              ;
-    ;JG     QIwordsize              ;
-
-QIwordsize:    
-
-    MOV     [SI].size, 2            ; Queuesize is WORD
-    JMP     QIleng                  ;
+QIStart:; Reg changed: None
+    MOV     [SI].head,  ArrayEmpty          ; Clear Head Pointer @ address a in struc
+    MOV     [SI].tail,  ArrayEmpty          ; Clear Tail Pointer @ address a in struc
     
-QIbytesize:
-    MOV     [SI].size, 1            ; Queuesize is WORD; Queuesize is BYTE
-    JMP     QIDone                  ;
+QIwordorbyte:; Reg changed: BL, BX
+    CMP     BL, ByteSizeQueue               ; Is this a byte queue?
+    JE      QIbytesize                      ; Yes
+    ;JNE     QIwordsize                     ; NO, it is word queue
+
+QIwordsize:; Reg changed: None    
+    MOV     [SI].qsize, WordQ               ; Queuesize is WORD
+    JMP     QIleng                          ;
     
-QILengthtoobig:                     ; Queue too big
+QIbytesize:; Reg changed: None
+    MOV     [SI].qsize, ByteQ               ; Queuesize is WORD; Queuesize is BYTE
+    JMP     QIDone                          ;
+    
+QILengthtoobig:                             ; Queue too big
 
     ;JMP    QIDone
 QIDone:
@@ -190,12 +189,13 @@ QueueEmpty		PROC    NEAR
        
     PUSH    AX
     PUSH    BX
-QEstart:
+    
+QEstart:; Reg changed: AX, BX
                 
     MOV     AX, [SI].head   ; Grab current pointers from struc
     MOV     BX, [SI].tail   ; Grab current pointers from struc
     
-QEflagtime:   
+QEflagtime:; Reg changed: None   
     CMP     AX, BX          ; If head = tail -> head - tail = 0 -> zeroflag = 1
                             ; Else zeroflag = 0
                         
@@ -267,12 +267,13 @@ QueueFull		PROC    NEAR
     PUSH    AX
     PUSH    BX
     PUSH    DX
-QFstart:
+QFstart:; Reg changed: None   
                 
     MOV     AX, [SI].tail   ; Grab current pointers from struc
     MOV     BX, [SI].length ;
  
-QFmath:                     ; Calc (Tail + 1) % length
+QFmath:; Reg changed: AX, DX, BX                        
+                            ; Calc (Tail + 1) % length
     INC     AX              ; Check potential next tail pos
     
     MOV     DX, 0           ; Clear Remainder holder
@@ -280,7 +281,7 @@ QFmath:                     ; Calc (Tail + 1) % length
     
     MOV     BX, [SI].head   ; Reuse BX by replacing it with head
     
-QFflagtime:   
+QFflagtime:; Reg changed: None     
     CMP     DX, BX          ; If (Tail + 1) % length = Head -> zeroflag = 1
                             ; Else zeroflag = 0
                         
@@ -374,65 +375,56 @@ QFdone:                     ; Flags are ready to be returned
 Dequeue		    PROC    NEAR
 				PUBLIC  Dequeue
 				
-DQBlock:
+DQBlock:; Reg changed: None  
 
-    CALL    QueueEmpty          ;
+    CALL    QueueEmpty          ; Blocking function, keep checking whether queue
+                                ; is empty
 
-    JZ      DQBlock             ;
+    JZ      DQBlock             ; If still empty, keep looping
+    ;JMP    DQStart             ;
+    
+DQStart:; Reg changed: BX  
 
-DQStart:
+    MOV     BX, [SI].qsize      ; Grab the queue size (Byte or Word)     
+    CMP     BX, WORDQ           ; Is the Queue WORD queue?
+    JGE     DQWORDGRAB          ; Yes it is word queue
+    ;JL     DQBYTEGRAB          ; No it is byte queue
+    
+DQBYTEGRAB:; Reg changed: AX, BX, AL  
+    MOV     AX, 0               ; Clear AH and AL
+    MOV     BX, [SI].head       ; Grab the head element index
+    MOV     AL, [SI].array[BX]  ; Now us the index as offset @ array @ SI
+    JMP     DQsaveret           ;
+   
+DQWORDGRAB:; Reg changed: AX, BX  
+    MOV     BX, [SI].head       ; Grab the head element index
+    SHL     BX                  ; Actual Position maps to every other address
+    MOV     AX, [SI].array[BX]  ; Now use the index as offset @ array @ SI
 
-    MOV     BX, [SI].size       ;ss
-    MOV     CX, [SI].length     ;
+DQsaveret:; Reg changed: BX  
     
-    CMP     BX, 2               ;
-    JGE     DQWORDGRAB          ;
-    ;JL     DQBYTEGRAB          ;
+    MOV     BX, qvars           ; Grab queue vars struc offset
+    MOV     [BX].dequeued, AX   ; Stored the return value
+   
+DQNextPos:; Reg changed: BX, AX, DX  
+    MOV     BX, MAXLENGTH       ; Grab the fixed Queue length
+    DEC     BX                  ;
     
-DQBYTEGRAB:
-
-    MOV     BX, [SI].head       ;
+    MOV     AX, [SI].head       ; Grab the head element index
+    INC     AX                  ; Check potential next tail pos
     
+    AND     AX, BX              ;
     
-
-DQWORDGRAB:
-				
-Dequeue(a)
-{
-
-    Bool Empty = QueueEmpty(a); Initial check to see if empty
-
-    While (Empty)
-    {
+    MOV     [SI].head, AX       ; The mod is the next position
     
-        nop;
-        Empty = QueueEmpty(a); While it is empty, keep polling the queue
-        
-    }
+DQdone:; Reg changed: BX, AX  
     
-    Head = Headpointer(a); Now we can grab current queue pointer vals
-    Size = Queuesize(a);
-    Leng = Queueleng(a);
+    MOV     BX, qvars           ;
+    MOV     AX, [BX].dequeued   ; Restore the return value
     
+    RET
     
-if (Size > 1); Check to see if this queue at 'a' is BYTE or WORD queue
-    {
-        ReturnValue = WORDREAD(DS:[Head*Size]); Do a WORD read at actual address
-    }
-    else
-    {
-        ReturnValue = BYTEREAD(DS:[HEAD]); Do a byte read at normalize = actual address
-    }
-    
-    next_pos = (Head + 1) % Leng; Update next head position, should be ok since queue 
-                                
-    
-    Headpointer(a) = next_pos;
-    
-
-    return ReturnValue;
-
-}
+ Dequeue      ENDP      
 
 
 ;Procedure:			Enqueue
@@ -499,48 +491,64 @@ if (Size > 1); Check to see if this queue at 'a' is BYTE or WORD queue
 ;Author:			Anjian Wu
 ;History:			Pseudo code - 10-27-2013
 ;-------------------------------------------------------------------------------
+Enqueue		    PROC    NEAR
+				PUBLIC  Enqueue
+				
+EQBlock:; Reg changed: None  
 
-Enqueue(a, b)
-{
+    CALL    Queuefull           ; Blocking function, keep checking whether queue
+                                ; is empty
 
-    Bool Full = QueueFull(a); First check is queue full
+    JZ      EQBlock             ; If still full, keep looping
+    ;JMP    DQStart             ;
+EQStart:; Reg changed: BX  
 
-    While (Full)
-    {
+    MOV     BX, [SI].qsize      ; Grab the queue size (Byte or Word)     
+    CMP     BX, WORDQ           ; Is the Queue WORD queue?
+    JGE     EQWORDPUT          ; Yes it is word queue
+    ;JL     EQBYTEPUT          ; No it is byte queue
     
-        nop;
-        Full = QueueFull(a); While it is full, keep blocking until not full
-        
-    }
-    
-    Tail = Tailpointer(a); Grab all relevant queue size values
-    Size = Queuesize(a);
-    Leng = Queueleng(a);
-    
-    
-    if (Size > 1) ; We are adding to a WORD queue
-    {
-        WORDWRITE(DS:[Tail*Size]) = b; Write to location Tail*size, since tail is 
-                                     ; normalized
-    }
-    else          ; We are adding to a BYTE queue
-    {
-        BYTEWRITE(DS:[Tail]) = b; Write to location Tail, since tail is 
-                                ; the actual location as well as normalized.
-    }
-    
-    next_pos = (Tail + 1) % Leng; Update the tail position
-    
-    Tailpointer(a) = next_pos; Update the struc with new tail
+EQBYTEPUT:; Reg changed: BX, AL  
 
-    return ;
+    MOV     BX, [SI].tail       ; Grab the tail element index
+;;; 
+    MOV     [SI].array[BX], AL  ; Now us the index as offset @ array @ SI
+;;; 
+    JMP     EQNextPos           ;
+   
+EQWORDPUT:; Reg changed: CX, AX, BX
+      
+    MOV     BX, [SI].tail       ; Grab the tail element index
+    SHL     BX                  ; Actual Position maps to every other address (MUL 2x)
+;;;    
+    MOV     [SI].array[BX], AX  ; Now use the index as offset @ array @ SI
+;;;   
 
-}
+EQNextPos:; Reg changed: None  
+    MOV     BX, MAXLENGTH       ; Grab the fixed Queue length
+    DEC     BX                  ;
 
+    MOV     AX, [SI].tail       ; Grab the tail element index
+    INC     AX                  ; Check potential next tail pos
+    
+    AND     AX, BX              ;
+    
+    MOV     [SI].tail, AX       ; The mod is the next position
+    
+DQdone:; Reg changed: None  
+    
+    RET
+    
+Enqueue      ENDP    
+ 
+CODE    ENDS
+ 
+    
+    
 DATA    SEGMENT PUBLIC  'DATA'
 
 
-queue       QUEUESTRUC <>      ;"Minute Set" switch information
+qvars       QUEUEVARS <>      ;"Minute Set" switch information
 
 
 DATA    ENDS

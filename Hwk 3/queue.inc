@@ -17,19 +17,26 @@
 QUEUESTRUC      STRUC           	;structure containing all queue info
     head	    DW      ?       	;counter for debouncing the switch
     tail	    DW      ?       	;time until change repeat rates
-    size	    DB      ?       	;rate at which to repeat the switch
-    length		DW      ?    ;flag indicating have a debounced switch
+    qsize	    DW      ?       	;rate at which to repeat the switch
     array		DB	ARRAY_SIZE	DUP	(?) ;pointer to the function to get switch status
-QUEUESTRUC         ENDS
+QUEUESTRUC      ENDS
+
+;Structure for storing Queue return values or args
+
+QUEUEVARS      STRUC           	    ;structure containing all queue info
+    dequeued	DW      ?       	;counter for debouncing the switch
+QUEUEVARS      ENDS
 
 ; ASCII Constants
 
-ARRAY_SIZE      EQU     1024             ;interrupt vector for timer
-MAX_LENG	    EQU     512              ;interrupt vector for timer
+ARRAY_SIZE      EQU     1024         ;interrupt vector for timer
+MAX_LENG	    EQU     512          ;interrupt vector for timer
 
 
 
 ; General Definitions
 
-Hex2StrMASK     EQU     000FH           ;number of interrupts per second * 10
-ByteSize        EQU     4               ; 4 Bits in a byte
+ArrayEmpty      EQU     0             ; number of interrupts per second * 10
+ByteSizeQueue   EQU     0             ; 4 Bits in a byte
+ByteQ           EQU     1             ; 4 Bits in a byte
+WordQ           EQU     2             ; 4 Bits in a byte
