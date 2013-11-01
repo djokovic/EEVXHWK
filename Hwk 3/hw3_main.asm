@@ -35,7 +35,7 @@
 ; Revision History:
 ;    10/31/2013     Initial version -   Anjian Wu
 
-
+$INCLUDE(queue.inc);
 
 CGROUP  GROUP   CODE
 DGROUP  GROUP   DATA, STACK
