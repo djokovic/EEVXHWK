@@ -1,11 +1,13 @@
 
-        NAME    HW2TEST
+        NAME    hw3_main
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
-;                                   HW2TEST                                  ;
-;                            Homework #2 Test Code                           ;
+;                                   hw3_main                                 ;
+;                            Homework #3 Main Loop                           ;
 ;                                  EE/CS  51                                 ;
+;                               Anjian Wu                                    ;
+;                               TA: Pipe-mazo                                ;
 ;                                                                            ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -31,13 +33,7 @@
 ;                   characters.
 ;
 ; Revision History:
-;    1/24/06  Glen George               initial revision
-;    1/26/06  Glen George               fixed a minor bug
-;                                       allow lowercase hex digits
-;                                       removed DUPs
-;    1/22/07  Glen George               updated comments
-;    9/29/10  Glen George               updated comments to indicate it is now
-;                                          for Homework #2
+;    10/31/2013     Initial version -   Anjian Wu
 
 
 
@@ -60,7 +56,7 @@ CODE    SEGMENT PUBLIC 'CODE'
         EXTRN   QueueFull:NEAR          ;convert a number to a decimal string
         EXTRN   Dequeue:NEAR            ;convert a number to a hex string
         EXTRN   Enqueue:NEAR            ;convert a number to a hex string
-
+        EXTRN   QueueTest:NEAR          ; Glenn's Test Code
 
 START:  
 
@@ -73,17 +69,11 @@ MAIN:
         MOV     DS, AX
 
 
-        CALL    ConvertTest             ;do the conversion tests
-        JCXZ    AllTestsGood            ;go to appropriate infinite loop
-        ;JMP    TestFailed              ;  based on return value
-
-
-TestFailed:                             ;a test failed
-        JMP     TestFailed              ;just sit here until get interrupted
-
-
-AllTestsGood:                           ;all tests passed
-        JMP     AllTestsGood            ;just sit here until get interrupted
+TestSetup:                             ;a test failed
+        LEA     SI, QUEUE              ; Grab address of Queue
+        MOV     CX, MAX_LENG           ; Load queue's max length
+TestGO:                                 
+        CALL    QueueTest              ;Call Glenn's tests
 
         
 CODE    ENDS
@@ -96,7 +86,7 @@ CODE    ENDS
 DATA    SEGMENT PUBLIC  'DATA'
 
 
-StringOut       DB      MAX_STRING_SIZE  DUP (?) ;buffer for converted strings
+QUEUE          QUEUESTRUC <>           ;Holds the String
 
 
 DATA    ENDS

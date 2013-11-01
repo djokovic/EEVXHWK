@@ -407,7 +407,7 @@ DQsaveret:; Reg changed: BX
     MOV     [BX].dequeued, AX   ; Stored the return value
    
 DQNextPos:; Reg changed: BX, AX, DX  
-    MOV     BX, MAXLENGTH       ; Grab the fixed Queue length
+    MOV     BX, MAX_LENG       ; Grab the fixed Queue length
     DEC     BX                  ;
     
     MOV     AX, [SI].head       ; Grab the head element index
@@ -525,7 +525,7 @@ EQWORDPUT:; Reg changed: CX, AX, BX
 ;;;   
 
 EQNextPos:; Reg changed: None  
-    MOV     BX, MAXLENGTH       ; Grab the fixed Queue length
+    MOV     BX, MAX_LENG       ; Grab the fixed Queue length
     DEC     BX                  ;
 
     MOV     AX, [SI].tail       ; Grab the tail element index
