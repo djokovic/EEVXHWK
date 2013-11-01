@@ -6,12 +6,12 @@
 ;                                                                           ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; This file contains the definitions for the timing functions for the 8088
-; version of the Microprocessor-Based Clock.
+; This file contains the definitions for the queue functions
 ;
 ; Revision History:
 ;    10/29/2013			Created - Anjian Wu
-
+;    11/01/2013   Debugged,Documented, and working - Anjian Wu
+;
 ;Structure for Queue allocation, information, and storage
 
 QUEUESTRUC      STRUC           	;structure containing all queue info
@@ -19,25 +19,20 @@ QUEUESTRUC      STRUC           	;structure containing all queue info
     tail	    DW      ?       	;time until change repeat rates
     qsize	    DW      ?       	;rate at which to repeat the switch
     leng	    DW      ?       	;rate at which to repeat the switch
-    array		DB	1024	DUP	(?) ;pointer to the function to get switch status
+    array		DB	  1024	DUP	(?) ;pointer to the function to get switch status
 QUEUESTRUC      ENDS
 
 ;Structure for storing Queue return values or args
 
-QUEUEVARS      STRUC           	    ;structure containing all queue info
-    dequeued	DW      ?       	;counter for debouncing the switch
+QUEUEVARS      STRUC           	    ;structure containing a queue arg
+    dequeued	DW      ?       	;return value arg for Dequeue
 QUEUEVARS      ENDS
-
-; ASCII Constants
-
-ARRAY_SIZE      EQU     1024         ;interrupt vector for timer
-MAX_LENG	    EQU     512          ;interrupt vector for timer
-
 
 
 ; General Definitions
 
-ArrayEmpty      EQU     0             ; number of interrupts per second * 10
-ByteSizeQueue   EQU     0             ; 4 Bits in a byte
-ByteQ           EQU     1             ; 4 Bits in a byte
-WordQ           EQU     2             ; 4 Bits in a byte
+ArrayEmpty      EQU     0             ; Empty is set at 0 index
+ByteSizeQueue   EQU     0             ; 0 indicates byte queue
+ByteQ           EQU     1             ; Byte norm factor for indexing
+WordQ           EQU     2             ; Word norm factor for indexing
+MAX_LENG	    EQU     512           ; Maxlength allowed for byte or word queue
