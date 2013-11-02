@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    HW3                                                      22:22:19  10/31/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE HW3
@@ -19,640 +19,731 @@ LOC  OBJ                  LINE     SOURCE
                       =1     9     ;                                                                           ;
                       =1    10     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                       =1    11     
-                      =1    12     ; This file contains the definitions for the timing functions for the 8088
-                      =1    13     ; version of the Microprocessor-Based Clock.
-                      =1    14     ;
-                      =1    15     ; Revision History:
-                      =1    16     ;    10/29/2013                 Created - Anjian Wu
-                      =1    17     
+                      =1    12     ; This file contains the definitions for the queue functions
+                      =1    13     ;
+                      =1    14     ; Revision History:
+                      =1    15     ;    10/29/2013                 Created - Anjian Wu
+                      =1    16     ;    11/01/2013   Debugged,Documented, and working - Anjian Wu
+                      =1    17     ;
                       =1    18     ;Structure for Queue allocation, information, and storage
                       =1    19     
-----                  =1    20     QUEUESTRUC      STRUC                   ;structure containing all queue info
-0000                  =1    21         head            DW      ?           ;counter for debouncing the switch
-0002                  =1    22         tail            DW      ?           ;time until change repeat rates
-0004                  =1    23         qsize           DW      ?           ;rate at which to repeat the switch
-0006                  =1    24         leng            DW      ?           ;rate at which to repeat the switch
-0008                  =1    25         array               DB      1024    DUP     (?) ;pointer to the function to get s
-                                   witch status
-----                  =1    26     QUEUESTRUC      ENDS
-                      =1    27     
-                      =1    28     ;Structure for storing Queue return values or args
+                      =1    20     
+                      =1    21     ; General Definitions
+                      =1    22     
+  0000                =1    23     ArrayEmpty      EQU     0             ; Empty is set at 0 index
+  0000                =1    24     ByteSizeQueue   EQU     0             ; 0 indicates byte queue
+  0001                =1    25     ByteQ           EQU     1             ; Byte norm factor for indexing
+  0002                =1    26     WordQ           EQU     2             ; Word norm factor for indexing
+  0400                =1    27     ARRAY_SIZE      EQU     1024          ; Size of queue array (fits 512-1 words, 
+                      =1    28                                           ;or 1023 bytes)
                       =1    29     
-----                  =1    30     QUEUEVARS      STRUC                ;structure containing all queue info
-0000                  =1    31         dequeued    DW      ?               ;counter for debouncing the switch
-----                  =1    32     QUEUEVARS      ENDS
-                      =1    33     
-                      =1    34     ; ASCII Constants
-                      =1    35     
-  0400                =1    36     ARRAY_SIZE      EQU     1024         ;interrupt vector for timer
-  0200                =1    37     MAX_LENG            EQU     512          ;interrupt vector for timer
+                      =1    30     
+----                  =1    31     QUEUESTRUC      STRUC                   ;structure containing all queue info
+0000                  =1    32         head            DW      ?           ;counter for debouncing the switch
+0002                  =1    33         tail            DW      ?           ;time until change repeat rates
+0004                  =1    34         qsize           DW      ?           ;rate at which to repeat the switch
+0006                  =1    35         leng            DW      ?           ;rate at which to repeat the switch
+0008                  =1    36         array               DB          ARRAY_SIZE  DUP     (?) ;pointer to the function 
+                                   to get switch status
+----                  =1    37     QUEUESTRUC      ENDS
                       =1    38     
-                      =1    39     
+                      =1    39     ;Structure for storing Queue return values or args
                       =1    40     
-                      =1    41     ; General Definitions
-                      =1    42     
-  0000                =1    43     ArrayEmpty      EQU     0             ; number of interrupts per second * 10
-  0000                =1    44     ByteSizeQueue   EQU     0             ; 4 Bits in a byte
-  0001                =1    45     ByteQ           EQU     1             ; 4 Bits in a byte
-  0002                =1    46     WordQ           EQU     2             ; 4 Bits in a byte
-                            47     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                            48     ;                                                                            ;
-                            49     ;                                 HW3 Queue Functions                        ;
-8086/87/88/186 MACRO ASSEMBLER    HW3                                                      22:22:19  10/31/;3  PAGE    2
+----                  =1    41     QUEUEVARS      STRUC                ;structure containing all queue info
+0000                  =1    42         dequeued    DW      ?               ;counter for debouncing the switch
+----                  =1    43     QUEUEVARS      ENDS
+                      =1    44     
+                      =1    45     
+                      =1    46     
+                            47 +1  $INCLUDE(general.inc);
+                      =1    48     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    49     ;                                                                               ;
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
 
-                            50     ;                                 Code Outline                                   ;
-                            51     ;                                 Anjian Wu                                  ;
-                            52     ;                                                                            ;
-                            53     ;                                 TA: Pipe-Mazo                              ;
-                            54     ;                                                                            ;
-                            55     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                            56     ;                                 What's in here?
-                            57     ;   QueueInit
-                            58     ;   QueueEmpty
-                            59     ;   QueueFull
-                            60     ;   Enqueue
-                            61     ;   Dequeue
-                            62     ;
-                            63     ;
-                            64     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                            65     
-                            66     ;Procedure:                     QueueInit
-                            67     ;
-                            68     ;Description:           This procedure will intialize the queue of passed length 'l',
-                            69     ;                   size ''s', and pointed address 'a'. It does this by simply
-                            70     ;                   setting the queue head and tail pinters to the same (zero).
-                            71     ;                   It will also store the length 'l' of the queue and size 's'
-                            72     ;                   on the data memory. Notice also that the values of head, tail,
-                            73     ;                   and length are NORMALIZED to the size.
-                            74     ;                   Thus the struc will be initialized to contain.
-                            75     ;                   1. Headpointer - normalized pointer to first ele to be dequeued
-                            76     ;                   2. Tailpointer - normalized pointer to first empty ele
-                            77     ;                   3. Queuelength - normalized queue size (in terms of # of elements
+                      =1    50     ;                                  General.INC                                  ;
+                      =1    51     ;                               General Constants                           ;
+                      =1    52     ;                                 Include File                              ;
+                      =1    53     ;                                                                           ;
+                      =1    54     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    55     
+                      =1    56     ; This file contains the definitions for the queue functions
+                      =1    57     ;
+                      =1    58     ; Revision History:
+                      =1    59     ;    11/02/2013                 Created - Anjian Wu
+                      =1    60     
+                      =1    61     
+                      =1    62     ; Queue Constants
+                      =1    63     
+  0200                =1    64     MAX_Q_LENG          EQU     512          ;Maxlength allowed for byte or word queue
+                      =1    65     
+                            66     
+                            67     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            68     ;                                                                            ;
+                            69     ;                                 HW3 Queue Functions                        ;
+                            70     ;                                 Code Outline                                   ;
+                            71     ;                                 Anjian Wu                                  ;
+                            72     ;                                                                            ;
+                            73     ;                                 TA: Pipe-Mazo                              ;
+                            74     ;                                                                            ;
+                            75     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            76     ;                                 What's in here?
+                            77     ;
+                            78     ;   QueueInit   -    Initializes the queue. Needs address - SI, Size - BL
+                            79     ;                    and length - AX.
+                            80     ;   QueueEmpty  -    Checks whether queue is empty. Needs address - SI
+                            81     ;   QueueFull   -    Checks whether queue is full. Needs address - SI
+                            82     ;   Enqueue     -    Adds a new element to queue. Needs address - SI and
+                            83     ;                    value to be added - AX.
+                            84     ;   Dequeue     -    Removed a value from queue at address SI and into AX
+                            85     ;
+                            86     ;                                 What's was last edit?
+                            87     ;
+                            88     ;                               Pseudo code - 10-27-2013
+                            89     ;                   Debugged,Documented, and working - 11/01/2013 - Anjian Wu
+                            90     ;
+                            91     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            92     
+                            93     ;Procedure:                     QueueInit
+                            94     ;
+                            95     ;Description:           This procedure will intialize the queue of passed length AX,
+                            96     ;                   size BL, and pointed address SI. It does this by simply
+                            97     ;                   setting the queue head and tail pinters to the same (zero).
+                            98     ;                   It will also store the length of the queue and size
+                            99     ;                   on the data memory. Notice also that the values of head, tail,
+                           100     ;                   and length are NORMALIZED to the size.
+                           101     ;
+                           102     ;                   Thus the struc will be initialized to contain.
+                           103     ;                   1. Headpointer - normalized pointer to first ele to be dequeued
+                           104     ;                   2. Tailpointer - normalized pointer to first empty ele
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           105     ;                   3. Queuelength - normalized queue size (in terms of # of elements
                                    )
-                            78     ;                   4. Queuesize   - normalization factor (1 - byte, 2 - word)s
-                            79     ;                   The code also has error handling for out of bound lengths.
-                            80     ;                   The total size of the struc allocated is 1024 bytes ONLY.
-                            81     ;                   
-                            82     ;                   
-                            83     ;Operation:                     
-                            84     ;                   1.  Reset Head and tail pointer val in struc
-                            85     ;                   2.  Set queue size accordingly (either 1 or 2)
-                            86     ;                   3.  Grab the LOWEST 2's power queue size that can fit
-                            87     ;                       the queue length requirement. We do this with a while
-                            88     ;                       that increments n from 0 to 10 and testing compared
-                            89     ;                       to the queue length.
-                            90     ;                   2.  Save that 2^n/size value to Queueleng in queue struc
-                            91     ;
-                            92     ;Arguments:             l   -> length of queue
-                            93     ;                   s   -> size of each unit (byte or word)
-                            94     ;                   a   -> address of where queue is
-                            95     ;
-                            96     ;Return Values:         Error flag -> indicated size of length is too large or not;
-                            97     ;
-                            98     ;Shared Variables:      None.
-                            99     ;
-                           100     ;Local Variables:       size -> byte normalized value of queuesize (either 1 or 2)
-                           101     ;                   error -> error flag for if 'l' is too large.
-                           102     ;                   n -> integer counter for while loop
-                           103     ;
-8086/87/88/186 MACRO ASSEMBLER    HW3                                                      22:22:19  10/31/;3  PAGE    3
-
-
-LOC  OBJ                  LINE     SOURCE
-
-                           104     ;Global Variables:      None.
-                           105     ;                                       
-                           106     ;                                       
-                           107     ;Input:                 None.
-                           108     ;
-                           109     ;Output:                An initialized queue struc with pointers, length, and size;
-                           110     ;
-                           111     ;Registers Used:        To be arranged
-                           112     ;
-                           113     ;Stack Depth:           To be arranged
-                           114     ;
-                           115     ;Known Bugs:            None for now.
+                           106     ;                   4. Queuesize   - normalization factor (1 - byte, 2 - word)s
+                           107     ;                   The code also has error handling for out of bound lengths.
+                           108     ;                   The total size of the struc allocated is 1024 bytes ONLY.
+                           109     ;                   
+                           110     ;                   
+                           111     ;Operation:                     *   Determine if queue length can fit
+                           112     ;                   *   Reset Head and tail pointer, and store leng val in struc
+                           113     ;                   *   Set queue size accordingly (either 1 or 2), this is determine
+                                   d
+                           114     ;                       by BL being 0 or > 0.
+                           115     ;                   *   DONE
                            116     ;
-                           117     ;Data Structures:       Queue struc (1024 bytes)
-                           118     ;
-                           119     ;Error Handling:        If passed queue length 'l' is too large, then return error fl
-                                   ag;
-                           120     ;                   
-                           121     ;
-                           122     ;Algorithms:            None.
-                           123     ;
-                           124     ;Limitations:           Only stores a queue of up to 2^9 bytes or 2^8 words.
-                           125     ;                   Queue length that is initialized is always power of 2.
-                           126     ;                   Also a queue cannot be any size less than 2 (aka. 1 byte ele)
-                           127     ;
-                           128     ;
-                           129     ;Author:                        Anjian Wu
-                           130     ;History:                       Pseudo code - 10-27-2013
-                           131     ;-------------------------------------------------------------------------------
-                           132     ;QUEUESTRUC      STRUC                  ;structure containing all queue info
-                           133     ;    head           DW      ?           ;counter for debouncing the switch
-                           134     ;    tail           DW      ?           ;time until change repeat rates
-                           135     ;    size           DB      ?           ;rate at which to repeat the switch
-                           136     ;    length             DW      ?                   ;flag indicating have a debounced
-                                    switch
-                           137     ;    array              1024    DUP     ?       ;pointer to the function to get switc
-                                   h status
-                           138     ;SWSTRUC         ENDS
-                           139     ;-------------------------------------------------------------------------------
-                           140     CGROUP  GROUP   CODE
-                           141     
-----                       142     CODE SEGMENT PUBLIC 'CODE'
-                           143     
-                           144             ASSUME  CS:CGROUP, DS:DATA
-                           145     
-                           146     ;-------------------------------------------------------------------------------
-                           147     
-0000                       148     QueueInit               PROC    NEAR
-                           149                                     PUBLIC  QueueInit
-                           150                     
-0000                       151     QICheck:; Reg changed: None
-0000 3D0002                152         CMP     AX, MAX_LENG    ;
-0003 7F21                  153         JG      QILengthtoobig  ;
-                           154         ;JLE    QIStart
-                           155         
-8086/87/88/186 MACRO ASSEMBLER    HW3                                                      22:22:19  10/31/;3  PAGE    4
+                           117     ;Arguments:             AX   -> length of queue
+                           118     ;                   BL   -> size of each unit (byte or word)
+                           119     ;                   SI   -> address of where queue is
+                           120     ;
+                           121     ;Return Values:         None.
+                           122     ;
+                           123     ;Result:            An initialized queue strucata SI with pointers, length, size, and
+                                    array.
+                           124     ;
+                           125     ;Shared Variables:      The queue structure created is shared with HW3Test
+                           126     ;
+                           127     ;Local Variables:           [SI].leng -> Word holding leng 
+                           128     ;                       [SI].head -> Word holding head pointer
+                           129     ;                       [SI].tail -> Word holding tail pointer
+                           130     ;                       [SI].qsize-> Word holding size 
+                           131     ;
+                           132     ;
+                           133     ;Global Variables:      None.
+                           134     ;                                       
+                           135     ;                                       
+                           136     ;Input:                 None.
+                           137     ;
+                           138     ;Output:                None.
+                           139     ;
+                           140     ;Registers Used:        BL - Used for compare
+                           141     ;                   AX - Used to compare max length
+                           142     ;
+                           143     ;Stack Depth:           Two words.
+                           144     ;
+                           145     ;Known Bugs:            None for now.
+                           146     ;
+                           147     ;Data Structures:       Queue struc (1024 bytes + 8 words)
+                           148     ;
+                           149     ;Error Handling:        If passed queue length 'l' is too large, then do not initiali
+                                   ze
+                           150     ;                   
+                           151     ;
+                           152     ;Algorithms:            None.
+                           153     ;
+                           154     ;Limitations:           Only stores a queue of up to 2^9 bytes or 2^8 words.
+                           155     ;                   Queue length that is initialized is always power of 2.
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
 
-0005                       156     QIStart:; Reg changed: None
-                           157     
-0005 894406                158         MOV     [SI].leng,  AX                  ;
-0008 C7040000              159         MOV     [SI].head,  ArrayEmpty          ; Clear Head Pointer @ address a in struc
-000C C744020000            160         MOV     [SI].tail,  ArrayEmpty          ; Clear Tail Pointer @ address a in struc
-                           161         
-0011                       162     QIwordorbyte:; Reg changed: BL, BX
-0011 80FB00                163         CMP     BL, ByteSizeQueue               ; Is this a byte queue?
-0014 7408                  164         JE      QIbytesize                      ; Yes
-                           165         ;JNE     QIwordsize                     ; NO, it is word queue
-                           166     
-0016                       167     QIwordsize:; Reg changed: None    
-0016 C744040200            168         MOV     [SI].qsize, WordQ               ; Queuesize is WORD
-001B EB0990                169         JMP     QIDone                          ;
-                           170         
-001E                       171     QIbytesize:; Reg changed: None
-001E C744040100            172         MOV     [SI].qsize, ByteQ               ; Queuesize is WORD; Queuesize is BYTE
-0023 EB0190                173         JMP     QIDone                          ;
-                           174         
-0026                       175     QILengthtoobig:                             ; Queue too big
+                           156     ;                   Also a queue cannot be any size less than 2 (aka. 1 byte ele)
+                           157     ;
+                           158     ;
+                           159     ;Author:                        Anjian Wu
+                           160     ;History:                       10-27-2013: Pseudo code - Anjian Wu
+                           161     ;                   11/01/2013: Debugged,Documented, and working - Anjian Wu
+                           162     ;                   11/02/2013: Fixed bug where queue could go beyond allocated 
+                           163     ;                               - length Anjian Wu
+                           164     
+                           165     ;-------------------------------------------------------------------------------
+                           166     CGROUP  GROUP   CODE
+                           167     
+----                       168     CODE SEGMENT PUBLIC 'CODE'
+                           169     
+                           170             ASSUME  CS:CGROUP, DS:DATA
+                           171     
+                           172     ;-------------------------------------------------------------------------------
+                           173     
+0000                       174     QueueInit               PROC    NEAR
+                           175                                     PUBLIC  QueueInit
                            176     
-                           177         ;JMP    QIDone
-0026                       178     QIDone:
-                           179     
-0026 C3                    180         RET
-                           181         
-                           182      QueueInit      ENDP      
-                           183     
-                           184     
-                           185     
-                           186     ;Procedure:                     QueueEmpty
-                           187     ;
-                           188     ;Description:           This procedure will check the queue at address 'a' and 
-                           189     ;                   see if it is empty. It does this by checking whether
-                           190     ;                   The headpointer is equal to the tail pointer.
-                           191     ;                   If it is empty zeroflag -> true
-                           192     ;                   If it is not empty zeroflag -> reset
-                           193     ;
-                           194     ;Operation:                     
-                           195     ;                   1. Grab head and tail pointer values from struc @ addr 'a'
-                           196     ;                   2. Compare head and tail
-                           197     ;                   3. Set flag true if head = tail, else false
-                           198     ;
-                           199     ;Arguments:         a (DS:SI) -> location in memory (DS:SI)
-                           200     ;
-                           201     ;Return Values:         zeroflag -> whether or not queue is empty
-                           202     ;
-                           203     ;Shared Variables:      None.
-                           204     ;
-                           205     ;Local Variables:       Head -> Headpointer value
-                           206     ;                                       Tail -> Tailpointer value
-                           207     ;
-                           208     ;Global Variables:      None.
-                           209     ;                                       
-                           210     ;                                       
-8086/87/88/186 MACRO ASSEMBLER    HW3                                                      22:22:19  10/31/;3  PAGE    5
+0000 50                    177         PUSH    AX          ; Save used regs
+0001 53                    178         PUSH    BX
+                           179                     
+0002                       180     QICheck:; Reg changed: None
+0002 3DFF01                181         CMP     AX, MAX_Q_LENG - 1                ; Is this queue too long?
+0005 7E02                  182         JLE     QIStart 
+0007 7F21                  183         JG      QILengthtoobig  ;
+                           184         ;JLE    QIStart
+                           185         
+0009                       186     QIStart:; Reg changed: None
+                           187     
+0009 894406                188         MOV     [SI].leng,  AX                  ; Stored the length value.
+000C C7040000              189         MOV     [SI].head,  ArrayEmpty          ; Clear Head Pointer @ address SI in stru
+                                   c
+0010 C744020000            190         MOV     [SI].tail,  ArrayEmpty          ; Clear Tail Pointer @ address SI in stru
+                                   c
+                           191         
+0015                       192     QIwordorbyte:; Reg changed: BL, BX
+0015 80FB00                193         CMP     BL, ByteSizeQueue               ; Is this a byte queue?
+0018 7408                  194         JE      QIbytesize                      ; Yes
+                           195         ;JNE     QIwordsize                     ; NO, it is word queue
+                           196     
+001A                       197     QIwordsize:; Reg changed: None    
+001A C744040200            198         MOV     [SI].qsize, WordQ               ; Queuesize is WORD
+001F EB0990                199         JMP     QIDone                          ;
+                           200         
+0022                       201     QIbytesize:; Reg changed: None
+0022 C744040100            202         MOV     [SI].qsize, ByteQ               ; Queuesize is WORD; Queuesize is BYTE
+0027 EB0190                203         JMP     QIDone                          ;
+                           204         
+002A                       205     QILengthtoobig:                             ; Queue too big
+                           206     
+                           207         ;JMP    QIDone
+002A                       208     QIDone:
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
 
-                           211     ;Input:                 None.
-                           212     ;Output:                None.
-                           213     ;
-                           214     ;Registers Used:        To be determined.
-                           215     ;
-                           216     ;Stack Depth:           None for now.
-                           217     ;
-                           218     ;Known Bugs:            None for now.
-                           219     ;
-                           220     ;Data Structures:       Queue struc (1024 bytes)
-                           221     ;
-                           222     ;Error Handling:        None.
-                           223     ;
-                           224     ;Algorithms:            None.
-                           225     ;
-                           226     ;Limitations:           None.
+                           209     
+002A 5B                    210         POP     BX                              ;Restore used regs
+002B 58                    211         POP     AX
+                           212         
+002C C3                    213         RET
+                           214         
+                           215      QueueInit      ENDP      
+                           216     
+                           217     
+                           218     
+                           219     ;Procedure:                     QueueEmpty
+                           220     ;
+                           221     ;Description:           This procedure will check the queue at address SI and 
+                           222     ;                   see if it is empty. It does this by checking whether
+                           223     ;                   The headpointer is equal to the tail pointer.
+                           224     ;
+                           225     ;                   If it is empty zeroflag -> true
+                           226     ;                   If it is not empty zeroflag -> reset
                            227     ;
-                           228     ;Author:                        Anjian Wu
-                           229     ;History:                       Pseudo code - 10-27-2013
-                           230     ;-------------------------------------------------------------------------------
-                           231     
-0027                       232     QueueEmpty              PROC    NEAR
-                           233                                     PUBLIC  QueueEmpty
-                           234            
-0027 50                    235         PUSH    AX
-0028 53                    236         PUSH    BX
-                           237         
-0029                       238     QEstart:; Reg changed: AX, BX
-                           239                     
-0029 8B04                  240         MOV     AX, [SI].head   ; Grab current pointers from struc
-002B 8B5C02                241         MOV     BX, [SI].tail   ; Grab current pointers from struc
-                           242         
-002E                       243     QEflagtime:; Reg changed: None   
-002E 3BC3                  244         CMP     AX, BX          ; If head = tail -> head - tail = 0 -> zeroflag = 1
-                           245                                 ; Else zeroflag = 0
-                           246                             
-0030                       247     QEdone:
-0030 5B                    248         POP    BX
-0031 58                    249         POP    AX
-                           250         
-0032 C3                    251         RET
-                           252     
-                           253      QueueEmpty      ENDP      
-                           254     
-                           255     ;Procedure:                     QueueFull
+                           228     ;Operation:                     
+                           229     ;                   1. Grab head and tail pointer values from struc @ addr SI
+                           230     ;                   2. Compare head and tail
+                           231     ;                   3. Set flag true if head = tail, else false
+                           232     ;
+                           233     ;Arguments:         SI -> location in memory (DS:SI)
+                           234     ;
+                           235     ;Return Values:         zeroflag -> whether or not queue is empty
+                           236     ;
+                           237     ;Result:            Information regarding whether queue is empty or not in ZF
+                           238     ;
+                           239     ;Shared Variables:      The queue structure created is shared with HW3Test
+                           240     ;
+                           241     ;Local Variables:       [SI].head  -> Headpointer value
+                           242     ;                                       [SI].tail  -> Tailpointer value
+                           243     ;
+                           244     ;Global Variables:      None.
+                           245     ;                                       
+                           246     ;                                       
+                           247     ;Input:                 None.
+                           248     ;Output:                None.
+                           249     ;
+                           250     ;Registers Used:        AX - for head
+                           251     ;                   BX - for tail
+                           252     ;
+                           253     ;Stack Depth:           2 Words
+                           254     ;
+                           255     ;Known Bugs:            None.
                            256     ;
-                           257     ;Description:       This function take the address of the queue at 'a' to
-                           258     ;                   see if it is FULL. It does this by looking at the
-                           259     ;                   head/tailed pointers and queue length of address 'a'
-                           260     ;                   doing the following calculation.
-                           261     ;                   else it is not full.
-                           262     ;                   Note as said before, tail pointer is at next EMPTY spot.
-                           263     ;
-                           264     ;                   If it is full zeroflag -> true
-                           265     ;                   If it is not full; zeroflag -> reset
-8086/87/88/186 MACRO ASSEMBLER    HW3                                                      22:22:19  10/31/;3  PAGE    6
+                           257     ;Data Structures:       Queue struc (1024 bytes + 8 words)
+                           258     ;
+                           259     ;Error Handling:        None.
+                           260     ;
+                           261     ;Algorithms:            None.
+                           262     ;
+                           263     ;Limitations:           None.
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
 
-                           266     ;
-                           267     ;Operation:                     
-                           268     ;                   1. Grab head and tail pointer values from struc @ addr 'a'
-                           269     ;                      as well as the leng value.
-                           270     ;                   2. Check if (Tail + 1) mod length =  H, if so it is full,
-                           271     ;                      else it is not full.
-                           272     ;                   3. Set flag true if it is full, else false.
-                           273     ;
-                           274     ;Arguments:         a (DS:SI) -> location in memory (DS:SI)
-                           275     ;
-                           276     ;Return Values:         zeroflag -> whether or not queue is full
-                           277     ;
-                           278     ;Shared Variables:      None.
-                           279     ;
-                           280     ;Local Variables:       Head -> Headpointer value
-                           281     ;                                       Tail -> Tailpointer value
-                           282     ;                                       Leng -> leng of queue value
-                           283     ;
-                           284     ;Global Variables:      None.
-                           285     ;                                       
-                           286     ;                                       
-                           287     ;Input:                 None.
-                           288     ;Output:                None.
-                           289     ;
-                           290     ;Registers Used:        To be determined.
-                           291     ;
-                           292     ;Stack Depth:           None for now.
-                           293     ;
-                           294     ;Known Bugs:            None for now.
-                           295     ;
-                           296     ;Data Structures:       Queue struc (1024 bytes)
-                           297     ;
-                           298     ;Error Handling:        None.
-                           299     ;
-                           300     ;Algorithms:            None.
-                           301     ;
-                           302     ;Limitations:           None.
-                           303     ;
-                           304     ;Author:                        Anjian Wu
-                           305     ;History:                       Pseudo code - 10-27-2013
-                           306     ;-------------------------------------------------------------------------------
-                           307     
-0033                       308     QueueFull               PROC    NEAR
-                           309                                     PUBLIC  QueueFull
-                           310            
-0033 50                    311         PUSH    AX
-0034 53                    312         PUSH    BX
-0035 52                    313         PUSH    DX
-                           314     
-0036                       315     QFstart:; Reg changed: None   
-                           316                     
-0036 8B4402                317         MOV     AX, [SI].tail   ; Grab current pointers from struc
-0039 8B5C06                318         MOV     BX, [SI].leng   ;
-                           319     ;
-                           320      
-8086/87/88/186 MACRO ASSEMBLER    HW3                                                      22:22:19  10/31/;3  PAGE    7
+                           264     ;
+                           265     ;Author:                        Anjian Wu
+                           266     ;History:                       Pseudo code - 10-27-2013
+                           267     ;                   Debugged,Documented, and working - 11/01/2013 - Anjian Wu
+                           268     ;-------------------------------------------------------------------------------
+                           269     
+002D                       270     QueueEmpty              PROC    NEAR
+                           271                                     PUBLIC  QueueEmpty
+                           272            
+002D 50                    273         PUSH    AX
+002E 53                    274         PUSH    BX
+                           275         
+002F                       276     QEstart:; Reg changed: AX, BX
+                           277                     
+002F 8B04                  278         MOV     AX, [SI].head   ; Grab current pointers from struc
+0031 8B5C02                279         MOV     BX, [SI].tail   ; Grab current pointers from struc
+                           280         
+0034                       281     QEflagtime:; Reg changed: None   
+0034 3BC3                  282         CMP     AX, BX          ; If head = tail -> head - tail = 0 -> zeroflag = 1
+                           283                                 ; Else zeroflag = 0
+                           284                             
+0036                       285     QEdone:
+0036 5B                    286         POP    BX
+0037 58                    287         POP    AX
+                           288         
+0038 C3                    289         RET
+                           290     
+                           291      QueueEmpty      ENDP      
+                           292     
+                           293     ;Procedure:                     QueueFull
+                           294     ;
+                           295     ;Description:       This function take the address of the queue at SI to
+                           296     ;                   see if it is FULL. It does this by looking at the
+                           297     ;                   head/tailed pointers and queue length of address SI queue
+                           298     ;                   doing the following calculation.
+                           299     ;                   
+                           300     ;                   COMAPRE (Tail + 1 MOD length + 1) with HEAD pointer
+                           301     ;                   
+                           302     ;                   If this is true, then queue is full, else it is not full.
+                           303     ;                   Note as said before, tail pointer is at next EMPTY spot.
+                           304     ;
+                           305     ;                   If it is full zeroflag -> true
+                           306     ;                   If it is not full; zeroflag -> reset
+                           307     ;
+                           308     ;Operation:                     
+                           309     ;                   1. Grab length and tail pointer values from struc @ addr SI
+                           310     ;                      
+                           311     ;                   2. DO (Tail + 1 MOD length + 1), then grab head from struc
+                           312     ;                   3. Compare the remainder value to head
+                           313     ;                   4. ZF is automatically set after compare(true -> full)
+                           314     ;
+                           315     ;Arguments:         SI -> location in memory (DS:SI)
+                           316     ;
+                           317     ;Return Values:         zeroflag -> whether or not queue is full
+                           318     ;
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE
 
-003C                       321     QFmath:; Reg changed: AX, DX, BX                        
-                           322                                 
-003C 43                    323         INC     BX
-003D 40                    324         INC     AX                  ; Check potential next tail pos
-                           325         
-003E BA0000                326         MOV     DX, 0               ;
-0041 F7F3                  327         DIV     BX                  ;
-                           328         
-0043 8B1C                  329         MOV     BX, [SI].head       ; The mod is the next position
-                           330         
-0045                       331     QFflagtime:; Reg changed: None     
-0045 3BD3                  332         CMP     DX, BX          ; If (Tail + 1) mod length = Head -> zeroflag = 1
-                           333                                 ; Else zeroflag = 0
-                           334                             
-0047                       335     QFdone:                     ; Flags are ready to be returned
-                           336     
-0047 5A                    337         POP    DX
-0048 5B                    338         POP    BX
-0049 58                    339         POP    AX
-                           340         
-004A C3                    341         RET
-                           342      QueueFull      ENDP      
-                           343     
-                           344     
-                           345     
-                           346     ;Return zeroflag
-                           347     
-                           348     ;Procedure:                     Dequeue
-                           349     ;
-                           350     ;Description:       This function take the address of the queue at 'a' 
-                           351     ;                   and returns the value of the data (byte or word) stored at
-                           352     ;                   head pointer. This is a blocking function in that if the
-                           353     ;                   queue is empty, the function will wait until the queue is
-                           354     ;                   no longer empty. After the value is taken off the queue,
-                           355     ;                   the head pointer is updated to (Head + 1) mod Leng;
-                           356     ;
-                           357     ;Operation:                     
-                           358     ;                   1. Grab the queue empty flag
-                           359     ;                   2. If is it empty then loop polling the Queueempty
-                           360     ;                      until the queue is not empty and ready.
-                           361     ;                   3. Grab the values of head, size, and leng of queue
-                           362     ;                      off the queue struc at address 'a'
-                           363     ;                   4. If the size is word, retreive the WORD from location
-                           364     ;                      HEAD*2 since Head is normalized to WORD, and there 
-                           365     ;                      two bytes in a word.
-                           366     ;                      Otherwise grab the byte at Head.
-                           367     ;                   5. Update head pointer with (Head + 1) mod Leng;
-                           368         
-                           369     ;
-                           370     ;Arguments:         a (DS:SI) -> location in memory (DS:SI)
-                           371     ;
-                           372     ;Return Values:         ReturnValue -> The value from queue from head pointer
-                           373     ;
-                           374     ;Shared Variables:      None.
-                           375     ;
-8086/87/88/186 MACRO ASSEMBLER    HW3                                                      22:22:19  10/31/;3  PAGE    8
+                           319     ;Result:            Information regarding whether queue is full or not in ZF
+                           320     
+                           321     ;
+                           322     ;Shared Variables:      The queue structure created is shared with HW3Test
+                           323     ;
+                           324     ;Local Variables:       [SI].head  -> Headpointer value
+                           325     ;                                       [SI].tail  -> Tailpointer value
+                           326     ;                                       [SI].leng  -> queue length value
+                           327     ;
+                           328     ;Global Variables:      None.
+                           329     ;                                       
+                           330     ;                                       
+                           331     ;Input:                 None.
+                           332     ;Output:                None.
+                           333     ;
+                           334     ;Registers Used:        AX, BX, DX
+                           335     ;
+                           336     ;Stack Depth:           3 Words
+                           337     ;
+                           338     ;Known Bugs:            None
+                           339     ;
+                           340     ;Data Structures:       Queue struc (1024 bytes + 8 words)
+                           341     ;
+                           342     ;Error Handling:        None.
+                           343     ;
+                           344     ;Algorithms:            Next position is determined by using (Tail + 1 MOD length + 1
+                                   )
+                           345     ;                   and comparing that to the Head pointer.
+                           346     ;
+                           347     ;Limitations:           None.
+                           348     ;
+                           349     ;Author:                        Anjian Wu
+                           350     ;History:                       Pseudo code - 10-27-2013
+                           351     ;                   Debugged,Documented, and working - 11/01/2013 - Anjian Wu
+                           352     ;-------------------------------------------------------------------------------
+                           353     
+0039                       354     QueueFull               PROC    NEAR
+                           355                                     PUBLIC  QueueFull
+                           356            
+0039 50                    357         PUSH    AX              ;Save used regs
+003A 53                    358         PUSH    BX
+003B 52                    359         PUSH    DX
+                           360     
+003C                       361     QFstart:; Reg changed: None   
+                           362                     
+003C 8B4402                363         MOV     AX, [SI].tail   ; Grab current pointers from struc
+003F 8B5C06                364         MOV     BX, [SI].leng   ; Grab leng  from struc
+                           365     ;
+                           366      
+0042                       367     QFmath:; Reg changed: AX, DX, BX                        
+                           368                                 
+0042 43                    369         INC     BX
+0043 40                    370         INC     AX                  ; Check potential next tail pos
+                           371         
+0044 BA0000                372         MOV     DX, 0               ;
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE    8
 
 
 LOC  OBJ                  LINE     SOURCE
 
-                           376     ;Local Variables:       Head -> Headpointer value
-                           377     ;                                       Leng -> leng of queue value
-                           378     ;                                       Size -> size of element (byte or word)
-                           379     ;                   next_pos -> next normalized position of head pointer
-                           380     ;                   Empty -> the flag indicating queue is empty or not
-                           381     ;
-                           382     ;Global Variables:      None.
-                           383     ;                                       
-                           384     ;                                       
-                           385     ;Input:                 None.
-                           386     ;
-                           387     ;Output:                Updates queue after extracting an element.
-                           388     ;
-                           389     ;Registers Used:        To be determined.
-                           390     ;
-                           391     ;Stack Depth:           None for now.
+0047 F7F3                  373         DIV     BX                  ;
+                           374         
+0049 8B1C                  375         MOV     BX, [SI].head       ; The mod is the next position
+                           376         
+004B                       377     QFflagtime:; Reg changed: None     
+004B 3BD3                  378         CMP     DX, BX          ; If (Tail + 1) mod length = Head -> zeroflag = 1
+                           379                                 ; Else zeroflag = 0
+                           380                             
+004D                       381     QFdone:                     ; Flags are ready to be returned
+                           382     
+004D 5A                    383         POP    DX
+004E 5B                    384         POP    BX
+004F 58                    385         POP    AX                   ; restore used regs
+                           386             
+0050 C3                    387         RET
+                           388      QueueFull      ENDP      
+                           389     
+                           390     
+                           391     ;Procedure:                     Dequeue
                            392     ;
-                           393     ;Known Bugs:            None for now.
-                           394     ;
-                           395     ;Data Structures:       Queue struc (1024 bytes)
-                           396     ;
-                           397     ;Error Handling:        None.
-                           398     ;
-                           399     ;Algorithms:            None.
-                           400     ;
-                           401     ;Limitations:           Only dequeues one element at a time.
-                           402     ;
-                           403     ;Author:                        Anjian Wu
-                           404     ;History:                       Pseudo code - 10-27-2013
-                           405     ;-------------------------------------------------------------------------------
-                           406     
-004B                       407     Dequeue             PROC    NEAR
-                           408                                     PUBLIC  Dequeue
-                           409                                     
-004B                       410     DQBlock:; Reg changed: None  
-                           411     
-004B E8D9FF                412         CALL    QueueEmpty          ; Blocking function, keep checking whether queue
-                           413                                     ; is empty
-                           414     
-004E 74FB                  415         JZ      DQBlock             ; If still empty, keep looping
-                           416         ;JMP    DQStart             ;
-                           417         
-0050                       418     DQStart:; Reg changed: BX  
-                           419     
-0050 8B5C04                420         MOV     BX, [SI].qsize      ; Grab the queue size (Byte or Word)     
-0053 83FB02                421         CMP     BX, WORDQ           ; Is the Queue WORD queue?
-0056 740B                  422         JE     DQWORDGRAB          ; Yes it is word queue
-                           423         ;JNE     DQBYTEGRAB          ; No it is byte queue
-                           424         
-0058                       425     DQBYTEGRAB:; Reg changed: AX, BX, AL  
-0058 B80000                426         MOV     AX, 0               ; Clear AH and AL
-005B 8B1C                  427         MOV     BX, [SI].head       ; Grab the head element index
-005D 8A4008                428         MOV     AL, [SI].array[BX]  ; Now us the index as offset @ array @ SI
-0060 EB0890                429         JMP     DQsaveret           ;
-                           430        
-8086/87/88/186 MACRO ASSEMBLER    HW3                                                      22:22:19  10/31/;3  PAGE    9
+                           393     ;Description:       This function take the address of the queue at SI 
+                           394     ;                   and returns the value of the data (byte or word) stored at
+                           395     ;                   head pointer. This is a blocking function in that if the
+                           396     ;                   queue is empty, the function will wait until the queue is
+                           397     ;                   no longer empty. After the value is taken off the queue,
+                           398     ;                   the head pointer is updated to (Head + 1) mod Leng;
+                           399     ;
+                           400     ;Operation:                     
+                           401     ;                   1. Grab the queue empty flag
+                           402     ;                   2. If is it empty then loop polling the Queueempty
+                           403     ;                      until the queue is not empty and ready.
+                           404     ;                   3. Grab the values of head, size, and leng of queue
+                           405     ;                      off the queue struc at address SI
+                           406     ;                   4. If the size is word, retreive the WORD from location
+                           407     ;                      HEAD*2 since Head is normalized to WORD, and there 
+                           408     ;                      two bytes in a word.
+                           409     ;                      Otherwise grab the byte at Head.
+                           410     ;                   5. Update head pointer with (Head + 1) mod Leng;
+                           411         
+                           412     ;
+                           413     ;Arguments:         SI -> location in memory (DS:SI)
+                           414     ;
+                           415     ;Return Values:         AX -> The value from queue from head pointer
+                           416     ;
+                           417     ;Results:           Updates queue pointers after extracting an element.
+                           418     ;
+                           419     ;Shared Variables:      The queue structure created is shared with HW3Test
+                           420     ;
+                           421     ;Local Variables:       [SI].head  -> Headpointer value
+                           422     ;                                       [SI].tail  -> Tailpointer value
+                           423     ;                                       [SI].leng  -> queue length value
+                           424     ;                                       [SI].qsize -> queue size (type) either byte o
+                                   r word
+                           425     ;                   AX         -> Result from division
+                           426     ;                   BX         -> pointer, div operand, queue size
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE    9
 
 
 LOC  OBJ                  LINE     SOURCE
 
-0063                       431     DQWORDGRAB:; Reg changed: AX, BX  
-0063 8B1C                  432         MOV     BX, [SI].head       ; Grab the head element index
-0065 D1E3                  433         SHL     BX, 1                  ; Actual Position maps to every other address
-0067 8B4008                434         MOV     AX, WORD PTR [SI].array[BX]  ; Now use the index as offset @ array @ SI
-                           435     
-006A                       436     DQsaveret:; Reg changed: BX  
-                           437         
-006A 8D1E0000       R      438         LEA     BX, qvars           ; Grab queue vars struc offset
-006E 8907                  439         MOV     [BX].dequeued , AX   ; Stored the return value
-                           440        
-0070                       441     DQNextPos:; Reg changed: BX, AX, DX  
-0070 8B5C06                442         MOV     BX, [SI].leng       ; Grab the fixed Queue length
-0073 43                    443         INC     BX
-                           444         
-0074 8B04                  445         MOV     AX, [SI].head       ; Grab the head element index
-0076 40                    446         INC     AX                  ; Check potential next tail pos
-                           447         
-0077 BA0000                448         MOV     DX, 0               ;
-007A F7F3                  449         DIV     BX                  ;
-                           450         
-007C 8914                  451         MOV     [SI].head, DX       ; The mod is the next position
-                           452         
-007E                       453     DQdone:; Reg changed: BX, AX  
-                           454         
-007E 8D1E0000       R      455         LEA     BX, qvars         ;
-0082 8B07                  456         MOV     AX, [BX].dequeued   ; Restore the return value
-                           457         
-0084 C3                    458         RET
-                           459         
-                           460      Dequeue      ENDP      
-                           461     
-                           462     
-                           463     ;Procedure:                     Enqueue
-                           464     ;
-                           465     ;Description:       This function take the address of the queue at 'a' 
-                           466     ;                   and sets the value of the data (byte or word) to 
-                           467     ;                   tail pointer. This is a blocking function in that if the
-                           468     ;                   queue is full, the function will wait until the queue is
-                           469     ;                   no longer full. After the value is written to the queue,
-                           470     ;                   the tail pointer is updated to (Tail + 1) mod Leng;
-                           471     ;
-                           472     ;Operation:                     
-                           473     ;                   1. Grab the queue full flag
-                           474     ;                   2. If is it full then loop polling the Queuefull
-                           475     ;                      until the queue is not full and ready.
-                           476     ;                   3. Grab the values of tail, size, and leng of queue
-                           477     ;                      off the queue struc at address 'a'
-                           478     ;                   4. If the size is word, write the WORD to location
-                           479     ;                      Tail*2 since Tail is normalized to WORD, and there 
-                           480     ;                      two bytes in a word.
-                           481     ;                      Otherwise write to the byte at Tail.
-                           482     ;                   5. Update tail pointer with (Tail + 1) mod Leng;
-                           483         
-                           484     ;
-                           485     ;Arguments:         a (DS:SI) -> location in memory (DS:SI)
-8086/87/88/186 MACRO ASSEMBLER    HW3                                                      22:22:19  10/31/;3  PAGE   10
+                           427     ;                   DX         -> Remaineder for modulo
+                           428     ;                   qvar.dequeued -> Temporarily holds return arg
+                           429     ;
+                           430     ;Global Variables:      None.
+                           431     ;                                       
+                           432     ;                                       
+                           433     ;Input:                 None.
+                           434     ;
+                           435     ;Output:                None.
+                           436     ;
+                           437     ;Registers Used:        AX, BX, DX
+                           438     ;
+                           439     ;Stack Depth:           3 Words
+                           440     ;
+                           441     ;Known Bugs:            Never
+                           442     ;
+                           443     ;Data Structures:       Queue struc (1024 bytes + 8 words)
+                           444     ;                   Queue vars struc (1 word)
+                           445     ;
+                           446     ;Error Handling:        None.
+                           447     ;
+                           448     ;Algorithms:            Next position is determined by using (Tail + 1 MOD length + 1
+                                   )
+                           449     ;
+                           450     ;Limitations:           None.
+                           451     ;
+                           452     ;Author:                        Anjian Wu
+                           453     ;History:                       Pseudo code - 10-27-2013
+                           454     ;                   Debugged,Documented, and working - 11/01/2013 - Anjian Wu
+                           455     ;-------------------------------------------------------------------------------
+                           456     
+0051                       457     Dequeue             PROC    NEAR
+                           458                                     PUBLIC  Dequeue
+                           459                                     
+0051 53                    460         PUSH    BX
+0052 52                    461         PUSH    DX
+                           462                                     
+0053                       463     DQBlock:; Reg changed: None  
+                           464     
+0053 E8D7FF                465         CALL    QueueEmpty          ; Blocking function, keep checking whether queue
+                           466                                     ; is empty
+                           467     
+0056 74FB                  468         JZ      DQBlock             ; If still empty, keep looping
+                           469         ;JMP    DQStart             ;
+                           470         
+0058                       471     DQStart:; Reg changed: BX  
+                           472     
+0058 8B5C04                473         MOV     BX, [SI].qsize      ; Grab the queue size (Byte or Word)     
+005B 83FB02                474         CMP     BX, WORDQ           ; Is the Queue WORD queue?
+005E 740B                  475         JE     DQWORDGRAB          ; Yes it is word queue
+                           476         ;JNE     DQBYTEGRAB          ; No it is byte queue
+                           477         
+0060                       478     DQBYTEGRAB:; Reg changed: AX, BX, AL  
+0060 B80000                479         MOV     AX, 0               ; Clear AH and AL
+0063 8B1C                  480         MOV     BX, [SI].head       ; Grab the head element index
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE   10
 
 
 LOC  OBJ                  LINE     SOURCE
 
-                           486     ;                   b         -> WORD or BYTE
-                           487     ;
-                           488     ;Return Values:         ReturnValue -> The value from queue from head pointer
-                           489     ;
-                           490     ;Shared Variables:      None.
-                           491     ;
-                           492     ;Local Variables:       Tail -> Tailpointer value
-                           493     ;                                       Leng -> leng of queue value
-                           494     ;                                       Size -> size of element (byte or word)
-                           495     ;                   next_pos -> next normalized position of head pointer
-                           496     ;                   Empty -> the flag indicating queue is empty or not
-                           497     ;
-                           498     ;Global Variables:      None.
-                           499     ;                                       
-                           500     ;                                       
-                           501     ;Input:                 None.
-                           502     ;
-                           503     ;Output:                Updates queue after inserting an element.
-                           504     ;
-                           505     ;Registers Used:        To be determined.
-                           506     ;
-                           507     ;Stack Depth:           None for now.
-                           508     ;
-                           509     ;Known Bugs:            None for now.
-                           510     ;
-                           511     ;Data Structures:       Queue struc (1024 bytes)
-                           512     ;
-                           513     ;Error Handling:        None.
-                           514     ;
-                           515     ;Algorithms:            None.
-                           516     ;
-                           517     ;Limitations:           Only enqueues one element at a time.
-                           518     ;                   If b is intended as WORD and size is BYTE, 
-                           519     ;                   only the lower BYTE will be written.
-                           520     ;
-                           521     ;                   If b is intended as BYTE and size is WORD, 
-                           522     ;                   the full WORD will be written.
-                           523     ;
-                           524     ;Author:                        Anjian Wu
-                           525     ;History:                       Pseudo code - 10-27-2013
-                           526     ;-------------------------------------------------------------------------------
-0085                       527     Enqueue             PROC    NEAR
-                           528                                     PUBLIC  Enqueue
-                           529                                     
-0085                       530     EQBlock:; Reg changed: None  
-                           531     
-0085 E8ABFF                532         CALL    Queuefull           ; Blocking function, keep checking whether queue
-                           533                                     ; is empty
-                           534     
-0088 74FB                  535         JZ      EQBlock             ; If still full, keep looping
-                           536         ;JMP    EQStart             ;
-008A                       537     EQStart:; Reg changed: BX  
-                           538     
-008A 8B5C04                539         MOV     BX, [SI].qsize      ; Grab the queue size (Byte or Word)     
-008D 83FB02                540         CMP     BX, WORDQ           ; Is the Queue WORD queue?
-8086/87/88/186 MACRO ASSEMBLER    HW3                                                      22:22:19  10/31/;3  PAGE   11
+0065 8A4008                481         MOV     AL, [SI].array[BX]  ; Now us the index as offset @ array @ SI
+0068 EB0890                482         JMP     DQsaveret           ;
+                           483        
+006B                       484     DQWORDGRAB:; Reg changed: AX, BX  
+006B 8B1C                  485         MOV     BX, [SI].head       ; Grab the head element index
+006D D1E3                  486         SHL     BX, 1                  ; Actual Position maps to every other address
+006F 8B4008                487         MOV     AX, WORD PTR [SI].array[BX]  ; Now use the index as offset @ array @ SI
+                           488     
+0072                       489     DQsaveret:; Reg changed: BX  
+                           490         
+0072 8D1E0000       R      491         LEA     BX, qvars           ; Grab queue vars struc offset
+0076 8907                  492         MOV     [BX].dequeued , AX   ; Stored the return value
+                           493        
+0078                       494     DQNextPos:; Reg changed: BX, AX, DX  
+0078 8B5C06                495         MOV     BX, [SI].leng       ; Grab the fixed Queue length
+007B 43                    496         INC     BX
+                           497         
+007C 8B04                  498         MOV     AX, [SI].head       ; Grab the head element index
+007E 40                    499         INC     AX                  ; Check potential next tail pos
+                           500         
+007F BA0000                501         MOV     DX, 0               ;
+0082 F7F3                  502         DIV     BX                  ;
+                           503         
+0084 8914                  504         MOV     [SI].head, DX       ; The mod is the next position
+                           505         
+0086                       506     DQArgGet:; Reg changed: BX, AX  
+                           507         
+0086 8D1E0000       R      508         LEA     BX, qvars           ;
+008A 8B07                  509         MOV     AX, [BX].dequeued   ; Restore the return value
+                           510         
+008C                       511     DQdone:
+                           512         
+008C 5A                    513         POP    DX
+008D 5B                    514         POP    BX
+                           515         
+008E C3                    516         RET
+                           517         
+                           518      Dequeue      ENDP      
+                           519     
+                           520     
+                           521     ;Procedure:                     Enqueue
+                           522     ;
+                           523     ;Description:       This function take the address of the queue at SI 
+                           524     ;                   and sets the value of the data (byte or word) to 
+                           525     ;                   tail pointer. This is a blocking function in that if the
+                           526     ;                   queue is full, the function will wait until the queue is
+                           527     ;                   no longer full. After the value is written to the queue,
+                           528     ;                   the tail pointer is updated to (Tail + 1) mod Leng;
+                           529     ;
+                           530     ;Operation:                     
+                           531     ;                   1. Grab the queue full flag
+                           532     ;                   2. If is it full then loop polling the Queuefull
+                           533     ;                      until the queue is not full and ready.
+                           534     ;                   3. Grab the values of qsize and jump to word or byte
+                           535     ;                      labels such that proper insertion is made.
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE   11
 
 
 LOC  OBJ                  LINE     SOURCE
 
-0090 7409                  541         JE     EQWORDPUT          ; Yes it is word queue
-                           542         ;JNE     EQBYTEPUT          ; No it is byte queue
-                           543         
-0092                       544     EQBYTEPUT:; Reg changed: BX, AL  
-                           545     
-0092 8B5C02                546         MOV     BX, [SI].tail       ; Grab the tail element index
-                           547     ;;; 
-0095 884008                548         MOV     [SI].array[BX], AL  ; Now us the index as offset @ array @ SI
-                           549     ;;; 
-0098 EB0990                550         JMP     EQNextPos           ;
-                           551        
-009B                       552     EQWORDPUT:; Reg changed: CX, AX, BX
-                           553           
-009B 8B5C02                554         MOV     BX, [SI].tail       ; Grab the tail element index
-009E D1E3                  555         SHL     BX, 1                  ; Actual Position maps to every other address (MUL
-                                    2x)
-                           556     ;;;    
-00A0 894008                557         MOV     WORD PTR [SI].array[BX], AX  ; Now use the index as offset @ array @ SI
-                           558     ;;;   
-                           559     
-00A3                       560     EQNextPos:; Reg changed: None  
-00A3 8B5C06                561         MOV     BX, [SI].leng       ; Grab the fixed Queue length
-00A6 43                    562         INc     BX                              ;
-                           563     
-00A7 8B4402                564         MOV     AX, [SI].tail       ; Grab the tail element index
-00AA 40                    565         INC     AX                  ; Check potential next tail pos
-                           566         
-00AB BA0000                567         MOV     DX, 0
-00AE F7F3                  568         DIV     BX                  ;
-                           569         
-00B0 895402                570         MOV     [SI].tail, DX       ; The mod is the next position
-                           571         
-00B3                       572     EQdone:; Reg changed: None  
-                           573         
-00B3 C3                    574         RET
-                           575         
-                           576     Enqueue      ENDP    
-                           577      
-----                       578     CODE    ENDS
-                           579      
-                           580         
-                           581         
-----                       582     DATA    SEGMENT PUBLIC  'DATA'
-                           583     
-                           584     
-0000 ????                  585     qvars       QUEUEVARS <>      ;"Minute Set" switch information
-                           586     
-                           587     
-----                       588     DATA    ENDS
-                           589     
-                           590             END 
+                           536     ;
+                           537     ;                   4. If the size is word, write the WORD to location
+                           538     ;                      Tail*2 since Tail is normalized to WORD, and there 
+                           539     ;                      two bytes in a word.
+                           540     ;                      If the queue is byte queue, the simply write directly
+                           541     ;                      to location at tail pointer
+                           542     ;
+                           543     ;                   5. Update tail pointer with (Tail + 1) mod Leng;
+                           544         
+                           545     ;
+                           546     ;Arguments:         SI -> location in memory (DS:SI)
+                           547     ;                   AX/AL -> The value to be added to queue
+                           548     ;
+                           549     ;Return Values:         None.
+                           550     ;
+                           551     ;Result:            Updates queue after inserting an element.
+                           552     ;
+                           553     ;Shared Variables:      The queue structure created is shared with HW3Test
+                           554     ;
+                           555     ;Local Variables:       [SI].head  -> Headpointer value
+                           556     ;                                       [SI].tail  -> Tailpointer value
+                           557     ;                                       [SI].leng  -> queue length value
+                           558     ;                                       [SI].qsize -> queue size (type) either byte o
+                                   r word
+                           559     ;                   AX         -> Result from division
+                           560     ;                   BX         -> pointer, div operand, queue size
+                           561     ;                   DX         -> Remaineder for modulo
+                           562     ;
+                           563     ;Global Variables:      None.
+                           564     ;                                       
+                           565     ;                                       
+                           566     ;Input:                 None.
+                           567     ;
+                           568     ;Output:                None.
+                           569     ;
+                           570     ;Registers Used:        AX, BX, DX
+                           571     ;
+                           572     ;Stack Depth:           3 Words
+                           573     ;
+                           574     ;Known Bugs:            None
+                           575     ;
+                           576     ;Data Structures:       Queue struc (1024 bytes + 8 words)
+                           577     ;
+                           578     ;Error Handling:        None.
+                           579     ;
+                           580     ;Algorithms:            Next position is determined by using (Head + 1 MOD length + 1
+                                   )
+                           581     ;
+                           582     ;Limitations:           If AX is intended as WORD and size is BYTE, 
+                           583     ;                   only the lower AL will be written.
+                           584     ;
+                           585     ;                   If AL is intended as BYTE and size is WORD, 
+                           586     ;                   the full AX will be written.
+                           587     ;
+                           588     ;Author:                        Anjian Wu
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE   12
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           589     ;History:                       Pseudo code - 10-27-2013
+                           590     ;                   Debugged,Documented, and working - 11/01/2013 - Anjian Wu
+                           591     ;-------------------------------------------------------------------------------
+008F                       592     Enqueue             PROC    NEAR
+                           593                                     PUBLIC  Enqueue
+                           594                                     
+008F 50                    595         PUSH    AX              ;Save used regs
+0090 53                    596         PUSH    BX
+0091 52                    597         PUSH    DX
+                           598                                     
+0092                       599     EQBlock:; Reg changed: None  
+                           600     
+0092 E8A4FF                601         CALL    Queuefull           ; Blocking function, keep checking whether queue
+                           602                                     ; is empty
+                           603     
+0095 74FB                  604         JZ      EQBlock             ; If still full, keep looping
+                           605         ;JMP    EQStart             ;
+0097                       606     EQStart:; Reg changed: BX  
+                           607     
+0097 8B5C04                608         MOV     BX, [SI].qsize      ; Grab the queue size (Byte or Word)     
+009A 83FB02                609         CMP     BX, WORDQ           ; Is the Queue WORD queue?
+009D 7409                  610         JE     EQWORDPUT            ; Yes it is word queue
+                           611         ;JNE     EQBYTEPUT          ; No it is byte queue
+                           612         
+009F                       613     EQBYTEPUT:; Reg changed: BX, AL  
+                           614     
+009F 8B5C02                615         MOV     BX, [SI].tail       ; Grab the tail element index
+                           616     ;;; 
+00A2 884008                617         MOV     [SI].array[BX], AL  ; Now us the index as offset @ array @ SI
+                           618     ;;; 
+00A5 EB0990                619         JMP     EQNextPos           ;
+                           620        
+00A8                       621     EQWORDPUT:; Reg changed: CX, AX, BX
+                           622           
+00A8 8B5C02                623         MOV     BX, [SI].tail       ; Grab the tail element index
+00AB D1E3                  624         SHL     BX, 1               ; Actual Position maps to every other address (MUL 2x
+                                   )
+                           625     ;;;    
+00AD 894008                626         MOV     WORD PTR [SI].array[BX], AX  ; Now use the index as offset @ array @ SI
+                           627     ;;;   
+                           628     
+00B0                       629     EQNextPos:; Reg changed: None  
+00B0 8B5C06                630         MOV     BX, [SI].leng       ; Grab the  Queue length
+00B3 43                    631         INC     BX                  ; Length + 1
+                           632     
+00B4 8B4402                633         MOV     AX, [SI].tail       ; Grab the tail element index
+00B7 40                    634         INC     AX                  ; Update to potential next tail pos
+                           635         
+00B8 BA0000                636         MOV     DX, 0               ; Clear the remainder
+00BB F7F3                  637         DIV     BX                  ; Do the modulus, answer in remainder
+                           638         
+00BD 895402                639         MOV     [SI].tail, DX       ; The mod is the next position
+                           640         
+00C0                       641     EQdone:; Reg changed: None  
+                           642     
+8086/87/88/186 MACRO ASSEMBLER    HW3                                                      00:46:18  11/02/;3  PAGE   13
+
+
+LOC  OBJ                  LINE     SOURCE
+
+00C0 5A                    643         POP    DX
+00C1 5B                    644         POP    BX
+00C2 58                    645         POP    AX                   ; restore used regs
+                           646         
+00C3 C3                    647         RET
+                           648         
+                           649     Enqueue      ENDP    
+                           650      
+----                       651     CODE    ENDS
+                           652      
+                           653      ;-------------------------------------------------------------------------------
+                           654        
+                           655         
+----                       656     DATA    SEGMENT PUBLIC  'DATA'
+                           657     
+                           658     
+0000 ????                  659     qvars       QUEUEVARS <>      ;"Minute Set" switch information
+                           660     
+                           661     
+----                       662     DATA    ENDS
+                           663     
+                           664             END 
 
 ASSEMBLY COMPLETE, NO ERRORS FOUND

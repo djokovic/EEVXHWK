@@ -1,6 +1,8 @@
 NAME        HW3
 
 $INCLUDE(queue.inc);
+$INCLUDE(general.inc);
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
 ;                                 HW3 Queue Functions                        ;
@@ -83,7 +85,7 @@ $INCLUDE(queue.inc);
 ;
 ;Data Structures:	Queue struc (1024 bytes + 8 words)
 ;
-;Error Handling:   	If passed queue length 'l' is too large, then return error flag;
+;Error Handling:   	If passed queue length 'l' is too large, then do not initialize
 ;                   
 ;
 ;Algorithms:       	None.
@@ -94,10 +96,12 @@ $INCLUDE(queue.inc);
 ;
 ;
 ;Author:			Anjian Wu
-;History:			Pseudo code - 10-27-2013
-;                   Debugged,Documented, and working - 11/01/2013 - Anjian Wu
-;-------------------------------------------------------------------------------
+;History:			10-27-2013: Pseudo code - Anjian Wu
+;                   11/01/2013: Debugged,Documented, and working - Anjian Wu
+;                   11/02/2013: Fixed bug where queue could go beyond allocated 
+;                               - length Anjian Wu
 
+;-------------------------------------------------------------------------------
 CGROUP  GROUP   CODE
 
 CODE SEGMENT PUBLIC 'CODE'
@@ -108,19 +112,16 @@ CODE SEGMENT PUBLIC 'CODE'
 
 QueueInit		PROC    NEAR
 				PUBLIC  QueueInit
-				
+
     PUSH    AX          ; Save used regs
     PUSH    BX
                 
 QICheck:; Reg changed: None
-    CMP     AX, MAX_LENG                    ; Is this queue too long?
+    CMP     AX, MAX_Q_LENG - 1                ; Is this queue too long?
     JLE     QIStart 
+    JG      QILengthtoobig  ;
+    ;JLE    QIStart
     
-QILengthtoobig:; Reg changed: None
-                                            ; Queue too big, so just initialize as largest
-    MOV     AX, MAX_LENG
-    ;JMP    QIStart                         ;
-
 QIStart:; Reg changed: None
 
     MOV     [SI].leng,  AX                  ; Stored the length value.
@@ -140,13 +141,14 @@ QIbytesize:; Reg changed: None
     MOV     [SI].qsize, ByteQ               ; Queuesize is WORD; Queuesize is BYTE
     JMP     QIDone                          ;
     
+QILengthtoobig:                             ; Queue too big
 
     ;JMP    QIDone
 QIDone:
 
-    POP     BX         ;Restore used regs
+    POP     BX                              ;Restore used regs
     POP     AX
-
+    
     RET
     
  QueueInit      ENDP      
@@ -207,7 +209,7 @@ QIDone:
 QueueEmpty		PROC    NEAR
 				PUBLIC  QueueEmpty
        
-    PUSH    AX              ; Store used regs
+    PUSH    AX
     PUSH    BX
     
 QEstart:; Reg changed: AX, BX
@@ -221,7 +223,7 @@ QEflagtime:; Reg changed: None
                         
 QEdone:
     POP    BX
-    POP    AX               ;Restore used regs
+    POP    AX
     
     RET
 
@@ -306,21 +308,21 @@ QFmath:; Reg changed: AX, DX, BX
     INC     BX
     INC     AX                  ; Check potential next tail pos
     
-    MOV     DX, 0               ; Clear the remainder holder
-    DIV     BX                  ; Divide to get remainder
+    MOV     DX, 0               ;
+    DIV     BX                  ;
     
     MOV     BX, [SI].head       ; The mod is the next position
     
 QFflagtime:; Reg changed: None     
-    CMP     DX, BX              ; If (Tail + 1) mod length +1 = Head -> zeroflag = 1
-                                ; Else zeroflag = 0
+    CMP     DX, BX          ; If (Tail + 1) mod length = Head -> zeroflag = 1
+                            ; Else zeroflag = 0
                         
-QFdone:                         ; Flags are ready to be returned
+QFdone:                     ; Flags are ready to be returned
 
     POP    DX
     POP    BX
     POP    AX                   ; restore used regs
-    
+        
     RET
  QueueFull      ENDP      
 
@@ -394,10 +396,9 @@ QFdone:                         ; Flags are ready to be returned
 Dequeue		    PROC    NEAR
 				PUBLIC  Dequeue
 				
-    PUSH    AX              ;Save used regs
     PUSH    BX
     PUSH    DX
-    
+				
 DQBlock:; Reg changed: None  
 
     CALL    QueueEmpty          ; Blocking function, keep checking whether queue
@@ -410,8 +411,8 @@ DQStart:; Reg changed: BX
 
     MOV     BX, [SI].qsize      ; Grab the queue size (Byte or Word)     
     CMP     BX, WORDQ           ; Is the Queue WORD queue?
-    JE     DQWORDGRAB           ; Yes it is word queue
-    ;JNE     DQBYTEGRAB         ; No it is byte queue
+    JE     DQWORDGRAB          ; Yes it is word queue
+    ;JNE     DQBYTEGRAB          ; No it is byte queue
     
 DQBYTEGRAB:; Reg changed: AX, BX, AL  
     MOV     AX, 0               ; Clear AH and AL
@@ -421,35 +422,35 @@ DQBYTEGRAB:; Reg changed: AX, BX, AL
    
 DQWORDGRAB:; Reg changed: AX, BX  
     MOV     BX, [SI].head       ; Grab the head element index
-    SHL     BX, 1               ; Actual Position maps to every other address, thus do 2x
+    SHL     BX, 1                  ; Actual Position maps to every other address
     MOV     AX, WORD PTR [SI].array[BX]  ; Now use the index as offset @ array @ SI
 
 DQsaveret:; Reg changed: BX  
     
     LEA     BX, qvars           ; Grab queue vars struc offset
-    MOV     [BX].dequeued , AX  ; Stored the return value
+    MOV     [BX].dequeued , AX   ; Stored the return value
    
 DQNextPos:; Reg changed: BX, AX, DX  
     MOV     BX, [SI].leng       ; Grab the fixed Queue length
     INC     BX
     
     MOV     AX, [SI].head       ; Grab the head element index
-    INC     AX                  ; Next potential pointer location
+    INC     AX                  ; Check potential next tail pos
     
-    MOV     DX, 0               ; Clear Remainder
-    DIV     BX                  ; Do modulo through DIV and grabbing remainder
+    MOV     DX, 0               ;
+    DIV     BX                  ;
     
-    MOV     [SI].head, DX       ; The mod is the next position, so save it
+    MOV     [SI].head, DX       ; The mod is the next position
     
-DQdone:; Reg changed: BX, AX  
+DQArgGet:; Reg changed: BX, AX  
     
-    LEA     BX, qvars           ; Prepare to retrieve return arg
+    LEA     BX, qvars           ;
     MOV     AX, [BX].dequeued   ; Restore the return value
     
+DQdone:
     
     POP    DX
     POP    BX
-    POP    AX               ; restore used regs
     
     RET
     
@@ -545,7 +546,7 @@ EQStart:; Reg changed: BX
 
     MOV     BX, [SI].qsize      ; Grab the queue size (Byte or Word)     
     CMP     BX, WORDQ           ; Is the Queue WORD queue?
-    JE      EQWORDPUT           ; Yes it is word queue
+    JE     EQWORDPUT            ; Yes it is word queue
     ;JNE     EQBYTEPUT          ; No it is byte queue
     
 EQBYTEPUT:; Reg changed: BX, AL  
@@ -580,7 +581,7 @@ EQdone:; Reg changed: None
 
     POP    DX
     POP    BX
-    POP    AX               ; restore used regs
+    POP    AX                   ; restore used regs
     
     RET
     
@@ -588,12 +589,13 @@ Enqueue      ENDP
  
 CODE    ENDS
  
-    
+ ;-------------------------------------------------------------------------------
+   
     
 DATA    SEGMENT PUBLIC  'DATA'
 
 
-qvars       QUEUEVARS <>      ; Local struc used to store return arg for Dequeue
+qvars       QUEUEVARS <>      ;"Minute Set" switch information
 
 
 DATA    ENDS

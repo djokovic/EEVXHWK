@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    HW3_MAIN                                                 22:22:20  10/31/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    HW3_MAIN                                                 00:46:19  11/02/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE HW3_MAIN
@@ -21,168 +21,192 @@ LOC  OBJ                  LINE     SOURCE
                             11     ;                                                                            ;
                             12     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                             13     
-                            14     ; Description:      This program tests the conversion functions for Homework
-                            15     ;                   #2.  It calls each conversion function with a number of
-                            16     ;                   test values.  If all tests pass it jumps to the label
-                            17     ;                   AllTestsGood.  If any test fails it jumps to the label
-                            18     ;                   TestFailed.
-                            19     ;
-                            20     ; Input:            None.
-                            21     ; Output:           None.
-                            22     ;
-                            23     ; User Interface:   No real user interface.  The user can set breakpoints at
-                            24     ;                   AllTestsGood and TestFailed to see if the code is working
-                            25     ;                   or not.
-                            26     ; Error Handling:   If a test fails the program jumps to TestFailed.
-                            27     ;
-                            28     ; Algorithms:       None.
-                            29     ; Data Structures:  None.
-                            30     ;
-                            31     ; Known Bugs:       None.
-                            32     ; Limitations:      The returned strings must be less than MAX_STRING_SIZE
-                            33     ;                   characters.
-                            34     ;
-                            35     ; Revision History:
-                            36     ;    10/31/2013     Initial version -   Anjian Wu
-                            37     
-                            38 +1  $INCLUDE(queue.inc);
-                      =1    39     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                      =1    40     ;                                                                               ;
-                      =1    41     ;                                  Queues.INC                                   ;
-                      =1    42     ;                           Queue Conversion Constants                          ;
-                      =1    43     ;                                 Include File                              ;
-                      =1    44     ;                                                                           ;
-                      =1    45     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                      =1    46     
-                      =1    47     ; This file contains the definitions for the timing functions for the 8088
-                      =1    48     ; version of the Microprocessor-Based Clock.
-                      =1    49     ;
-                      =1    50     ; Revision History:
-8086/87/88/186 MACRO ASSEMBLER    HW3_MAIN                                                 22:22:20  10/31/;3  PAGE    2
+                            14     
+                            15     ; Description:      This program tests the conversion functions for Homework
+                            16     ;                   #3.  It calls Glenn's mystery functions with two passed
+                            17     ;                   values, the queue struc address and max_queue length.
+                            18     ;                   All test handling and breakpoints is inside QueueTest.
+                            19     ;                   Note the max length allowed is 511, since there is always
+                            20     ;                   a empty ele spot in queue.
+                            21     ;
+                            22     ; Input:            None.
+                            23     ; Output:           None.
+                            24     ;
+                            25     ; User Interface:   No real user interface.  The user can set breakpoints at
+                            26     ;                   QueueGood and QueueError to see if the code is working
+                            27     ;                   or not.
+                            28     ; Error Handling:   If a test fails the program jumps to QueueError.
+                            29     ;
+                            30     ; Algorithms:       None.
+                            31     ; Data Structures:  None.
+                            32     ;
+                            33     ; Known Bugs:       None.
+                            34     ; Limitations:      The max queue length is limited by Max_Length
+                            35     ;
+                            36     ; Revision History:
+                            37     ;    10/31/2013     Initial version -   Anjian Wu
+                            38     ;    11/01/2013     Debugged and working - Anjian Wu
+                            39     ;    11/02/2013     Fixed bug where queue could go beyond
+                            40     ;                   allocated length - Anjian Wu
+                            41     
+                            42     
+                            43 +1  $INCLUDE(general.inc);
+                      =1    44     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    45     ;                                                                               ;
+                      =1    46     ;                                  General.INC                                  ;
+                      =1    47     ;                               General Constants                           ;
+                      =1    48     ;                                 Include File                              ;
+                      =1    49     ;                                                                           ;
+                      =1    50     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+8086/87/88/186 MACRO ASSEMBLER    HW3_MAIN                                                 00:46:19  11/02/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
 
-                      =1    51     ;    10/29/2013                 Created - Anjian Wu
-                      =1    52     
-                      =1    53     ;Structure for Queue allocation, information, and storage
-                      =1    54     
-----                  =1    55     QUEUESTRUC      STRUC                   ;structure containing all queue info
-0000                  =1    56         head            DW      ?           ;counter for debouncing the switch
-0002                  =1    57         tail            DW      ?           ;time until change repeat rates
-0004                  =1    58         qsize           DW      ?           ;rate at which to repeat the switch
-0006                  =1    59         leng            DW      ?           ;rate at which to repeat the switch
-0008                  =1    60         array               DB      1024    DUP     (?) ;pointer to the function to get s
-                                   witch status
-----                  =1    61     QUEUESTRUC      ENDS
-                      =1    62     
-                      =1    63     ;Structure for storing Queue return values or args
-                      =1    64     
-----                  =1    65     QUEUEVARS      STRUC                ;structure containing all queue info
-0000                  =1    66         dequeued    DW      ?               ;counter for debouncing the switch
-----                  =1    67     QUEUEVARS      ENDS
-                      =1    68     
-                      =1    69     ; ASCII Constants
+                      =1    51     
+                      =1    52     ; This file contains the definitions for the queue functions
+                      =1    53     ;
+                      =1    54     ; Revision History:
+                      =1    55     ;    11/02/2013                 Created - Anjian Wu
+                      =1    56     
+                      =1    57     
+                      =1    58     ; Queue Constants
+                      =1    59     
+  0200                =1    60     MAX_Q_LENG          EQU     512          ;Maxlength allowed for byte or word queue
+                      =1    61     
+                            62 +1  $INCLUDE(queue.inc);
+                      =1    63     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    64     ;                                                                               ;
+                      =1    65     ;                                  Queues.INC                                   ;
+                      =1    66     ;                           Queue Conversion Constants                          ;
+                      =1    67     ;                                 Include File                              ;
+                      =1    68     ;                                                                           ;
+                      =1    69     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                       =1    70     
-  0400                =1    71     ARRAY_SIZE      EQU     1024         ;interrupt vector for timer
-  0200                =1    72     MAX_LENG            EQU     512          ;interrupt vector for timer
-                      =1    73     
-                      =1    74     
-                      =1    75     
-                      =1    76     ; General Definitions
-                      =1    77     
-  0000                =1    78     ArrayEmpty      EQU     0             ; number of interrupts per second * 10
-  0000                =1    79     ByteSizeQueue   EQU     0             ; 4 Bits in a byte
-  0001                =1    80     ByteQ           EQU     1             ; 4 Bits in a byte
-  0002                =1    81     WordQ           EQU     2             ; 4 Bits in a byte
-                            82     
-                            83     CGROUP  GROUP   CODE
-                            84     DGROUP  GROUP   DATA, STACK
-                            85     
-                            86     
-                            87     
-----                        88     CODE    SEGMENT PUBLIC 'CODE'
-                            89     
-                            90     
-                            91             ASSUME  CS:CGROUP, DS:DGROUP
-                            92     
-                            93     
-                            94     
-                            95     ;external function declarations
-                            96     
-                            97             EXTRN   QueueInit:NEAR          ;convert a number to a decimal string
-                            98             EXTRN   QueueEmpty:NEAR         ;convert a number to a hex string
-                            99             EXTRN   QueueFull:NEAR          ;convert a number to a decimal string
-                           100             EXTRN   Dequeue:NEAR            ;convert a number to a hex string
-                           101             EXTRN   Enqueue:NEAR            ;convert a number to a hex string
-                           102             EXTRN   QueueTest:NEAR          ; Glenn's Test Code
-                           103     
-0000                       104     START:  
-8086/87/88/186 MACRO ASSEMBLER    HW3_MAIN                                                 22:22:20  10/31/;3  PAGE    3
+                      =1    71     ; This file contains the definitions for the queue functions
+                      =1    72     ;
+                      =1    73     ; Revision History:
+                      =1    74     ;    10/29/2013                 Created - Anjian Wu
+                      =1    75     ;    11/01/2013   Debugged,Documented, and working - Anjian Wu
+                      =1    76     ;
+                      =1    77     ;Structure for Queue allocation, information, and storage
+                      =1    78     
+                      =1    79     
+                      =1    80     ; General Definitions
+                      =1    81     
+  0000                =1    82     ArrayEmpty      EQU     0             ; Empty is set at 0 index
+  0000                =1    83     ByteSizeQueue   EQU     0             ; 0 indicates byte queue
+  0001                =1    84     ByteQ           EQU     1             ; Byte norm factor for indexing
+  0002                =1    85     WordQ           EQU     2             ; Word norm factor for indexing
+  0400                =1    86     ARRAY_SIZE      EQU     1024          ; Size of queue array (fits 512-1 words, 
+                      =1    87                                           ;or 1023 bytes)
+                      =1    88     
+                      =1    89     
+----                  =1    90     QUEUESTRUC      STRUC                   ;structure containing all queue info
+0000                  =1    91         head            DW      ?           ;counter for debouncing the switch
+0002                  =1    92         tail            DW      ?           ;time until change repeat rates
+0004                  =1    93         qsize           DW      ?           ;rate at which to repeat the switch
+0006                  =1    94         leng            DW      ?           ;rate at which to repeat the switch
+0008                  =1    95         array               DB          ARRAY_SIZE  DUP     (?) ;pointer to the function 
+                                   to get switch status
+----                  =1    96     QUEUESTRUC      ENDS
+                      =1    97     
+                      =1    98     ;Structure for storing Queue return values or args
+                      =1    99     
+----                  =1   100     QUEUEVARS      STRUC                ;structure containing all queue info
+0000                  =1   101         dequeued    DW      ?               ;counter for debouncing the switch
+----                  =1   102     QUEUEVARS      ENDS
+                      =1   103     
+                      =1   104     
+8086/87/88/186 MACRO ASSEMBLER    HW3_MAIN                                                 00:46:19  11/02/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
 
-                           105     
-0000                       106     MAIN:
-0000 B8----         R      107             MOV     AX, DGROUP              ;initialize the stack pointer
-0003 8ED0                  108             MOV     SS, AX
-0005 BCE00190       R      109             MOV     SP, OFFSET(DGROUP:TopOfStack)
+                      =1   105     
+                           106     
+                           107     CGROUP  GROUP   CODE
+                           108     DGROUP  GROUP   DATA, STACK
+                           109     
                            110     
-0009 B8----         R      111             MOV     AX, DGROUP              ;initialize the data segment
-000C 8ED8                  112             MOV     DS, AX
+                           111     
+----                       112     CODE    SEGMENT PUBLIC 'CODE'
                            113     
                            114     
-000E                       115     TestSetup:                             ;a test failed
-000E 8D360000       R      116             LEA     SI, QUEUE              ; Grab address of Queue
-0012 B90002                117             MOV     CX, 512                ; Load queue's max length
-0015                       118     TestGO:                                 
-0015 E80000         E      119             CALL    QueueTest              ;Call Glenn's tests
+                           115             ASSUME  CS:CGROUP, DS:DGROUP
+                           116     
+                           117     
+                           118     
+                           119     ;external function declarations
                            120     
-                           121             
-----                       122     CODE    ENDS
-                           123     
-                           124     
-                           125     
-                           126     
-                           127     ;the data segment
-                           128     
-----                       129     DATA    SEGMENT PUBLIC  'DATA'
-                           130     
-                           131     
-0000 ????                  132     QUEUE          QUEUESTRUC <>           ;Holds the String
+                           121             EXTRN   QueueInit:NEAR          ;convert a number to a decimal string
+                           122             EXTRN   QueueEmpty:NEAR         ;convert a number to a hex string
+                           123             EXTRN   QueueFull:NEAR          ;convert a number to a decimal string
+                           124             EXTRN   Dequeue:NEAR            ;convert a number to a hex string
+                           125             EXTRN   Enqueue:NEAR            ;convert a number to a hex string
+                           126             EXTRN   QueueTest:NEAR          ; Glenn's Test Code
+                           127     
+0000                       128     START:  
+                           129     
+0000                       130     MAIN:
+0000 B8----         R      131             MOV     AX, DGROUP              ;initialize the stack pointer
+0003 8ED0                  132             MOV     SS, AX
+0005 BCE00190       R      133             MOV     SP, OFFSET(DGROUP:TopOfStack)
+                           134     
+0009 B8----         R      135             MOV     AX, DGROUP              ;initialize the data segment
+000C 8ED8                  136             MOV     DS, AX
+                           137     
+                           138     
+000E                       139     TestSetup:                             ;a test failed
+000E 8D360000       R      140             LEA     SI, QUEUE              ; Grab address of Queue
+0012 B9FF01                141             MOV     CX, MAX_Q_LENG - 1     ; Load queue's max length
+0015                       142     TestGO:                                 
+0015 E80000         E      143             CALL    QueueTest              ;Call Glenn's tests
+                           144     
+                           145             
+----                       146     CODE    ENDS
+                           147     
+                           148     
+                           149     
+                           150     
+                           151     ;the data segment
+                           152     
+----                       153     DATA    SEGMENT PUBLIC  'DATA'
+                           154     
+                           155     
+0000 ????                  156     QUEUE          QUEUESTRUC <>           ;Holds the String
 0002 ????
 0004 ????
 0006 ????
-0008 (1024
-     ??
-     )
-                           133     
-                           134     
-----                       135     DATA    ENDS
-                           136     
-                           137     
-                           138     
-                           139     
-                           140     ;the stack
-                           141     
-----                       142     STACK   SEGMENT STACK  'STACK'
-                           143     
-0000 (80                   144                     DB      80 DUP ('Stack ')       ;240 words
-     537461636B20
-     )
-                           145     
-01E0                       146     TopOfStack      LABEL   WORD
-                           147     
-----                       148     STACK   ENDS
-                           149     
-                           150     
-                           151     
-8086/87/88/186 MACRO ASSEMBLER    HW3_MAIN                                                 22:22:20  10/31/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    HW3_MAIN                                                 00:46:19  11/02/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
 
-                           152             END     START
+0008 (1024
+     ??
+     )
+                           157     
+                           158     
+----                       159     DATA    ENDS
+                           160     
+                           161     
+                           162     
+                           163     
+                           164     ;the stack
+                           165     
+----                       166     STACK   SEGMENT STACK  'STACK'
+                           167     
+0000 (80                   168                     DB      80 DUP ('Stack ')       ;240 words
+     537461636B20
+     )
+                           169     
+01E0                       170     TopOfStack      LABEL   WORD
+                           171     
+----                       172     STACK   ENDS
+                           173     
+                           174     
+                           175     
+                           176             END     START
 
 ASSEMBLY COMPLETE, NO ERRORS FOUND
