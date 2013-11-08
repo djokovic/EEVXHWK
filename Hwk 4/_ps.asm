@@ -44,9 +44,6 @@
 
 
 $INCLUDE(general.inc);
-$INCLUDE(timer.inc);
-$INCLUDE(chipselect.inc);
-
 
 CGROUP  GROUP   CODE
 DGROUP  GROUP   DATA, STACK
@@ -62,8 +59,10 @@ CODE    SEGMENT PUBLIC 'CODE'
 
 ;external function declarations
 
-
-        EXTRN   DisplayHandlerInit:NEAR          ;convert a number to a decimal string
+        EXTRN   DisplayHex:NEAR          ;convert a number to a decimal string
+        EXTRN   DisplayNum:NEAR         ;convert a number to a hex string
+        EXTRN   Display:NEAR          ;convert a number to a decimal string
+        EXTRN   DisplayHINIT:NEAR          ;convert a number to a decimal string
 
         EXTRN   DisplayTest:NEAR          ; Glenn's Test Code
 
@@ -78,7 +77,7 @@ MAIN:
         MOV     DS, AX
 
         CALL    InitCS                   ; Initialize the chip selects
-        CALL    DisplayHandlerInit       ; Initialize display handler
+        CALL    DisplayHINIT             ; Initialize display handler
 
         CALL    InitTimer                ; Initialize timer events, note interrupts
                                          ; start NOW
@@ -114,22 +113,22 @@ MAIN:
 ;              	     Pseudo code - 11-02-2013 - Anjian Wu
 
 
-InitCS  PROC    NEAR; DO what we did for HWK1 part 5 :)
+InitCS  PROC    NEAR
+
+{
+        Address = PACSreg     ;setup to write to PACS register
+        Value = PACSval
+        
+        OUTPUT(Address, Value);write PACSval to PACS (base at 0, 3 wait states)
+
+        Address = MPCSreg     ;setup to write to MPCS register
+        Value = MPCSval
+        OUTPUT(Address, Value);write MPCSval to MPCS (I/O space, 3 wait states)
 
 
-        MOV     DX, PACSreg     ;setup to write to PACS register
-        MOV     AX, PACSval
-        OUT     DX, AL          ;write PACSval to PACS (base at 0, 3 wait states)
+        RETURN                     ;done so return
+}
 
-        MOV     DX, MPCSreg     ;setup to write to MPCS register
-        MOV     AX, MPCSval
-        OUT     DX, AL          ;write MPCSval to MPCS (I/O space, 3 wait states)
-
-
-        RET                     ;done so return
-
-
-InitCS  ENDP
 
 ; InitTimer
 ;
@@ -172,34 +171,47 @@ InitTimer       PROC    NEAR
 
 
                                 ;initialize Timer #0 for MS_PER_SEG ms interrupts
-        MOV     DX, Tmr0Count   ;initialize the count register to 0
-        XOR     AX, AX
-        OUT     DX, AL
+        Address = Tmr0Count     ;initialize the count register to 0
+        ValueOF(Tmr0Count) = 0  ;
+        
+        Address = Tmr0MaxCntA ;setup max count for milliseconds per segment
+        Value   = MS_PER_SEG  ;   count so can time the segments
+        ValueOF(Address) = Value
 
-        MOV     DX, Tmr0MaxCntA ;setup max count for milliseconds per segment
-        MOV     AX, CTS_PER_MILSEC  ;   count so can time the segments
-        OUT     DX, AL
-
-        MOV     DX, Tmr0Ctrl    ;setup the control register, interrupts on
-        MOV     AX, Tmr0CtrlVal
-        OUT     DX, AL
+        Address = Tmr0Ctrl    ;setup the control register, interrupts on
+        Value   = Tmr0CtrlVal
+        ValueOF(Address) = Value
 
                                 ;initialize interrupt controller for timers
-        MOV     DX, INTCtrlrCtrl;setup the interrupt control register
-        MOV     AX, INTCtrlrCVal
-        OUT     DX, AL
+        Address = INTCtrlrCtrl;setup the interrupt control register
+        Value   = INTCtrlrCVal
+        ValueOF(Address) = Value
 
-        MOV     DX, INTCtrlrEOI ;send a timer EOI (to clear out controller)
-        MOV     AX, TimerEOI
-        OUT     DX, AL
+        Address = INTCtrlrEOI ;send a timer EOI (to clear out controller)
+        Value   = TimerEOI
+        ValueOF(Address) = Value
 
 
-        RET                     ;done so return
+        RETURN                     ;done so return
 
 
 InitTimer       ENDP
 
 CODE    ENDS
+
+
+
+
+;the data segment
+
+DATA    SEGMENT PUBLIC  'DATA'
+
+
+QUEUE          QUEUESTRUC <>           ;Holds the String
+
+
+DATA    ENDS
+
 
 
 
