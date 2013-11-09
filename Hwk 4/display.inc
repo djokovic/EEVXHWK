@@ -31,7 +31,7 @@ DISPLAYSTRUC      ENDS
 ;Structure for storing Queue return values or args
 
 DISPLAYVARS      STRUC           	    ;structure containing all queue info
-    digit     DW      ?
+    digit       DW      ?
     buffer		DB	    Display_SIZE	DUP	(?) ;pointer to the function to get switch status
 DISPLAYVARS      ENDS
 

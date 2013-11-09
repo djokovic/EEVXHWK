@@ -112,6 +112,11 @@ CODE SEGMENT PUBLIC 'CODE'
 
 Display		    PROC    NEAR
 				PUBLIC  Display
+				
+	
+	PUSH    CX;
+	PUSH    AX;
+	PUSH    BX;
 
 DisplayStrInit:
 
@@ -141,6 +146,10 @@ DisplayLoopXLAT:
     
 DisplayStrDone:
 
+	PUSH    BX;
+	PUSH    AX;
+	PUSH    CX;
+	
     RET                     ;
     
 Display  ENDP 
@@ -456,11 +465,10 @@ DisplayDigitReset:
 DisplayUpdate:                              ;update the display
 
         MOV     DX, LEDDisplay              ;get the display address
-        
-        MOV     AL, DHandlerVar.buffer[BX]  ; Grab seg pat from buffer
-        
+                
         ADD     DX, BX                      ; Get digit offset for display
         
+        MOV     AL, DHandlerVar.buffer[BX]  ; Grab seg pat from buffer    
         OUT     DX, AL                      ;output segment directly, buffer
                                             ; already in seg code form
 
