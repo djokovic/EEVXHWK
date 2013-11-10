@@ -2,7 +2,7 @@ NAME        Display
 
 $INCLUDE(display.inc);
 $INCLUDE(general.inc);
-$INCLUDE(SEGTABLE.asm);
+$INCLUDE(timer.inc);
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
@@ -110,6 +110,10 @@ CODE SEGMENT PUBLIC 'CODE'
 
 ;-------------------------------------------------------------------------------
 
+        EXTRN   Dec2String:NEAR          ; 
+        EXTRN   Hex2String:NEAR          ; 
+
+
 Display		    PROC    NEAR
 				PUBLIC  Display
 				
@@ -120,25 +124,48 @@ Display		    PROC    NEAR
 
 DisplayStrInit:
 
+    PUSH    SI;						; Save the original string pointer
+DisplayClearLowbyte:
 
+    LEA     SI, DHandlerVar1.buffer  ; Grab address of display array
+    MOV     AL, SEGMENT_NULL ;
+    CALL    DisplayBufferFill; Fill display array with ASCII_NULLs
+
+
+DisplayClearHighbyte:	
+
+    LEA     SI, DHandlerVar2.buffer  ; Grab address of display array
+    MOV     AL, SEGMENT_NULL ;
+    CALL    DisplayBufferFill; Fill display array with ASCII_NULLs
+	
+DisplayBufferClearDone:  
+  
+	POP     SI				; Get that original string pointer back from stack
     MOV     CX, 0           ; Clear the counter
                             ; Counter goes from 0 to DisplaySize - 1
 
 DisplayStrLoop:
 
-    CMP     CX, DisplaySize ; Is the counter maxed out?
+    CMP     CX, Display_SIZE ; Is the counter maxed out?
     JGE     DisplayStrDone  ; Yes, exit loop
                             ; No, continue loop
+	XOR		AX, AX			; Clear AX
+	
     MOV     AL, ES:[SI]     ; Grab char at address arg, put in AL for XLAT
+    CMP     AL, ASCII_NULL  ; Is it ASCII_NULL? Cuz if so, end loop
+    JE      DisplayStrDone  ;
     
     
 DisplayLoopXLAT:
     MOV	    BX, OFFSET(ASCIISegTable);point into the table of seg table
-    XLAT	CS:ASCIISegTable		;Now seg val is in AL
-    
-    
-    MOV     DHandlerVar.buffer[CX], AL  ;Place the character in mem
-    
+	SHL		AX, 1			; Get absolute value from table
+	ADD		BX, AX			;
+    MOV		AX,	CS:[BX]		;Now seg val is in AX
+ 
+    MOV     BX, CX                          ;
+    MOV     DHandlerVar1.buffer[BX] , AL   ; Stored the return value
+    MOV     DHandlerVar2.buffer[BX] , AH   ; Stored the return value
+        
     INC     CX                          ; Update Counter
     INC     SI                          ; Update char pointer (Str source)
     
@@ -146,9 +173,9 @@ DisplayLoopXLAT:
     
 DisplayStrDone:
 
-	PUSH    BX;
-	PUSH    AX;
-	PUSH    CX;
+	POP    BX;
+	POP    AX;
+	POP    CX;
 	
     RET                     ;
     
@@ -224,16 +251,22 @@ DisplayNum		PROC    NEAR
 				PUBLIC  DisplayNum
 				
 DisplayNumStrInit:
-
-
-    CALL    DisplayClear    ; Fill display array with ASCII_NULLs
+    PUSH    AX              ;
     
+    LEA     SI, DisplayArray.array  ; Grab address of display array
+    MOV     AL, ASCII_NULL  ;
+    CALL    DisplayBufferFill; Fill display array with ASCII_NULLs
+    
+    POP     AX              ;
 DisplayNumPlace:
 
     LEA     SI, DisplayArray.array  ; Grab address of display array
     CALL    Dec2String              ; Dec2String chars at DS:SI
     
-    MOV     ES, DS                  ; Prepare to access DS for display
+    
+    MOV     AX, DS
+    MOV     ES, AX                  ; Prepare to access DS for display
+    
     LEA     SI, DisplayArray.array  ; Prepare segment pointer
     
     CALL    Display                 ; Translate ES:SI aka. DS:SI into Seg code
@@ -309,15 +342,22 @@ DisplayHex		PROC    NEAR
 				
 DisplayHexInit:
 
-
-    CALL    DisplayClear    ; Fill display array with ASCII_NULLs
+    PUSH    AX              ;
+    
+    LEA     SI, DisplayArray.array  ; Grab address of display array
+    MOV     AL, ASCII_NULL  ;
+    CALL    DisplayBufferFill; Fill display array with ASCII_NULLs
+    
+    POP     AX              ;
     
 DisplayHexPlace:
 
     LEA     SI, DisplayArray.array  ; Grab address of display array
     CALL    Hex2String              ; Dec2String chars at DS:SI, with AX
     
-    MOV     ES, DS                  ; Prepare to access DS for display
+    MOV     AX, DS
+    MOV     ES, AX                  ; Prepare to access DS for display
+    
     LEA     SI, DisplayArray.array  ; Prepare segment pointer
     
     CALL    Display                 ; Translate ES:SI aka. DS:SI
@@ -359,8 +399,10 @@ DisplayHex  ENDP
 ;-------------------------------------------------------------------------------
 
 DisplayHandlerInit  PROC    NEAR
+				PUBLIC  DisplayHandlerInit
 
-        MOV     DHandlerVar.Digit, 0    ; Clear the Digit counters
+
+        MOV     Digit, 0    ; Clear the Digit counters
 
 
         XOR     AX, AX          ;clear ES (interrupt vectors are in segment 0)
@@ -450,34 +492,39 @@ DisplayHandler		    PROC    NEAR
         PUSH    BX                          ;Event Handlers should NEVER change
         PUSH    DX                          ;   any register values
 
-DisplayHandlerInit:
+DisplayHInit:
 
-        MOV     BX, DHandlerVar.Digit       ;get offset for current digit
+        MOV     BX, Digit       ;get offset for current digit
         CMP     BX, Display_SIZE            ;Is the offset too large?
-        JL      DisplayUpdate               ;
+        JL      DisplayHUpdate               ;
         ;JGE     DisplayDigitReset          ;
 
 DisplayDigitReset:
 
-        MOV    BX, 0                        ;        
+        MOV    BX, 0     
 
 
-DisplayUpdate:                              ;update the display
-
-        MOV     DX, LEDDisplay              ;get the display address
-                
+		;        
+DisplayHUpdate:                     ;update the display
+        MOV     AL, DHandlerVar2.buffer[BX]  ; Grab seg pat from buffer    
+        MOV     AH, DHandlerVar1.buffer[BX]  ; Grab seg pat from buffer    
+										; already in seg code form
+        MOV     DX, LEDDisplay2              ;get the display address     
         ADD     DX, BX                      ; Get digit offset for display
-        
-        MOV     AL, DHandlerVar.buffer[BX]  ; Grab seg pat from buffer    
         OUT     DX, AL                      ;output segment directly, buffer
                                             ; already in seg code form
+        MOV     DX, LEDDisplay              ;get the display address        
+        ADD     DX, BX                      ; Get digit offset for display
+        SHR		AX, 8						;
+        OUT     DX, AL                      ;output segment directly, buffer
+		
 
 
 DisplayDigitUpdate:                         ;do the next segment pattern
 
         INC     BX                          ;update segment pattern number
         
-        MOV     DHandlerVar.Digit, BX       ;
+        MOV     Digit, BX       ;
 
 
 EndDisplayHandler:                   ;done taking care of the timer
@@ -547,10 +594,11 @@ DisplayHandler       ENDP
 ;History:			11-04-2013: Pseudo code - Anjian Wu
 ;-------------------------------------------------------------------------------
 
-DisplayClear		    PROC    NEAR
-				        PUBLIC  DisplayClear
+DisplayBufferFill		PROC    NEAR
+				        PUBLIC  DisplayBufferFill
 				        
     PUSH    CX;
+    PUSH    BX;
 				
 DisplayClrInit:
 
@@ -560,35 +608,183 @@ DisplayClrInit:
 
 DisplayClrLoop:
 
-    CMP     CX, DisplaySize ; Is the counter maxed out?
-    JGE     DisplayStrDone  ; Yes, exit loop
+    CMP     CX, Display_SIZE ; Is the counter maxed out?
+    JGE     DisplayClrDone  ; Yes, exit loop
                             ; No, continue loop
-
-    
-    MOV     DisplayArray.array[CX], SEGMENT_NULL  ;Place the character in mem
-    
+                            
+    MOV     [SI] , AL       ; Stored the return value
+        
     INC     CX              ; Update Counter
+    INC     SI              ;
     
     JMP     DisplayClrLoop  ; 
     
 DisplayClrDone:
 
+    POP    BX;
     POP    CX;
 
     RET                     ;
     
-DisplayClear  ENDP           
+DisplayBufferFill  ENDP           
  
- ;-------------------------------------------------------------------------------
-   
+ASCIISegTable   LABEL   BYTE
+                PUBLIC  ASCIISegTable
+
+
+;       DW       pmlkhgn.jfedcba                ;ASCII character
+
+        DW      0000000000000000B               ;NUL
+        DW      0000000000000000B               ;SOH
+        DW      0000000000000000B               ;STX
+        DW      0000000000000000B               ;ETX
+        DW      0000000000000000B               ;EOT
+        DW      0000000000000000B               ;ENQ
+        DW      0000000000000000B               ;ACK
+        DW      0000000000000000B               ;BEL
+        DW      0000000000000000B               ;backspace
+        DW      0000000000000000B               ;TAB
+        DW      0000000000000000B               ;new line
+        DW      0000000000000000B               ;vertical tab
+        DW      0000000000000000B               ;form feed
+        DW      0000000000000000B               ;carriage return
+        DW      0000000000000000B               ;SO
+        DW      0000000000000000B               ;SI
+        DW      0000000000000000B               ;DLE
+        DW      0000000000000000B               ;DC1
+        DW      0000000000000000B               ;DC2
+        DW      0000000000000000B               ;DC3
+        DW      0000000000000000B               ;DC4
+        DW      0000000000000000B               ;NAK
+        DW      0000000000000000B               ;SYN
+        DW      0000000000000000B               ;ETB
+        DW      0000000000000000B               ;CAN
+        DW      0000000000000000B               ;EM
+        DW      0000000000000000B               ;SUB
+        DW      0000000000000000B               ;escape
+        DW      0000000000000000B               ;FS
+        DW      0000000000000000B               ;GS
+        DW      0000000000000000B               ;AS
+        DW      0000000000000000B               ;US
+
+;       DW       pmlkhgn.jfedcba                ;ASCII character
+
+        DW      0000000000000000B               ;space
+        DW      0000000000000000B               ;!
+        DW      0000001000000010B               ;"
+        DW      0000000000000000B               ;#
+        DW      0001001101101101B               ;$
+        DW      0000000000000000B               ;percent symbol
+        DW      0000000000000000B               ;&
+        DW      0000000000000010B               ;'
+        DW      0000000000111001B               ;(
+        DW      0000000000001111B               ;)
+        DW      0111111101000000B               ;*
+        DW      0001001101000000B               ;+
+        DW      0000000000000000B               ;,
+        DW      0000000101000000B               ;-
+        DW      0000000000000000B               ;.
+        DW      0010010000000000B               ;/
+        DW      0000000000111111B               ;0
+        DW      0001001000000000B               ;1
+        DW      0000000101011011B               ;2
+        DW      0000000001001111B               ;3
+        DW      0000000101100110B               ;4
+        DW      0000000101101101B               ;5
+        DW      0000000101111101B               ;6
+        DW      0010010000000001B               ;7
+        DW      0000000101111111B               ;8
+        DW      0000000101100111B               ;9
+        DW      0000000000000000B               ;:
+        DW      0000000000000000B               ;;
+        DW      0000110000000000B               ;<
+        DW      0000000101001000B               ;=
+        DW      0110000000000000B               ;>
+        DW      0001000001000011B               ;?
+
+;       DW       pmlkhgn.jfedcba                ;ASCII character
+
+        DW      0001000001011111B               ;@
+        DW      0000000101110111B               ;A
+        DW      0001001001001111B               ;B
+        DW      0000000000111001B               ;C
+        DW      0001001000001111B               ;D
+        DW      0000000100111001B               ;E
+        DW      0000000100110001B               ;F
+        DW      0000000001111101B               ;G
+        DW      0000000101110110B               ;H
+        DW      0001001000001001B               ;I
+        DW      0000000000011110B               ;J
+        DW      0000110100110000B               ;K
+        DW      0000000000111000B               ;L
+        DW      0100010000110110B               ;M
+        DW      0100100000110110B               ;N
+        DW      0000000000111111B               ;O
+        DW      0000000101110011B               ;P
+        DW      0000100000111111B               ;Q
+        DW      0000100101110011B               ;R
+        DW      0000000101101101B               ;S
+        DW      0001001000000001B               ;T
+        DW      0000000000111110B               ;U
+        DW      0100100000000110B               ;V
+        DW      0010100000110110B               ;W
+        DW      0110110000000000B               ;X
+        DW      0101010000000000B               ;Y
+        DW      0010010000001001B               ;Z
+        DW      0000000000111001B               ;[
+        DW      0100100000000000B               ;\
+        DW      0000000000001111B               ;]
+        DW      0000000000000000B               ;^
+        DW      0000000000001000B               ;_
+
+;       DW       pmlkhgn.jfedcba                ;ASCII character
+
+        DW      0000000000100000B               ;`
+        DW      0001000100011000B               ;a
+        DW      0000000101111100B               ;b
+        DW      0000000101011000B               ;c
+        DW      0000000101011110B               ;d
+        DW      0000000101111011B               ;e
+        DW      0000000100110001B               ;f
+        DW      0000000101101111B               ;g
+        DW      0000000101110100B               ;h
+        DW      0001000000000000B               ;i
+        DW      0000000000001110B               ;j
+        DW      0000110100110000B               ;k
+        DW      0001001000000000B               ;l
+        DW      0001000101010100B               ;m
+        DW      0000000101010100B               ;n
+        DW      0000000101011100B               ;o
+        DW      0000000101110011B               ;p
+        DW      0000000101100111B               ;q
+        DW      0000000101010000B               ;r
+        DW      0000000101101101B               ;s
+        DW      0000000100111000B               ;t
+        DW      0000000000011100B               ;u
+        DW      0000100000000100B               ;v
+        DW      0001000000011100B               ;w
+        DW      0110110000000000B               ;x
+        DW      0000000101101110B               ;y
+        DW      0010010000001001B               ;z
+        DW      0000000000000000B               ;{
+        DW      0001001000000000B               ;|
+        DW      0000000000000000B               ;}
+        DW      0000000000000001B               ;~
+        DW      0000000000000000B               ;rubout
+
+CODE    ENDS 
     
 DATA    SEGMENT PUBLIC  'DATA'
 
 
 DisplayArray       DISPLAYSTRUC <>      ;Where DisplayArray is in data mem
 
-DHandlerVar        DISPLAYHANDLERSTRUC <> ; Where DisplayHandler's counter is stored
+DHandlerVar1       DISPLAYVARS <> ; Where DisplayHandler's counter is stored
 
+DHandlerVar2       DISPLAYVARS <>      ;Where DisplayArray is in data mem
+
+    digit       DW      ?
+	
 DATA    ENDS
 
         END 

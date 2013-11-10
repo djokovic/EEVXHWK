@@ -1,0 +1,23 @@
+
+DOS 5.0 (038-N) 8086 LINKER, V2.7
+
+INPUT FILES: DISPLAY.OBJ, HW4_MAIN.OBJ, CONV.OBJ, HW4TEST.OBJ
+OUTPUT FILE: FINAL.LNK
+CONTROLS SPECIFIED IN INVOCATION COMMAND:
+DATE:  11/08/;3  TIME:  22:53:31
+
+
+LINK MAP OF MODULE DISPLAY
+
+LOGICAL SEGMENTS INCLUDED:
+LENGTH ADDRESS ALIGN  SEGMENT         CLASS           OVERLAY
+ 0000H ------    G    ??SEG                                         
+ 0330H ------    G    CODE            CODE                          
+ 0012H ------    G    DATA            DATA                          
+ 01E0H ------    G    STACK           STACK                         
+
+INPUT MODULES INCLUDED:
+DISPLAY.OBJ(DISPLAY)
+HW4_MAIN.OBJ(HW4_MAIN)
+CONV.OBJ(CONV)
+HW4TEST.OBJ(HW4TEST)

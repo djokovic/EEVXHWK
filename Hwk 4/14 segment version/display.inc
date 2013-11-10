@@ -22,17 +22,19 @@ SEGMENT_NULL    EQU     0               ; Byte value for ASCII_NULL in segment
 ; Display Addresses
 
 LEDDisplay      EQU     0               ; Display is hardware mapped to 0 - 7H
+LEDDisplay2     EQU     8               ; 14- seg also hardware mapped to 8h - 0DH
 
 
-DISPLAYSTRUC     STRUC           	;structure containing all queue info
-    array		DB	    Display_SIZE	DUP	(?) ;pointer to the function to get switch status
+DISPLAYSTRUC     STRUC           	    ;structure containing all queue info
+    array		DB	    Display_SIZE	DUP	(?) ;pointer to the function to get switch 
+                                        ;status
 DISPLAYSTRUC      ENDS
 
 ;Structure for storing Queue return values or args
 
 DISPLAYVARS      STRUC           	    ;structure containing all queue info
-    digit       DW      ?
-    buffer		DB	    Display_SIZE	DUP	(?) ;pointer to the function to get switch status
+    buffer		DB	    Display_SIZE	DUP	(?) ;pointer to the function to get switch 
+                                        ;status
 DISPLAYVARS      ENDS
 
 
@@ -47,19 +49,4 @@ INTCtrlrCVal    EQU     00001H          ;set priority for timers to 1 and enable
                                         ;000000000000----  reserved
                                         ;------------0---  enable timer interrupt
                                         ;-------------001  timer priority
-TimerEOI        EQU     00008H          ;Timer EOI command (same for all timers)
-NonSpecEOI      EQU     08000H          ;Non-specific EOI command
 
-
-; Timer Definitions
-
-; Addresses
-Tmr0Ctrl        EQU     0FF56H          ;address of Timer 0 Control Register
-Tmr0MaxCntA     EQU     0FF52H          ;address of Timer 0 Max Count A Register
-Tmr0Count       EQU     0FF50H          ;address of Timer 0 Count Register
-Tmr2Ctrl        EQU     0FF66H          ;address of Timer 2 Control Register
-Tmr2MaxCnt      EQU     0FF62H          ;address of Timer 2 Max Count A Register
-Tmr2Count       EQU     0FF60H          ;address of Timer 2 Count Register
-
-; Interrupt Vectors
-Tmr0Vec         EQU     8               ;interrupt vector for Timer 0

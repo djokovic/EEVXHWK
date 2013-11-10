@@ -40,3 +40,9 @@ Tmr0CtrlVal     EQU     0E001H          ;value to write to Timer 0 Control Regis
                                       
                                         ; Control Register Values
 CTS_PER_MILSEC  EQU     5000            ; 20MHZ/(4 * 1KHz) = 5000 counts per MS
+TimerEOI        EQU     00008H          ;Timer EOI command (same for all timers)
+NonSpecEOI      EQU     08000H          ;Non-specific EOI command
+
+
+; Interrupt Vectors
+Tmr0Vec         EQU     8               ;interrupt vector for Timer 0

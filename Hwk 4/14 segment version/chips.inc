@@ -26,3 +26,5 @@ MPCSval         EQU     00183H          ;PCS in I/O space, use PCS5/6, 3 wait st
                                         ;---------0------  PCS in I/O space
                                         ;-------------0--  wait for RDY inputs
                                         ;--------------11  3 wait states
+PACSreg         EQU     0FFA4H          ;address of PACS register
+MPCSreg         EQU     0FFA8H          ;address of MPCS register

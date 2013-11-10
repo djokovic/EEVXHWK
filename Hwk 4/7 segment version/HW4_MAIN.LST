@@ -1,0 +1,522 @@
+8086/87/88/186 MACRO ASSEMBLER    HW4_MAIN                                                 22:53:30  11/08/;3  PAGE    1
+
+
+DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE HW4_MAIN
+OBJECT MODULE PLACED IN HW4_MAIN.OBJ
+ASSEMBLER INVOKED BY:  C:\UTIL\ASM86.EXE HW4_MAIN.ASM M1 DB EP
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                             1     
+                             2             NAME    hw4_main
+                             3     
+                             4     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                             5     ;                                                                            ;
+                             6     ;                                   hw4_main                                 ;
+                             7     ;                            Homework #3 Main Loop                           ;
+                             8     ;                                  EE/CS  51                                 ;
+                             9     ;                               Anjian Wu                                    ;
+                            10     ;                               TA: Pipe-mazo                                ;
+                            11     ;                                                                            ;
+                            12     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            13     ;                                 What's in here?
+                            14     ;
+                            15     ;   Mainloop    -   This is the mainloop that initializes chip selects,
+                            16     ;                   timer interrupts, and display.
+                            17     ;
+                            18     ;   InitCS      -   This function sets up the chip select
+                            19     ;
+                            20     ;   InitTimer  -    This function initializes the timer interrupts
+                            21     ;
+                            22     ;
+                            23     ;                               Pseudo code - 11-02-2013 - Anjian Wu
+                            24     ;
+                            25     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            26     ; Description:      This program tests the display functions for Homework
+                            27     ;                   #4.  It calls Glenn's mystery functions that display
+                            28     ;                   test strings into the Display.
+                            29     ; Input:            None.
+                            30     ; Output:           Display, 7-segment 8 chars.
+                            31     ;
+                            32     ; User Interface:   Display, 7-segment 8 chars.
+                            33     ;
+                            34     ; Error Handling:   None.
+                            35     ;
+                            36     ; Algorithms:       None.
+                            37     ; Data Structures:  Arrays.
+                            38     ;
+                            39     ; Known Bugs:       None.
+                            40     ; Limitations:      Only outputs 8 char strings max.
+                            41     ;
+                            42     ; Revision History:
+                            43     ;History:                       11-04-2013: Pseudo code - Anjian Wu
+                            44     
+                            45     
+                            46 +1  $INCLUDE(general.inc);
+                      =1    47     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    48     ;                                                                               ;
+                      =1    49     ;                                  General.INC                                  ;
+                      =1    50     ;                               General Constants                           ;
+8086/87/88/186 MACRO ASSEMBLER    HW4_MAIN                                                 22:53:30  11/08/;3  PAGE    2
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1    51     ;                                 Include File                              ;
+                      =1    52     ;                                                                           ;
+                      =1    53     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    54     
+                      =1    55     ; This file contains the definitions for the queue functions
+                      =1    56     ;
+                      =1    57     ; Revision History:
+                      =1    58     ;    11/02/2013                 Created - Anjian Wu
+                      =1    59     
+                      =1    60     
+                      =1    61     ; Queue Constants
+                      =1    62     
+  0200                =1    63     MAX_Q_LENG          EQU     512          ;Maxlength allowed for byte or word queue
+                      =1    64     
+                      =1    65     ; String Constants
+                      =1    66     
+  0000                =1    67     ASCII_NULL      EQU     0           ;
+                      =1    68     
+                      =1    69     ; General Definitions
+                      =1    70     
+  0001                =1    71     FIRST_RESERVED_VEC      EQU     1       ;reserve vectors 1-3
+  0003                =1    72     LAST_RESERVED_VEC       EQU     3
+  0100                =1    73     NUM_IRQ_VECTORS         EQU     256     ;number of interrupt vectors
+                      =1    74     
+                            75 +1  $INCLUDE(timer.inc);
+                      =1    76     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    77     ;                                                                               ;
+                      =1    78     ;                                  Main.INC                                     ;
+                      =1    79     ;                              MainLoop Constants                           ;
+                      =1    80     ;                                 Include File                              ;
+                      =1    81     ;                                                                           ;
+                      =1    82     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    83     
+                      =1    84     ; This file contains the definitions for the queue functions
+                      =1    85     ;
+                      =1    86     ; Revision History:
+                      =1    87     ;    11/02/2013                 Created - Anjian Wu
+                      =1    88     
+                      =1    89     
+                      =1    90     
+                      =1    91                                             ; Timer Definitions
+                      =1    92     
+                      =1    93     ; Addresses
+  FF56                =1    94     Tmr0Ctrl        EQU     0FF56H          ;address of Timer 0 Control Register
+  FF52                =1    95     Tmr0MaxCntA     EQU     0FF52H          ;address of Timer 0 Max Count A Register
+  FF50                =1    96     Tmr0Count       EQU     0FF50H          ;address of Timer 0 Count Register
+  FF66                =1    97     Tmr2Ctrl        EQU     0FF66H          ;address of Timer 2 Control Register
+  FF62                =1    98     Tmr2MaxCnt      EQU     0FF62H          ;address of Timer 2 Max Count A Register
+  FF60                =1    99     Tmr2Count       EQU     0FF60H          ;address of Timer 2 Count Register
+                      =1   100     
+                      =1   101     ; Control Register Values
+  E001                =1   102     Tmr0CtrlVal     EQU     0E001H          ;value to write to Timer 0 Control Register
+                      =1   103                                             ;1---------------  enable timer
+                      =1   104                                             ;-1--------------  write to control
+                      =1   105                                             ;--1-------------  enable interrupts
+8086/87/88/186 MACRO ASSEMBLER    HW4_MAIN                                                 22:53:30  11/08/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   106                                             ;----000000------  reserved
+                      =1   107                                             ;---0------0-----  read only
+                      =1   108                                             ;-----------0----  TMRIN0 is an enable
+                      =1   109                                             ;------------00--  count timer 2 outs
+                      =1   110                                             ;--------------0-  single counter mode
+                      =1   111                                             ;---------------1  continuous mode
+                      =1   112     
+                      =1   113     
+                      =1   114     ; Control Register Values
+                      =1   115                                           
+                      =1   116                                             ; Control Register Values
+  1388                =1   117     CTS_PER_MILSEC  EQU     5000            ; 20MHZ/(4 * 1KHz) = 5000 counts per MS
+  0008                =1   118     TimerEOI        EQU     00008H          ;Timer EOI command (same for all timers)
+  8000                =1   119     NonSpecEOI      EQU     08000H          ;Non-specific EOI command
+                      =1   120     
+                      =1   121     
+                      =1   122     ; Interrupt Vectors
+  0008                =1   123     Tmr0Vec         EQU     8               ;interrupt vector for Timer 0
+                           124 +1  $INCLUDE(chips.inc);
+                      =1   125     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   126     ;                                                                               ;
+                      =1   127     ;                                  Main.INC                                     ;
+                      =1   128     ;                           MainLoop Constants                                  ;
+                      =1   129     ;                                 Include File                              ;
+                      =1   130     ;                                                                           ;
+                      =1   131     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   132     
+                      =1   133     ; This file contains the definitions for the queue functions
+                      =1   134     ;
+                      =1   135     ; Revision History:
+                      =1   136     ;    11/02/2013                 Created - Anjian Wu
+                      =1   137     
+                      =1   138     
+                      =1   139     
+                      =1   140     ; Control Register Values
+  0003                =1   141     PACSval         EQU     00003H          ;PCS base at 0, 3 wait states
+                      =1   142                                             ;0000000000------  starts at address 0
+                      =1   143                                             ;----------000---  reserved
+                      =1   144                                             ;-------------0--  wait for RDY inputs
+                      =1   145                                             ;--------------11  3 wait states
+  0183                =1   146     MPCSval         EQU     00183H          ;PCS in I/O space, use PCS5/6, 3 wait states
+                      =1   147                                             ;0---------000---  reserved
+                      =1   148                                             ;-0000001--------  MCS is 8KB
+                      =1   149                                             ;--------1-------  output PCS5/PCS6
+                      =1   150                                             ;---------0------  PCS in I/O space
+                      =1   151                                             ;-------------0--  wait for RDY inputs
+                      =1   152                                             ;--------------11  3 wait states
+  FFA4                =1   153     PACSreg         EQU     0FFA4H          ;address of PACS register
+  FFA8                =1   154     MPCSreg         EQU     0FFA8H          ;address of MPCS register
+                           155 +1  $INCLUDE(main.inc);
+                      =1   156     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   157     ;                                                                               ;
+                      =1   158     ;                                  Main.INC                                     ;
+                      =1   159     ;                           MainLoop Constants                                  ;
+                      =1   160     ;                                 Include File                              ;
+8086/87/88/186 MACRO ASSEMBLER    HW4_MAIN                                                 22:53:30  11/08/;3  PAGE    4
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   161     ;                                                                           ;
+                      =1   162     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   163     
+                      =1   164     ; This file contains the definitions for the queue functions
+                      =1   165     ;
+                      =1   166     ; Revision History:
+                      =1   167     ;    11/02/2013                 Created - Anjian Wu
+                      =1   168     
+                      =1   169     
+                      =1   170     
+                      =1   171     ; Addresses
+  FF32                =1   172     INTCtrlrCtrl    EQU     0FF32H          ;address of interrupt controller for timer
+  FF22                =1   173     INTCtrlrEOI     EQU     0FF22H          ;address of interrupt controller EOI register
+                      =1   174     
+  0001                =1   175     INTCtrlrCVal    EQU     00001H          ;set priority for timers to 1 and enable
+                      =1   176                                             ;000000000000----  reserved
+                      =1   177                                             ;------------0---  enable timer interrupt
+                      =1   178                                             ;-------------001  timer priority
+                           179     
+                           180     
+                           181     CGROUP  GROUP   CODE
+                           182     DGROUP  GROUP   STACK
+                           183     
+                           184     
+                           185     
+----                       186     CODE    SEGMENT PUBLIC 'CODE'
+                           187     
+                           188     
+                           189             ASSUME  CS:CGROUP, DS:DGROUP
+                           190     
+                           191     
+                           192     ;external function declarations
+                           193     
+                           194     
+                           195             EXTRN   DisplayHandlerInit:NEAR          ;convert a number to a decimal strin
+                                   g
+                           196     
+                           197             EXTRN   DisplayTest:NEAR          ; Glenn's Test Code
+                           198     
+0000                       199     START:  
+                           200     
+0000                       201     MAIN:
+0000 B8----         R      202             MOV     AX, DGROUP              ;initialize the stack pointer
+0003 8ED0                  203             MOV     SS, AX
+0005 BCE00190       R      204             MOV     SP, OFFSET(DGROUP:TopOfStack)
+                           205     
+0009 B8----         R      206             MOV     AX, DGROUP              ;initialize the data segment
+000C 8ED8                  207             MOV     DS, AX
+                           208     
+000E E83200                209             CALL    InitCS                   ; Initialize the chip selects
+0011 E80A00                210             CALL    ClrIRQVectors           ;
+                           211             
+0014 E80000         E      212             CALL    DisplayHandlerInit       ; Initialize display handler
+                           213     
+0017 E84500                214             CALL    InitTimer                ; Initialize timer events, note interrupts
+8086/87/88/186 MACRO ASSEMBLER    HW4_MAIN                                                 22:53:30  11/08/;3  PAGE    5
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           215             
+001A FB                    216             STI                              ; start NOW
+001B E80000         E      217             CALL    DisplayTest              ;Call Glenn's tests
+                           218             
+                           219             
+                           220     
+                           221     ; ClrIRQVectors
+                           222     ;
+                           223     ; Description:      This functions installs the IllegalEventHandler for all
+                           224     ;                   interrupt vectors in the interrupt vector table.  Note
+                           225     ;                   that all 256 vectors are initialized so the code must be
+                           226     ;                   located above 400H.  The initialization skips  (does not
+                           227     ;                   initialize vectors) from vectors FIRST_RESERVED_VEC to
+                           228     ;                   LAST_RESERVED_VEC.
+                           229     ;
+                           230     ; Arguments:        None.
+                           231     ; Return Value:     None.
+                           232     ;
+                           233     ; Local Variables:  CX    - vector counter.
+                           234     ;                   ES:SI - pointer to vector table.
+                           235     ; Shared Variables: None.
+                           236     ; Global Variables: None.
+                           237     ;
+                           238     ; Input:            None.
+                           239     ; Output:           None.
+                           240     ;
+                           241     ; Error Handling:   None.
+                           242     ;
+                           243     ; Algorithms:       None.
+                           244     ; Data Structures:  None.
+                           245     ;
+                           246     ; Registers Used:   flags, AX, CX, SI, ES
+                           247     ; Stack Depth:      1 word
+                           248     ;
+                           249     ; Author:           Glen George
+                           250     ; Last Modified:    Feb. 8, 2002
+                           251     
+001E                       252     ClrIRQVectors   PROC    NEAR
+                           253     
+                           254     
+001E                       255     InitClrVectorLoop:              ;setup to store the same handler 256 times
+                           256     
+001E 33C0                  257             XOR     AX, AX          ;clear ES (interrupt vectors are in segment 0)
+0020 8EC0                  258             MOV     ES, AX
+0022 BE0000                259             MOV     SI, 0           ;initialize SI to skip RESERVED_VECS (4 bytes each)
+                           260     
+0025 B90001                261             MOV     CX, 256         ;up to 256 vectors to initialize
+                           262     
+                           263     
+0028                       264     ClrVectorLoop:                  ;loop clearing each vector
+                           265                                     ;check if should store the vector
+0028 83FE04                266             CMP     SI, 4 * FIRST_RESERVED_VEC
+002B 7205                  267             JB      DoStore         ;if before start of reserved field - store it
+002D 83FE0C                268             CMP     SI, 4 * LAST_RESERVED_VEC
+0030 760B                  269             JBE     DoneStore       ;if in the reserved vectors - don't store it
+8086/87/88/186 MACRO ASSEMBLER    HW4_MAIN                                                 22:53:30  11/08/;3  PAGE    6
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           270             ;JA     DoStore         ;otherwise past them - so do the store
+                           271     
+0032                       272     DoStore:                        ;store the vector
+0032 26C7045200     R      273             MOV     ES: WORD PTR [SI], OFFSET(IllegalEventHandler)
+0037 26C74402----   R      274             MOV     ES: WORD PTR [SI + 2], SEG(IllegalEventHandler)
+                           275     
+003D                       276     DoneStore:                      ;done storing the vector
+003D 83C604                277             ADD     SI, 4           ;update pointer to next vector
+                           278     
+0040 E2E6                  279             LOOP    ClrVectorLoop   ;loop until have cleared all vectors
+                           280             ;JMP    EndClrIRQVectors;and all done
+                           281     
+                           282     
+0042                       283     EndClrIRQVectors:               ;all done, return
+0042 C3                    284             RET
+                           285     
+                           286     
+                           287     ClrIRQVectors   ENDP
+                           288     
+                           289     
+                           290     ; InitCS
+                           291     ;
+                           292     ; Description:       Initialize the Peripheral Chip Selects on the 80188.
+                           293     ;
+                           294     ; Operation:         Write the initial values to the PACS and MPCS registers.
+                           295     ;
+                           296     ; Arguments:         None.
+                           297     ; Return Value:      None.
+                           298     ;
+                           299     ; Local Variables:   None.
+                           300     ; Shared Variables:  None.
+                           301     ; Global Variables:  None.
+                           302     ;
+                           303     ; Input:             None.
+                           304     ; Output:            None.
+                           305     ;
+                           306     ; Error Handling:    None.
+                           307     ;
+                           308     ; Algorithms:        None.
+                           309     ; Data Structures:   None.
+                           310     ;
+                           311     ; Registers Changed: AX, DX
+                           312     ; Stack Depth:       0 words
+                           313     ;
+                           314     ; Author:            Glen George
+                           315     ; Last Modified:     Oct. 29, 1997
+                           316     ;                    Pseudo code - 11-02-2013 - Anjian Wu
+                           317     
+                           318     
+0043                       319     InitCS  PROC    NEAR; DO what we did for HWK1 part 5 :)
+                           320     
+                           321     
+0043 BAA4FF                322             MOV     DX, PACSreg     ;setup to write to PACS register
+0046 B80300                323             MOV     AX, PACSval
+0049 EE                    324             OUT     DX, AL          ;write PACSval to PACS (base at 0, 3 wait states)
+8086/87/88/186 MACRO ASSEMBLER    HW4_MAIN                                                 22:53:30  11/08/;3  PAGE    7
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           325     
+004A BAA8FF                326             MOV     DX, MPCSreg     ;setup to write to MPCS register
+004D B88301                327             MOV     AX, MPCSval
+0050 EE                    328             OUT     DX, AL          ;write MPCSval to MPCS (I/O space, 3 wait states)
+                           329     
+                           330     
+0051 C3                    331             RET                     ;done so return
+                           332     
+                           333     
+                           334     InitCS  ENDP
+                           335     
+                           336     ; IllegalEventHandler
+                           337     ;
+                           338     ; Description:       This procedure is the event handler for illegal
+                           339     ;                    (uninitialized) interrupts.  It does nothing - it just
+                           340     ;                    returns after sending a non-specific EOI.
+                           341     ;
+                           342     ; Operation:         Send a non-specific EOI and return.
+                           343     ;
+                           344     ; Arguments:         None.
+                           345     ; Return Value:      None.
+                           346     ;
+                           347     ; Local Variables:   None.
+                           348     ; Shared Variables:  None.
+                           349     ; Global Variables:  None.
+                           350     ;
+                           351     ; Input:             None.
+                           352     ; Output:            None.
+                           353     ;
+                           354     ; Error Handling:    None.
+                           355     ;
+                           356     ; Algorithms:        None.
+                           357     ; Data Structures:   None.
+                           358     ;
+                           359     ; Registers Changed: None
+                           360     ; Stack Depth:       2 words
+                           361     ;
+                           362     ; Author:            Glen George
+                           363     ; Last Modified:     Dec. 25, 2000
+                           364     
+0052                       365     IllegalEventHandler     PROC    NEAR
+                           366     
+0052 90                    367             NOP                             ;do nothing (can set breakpoint here)
+                           368     
+0053 50                    369             PUSH    AX                      ;save the registers
+0054 52                    370             PUSH    DX
+                           371     
+0055 BA22FF                372             MOV     DX, INTCtrlrEOI         ;send a non-sepecific EOI to the
+0058 B80080                373             MOV     AX, NonSpecEOI          ;   interrupt controller to clear out
+005B EE                    374             OUT     DX, AL                  ;   the interrupt that got us here
+                           375     
+005C 5A                    376             POP     DX                      ;restore the registers
+005D 58                    377             POP     AX
+                           378     
+005E CF                    379             IRET                            ;and return
+8086/87/88/186 MACRO ASSEMBLER    HW4_MAIN                                                 22:53:30  11/08/;3  PAGE    8
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           380     
+                           381     
+                           382     IllegalEventHandler     ENDP
+                           383     ; InitTimer
+                           384     ;
+                           385     ; Description:       Initialize the 80188 Timers.  The timers are initialized
+                           386     ;                    to generate interrupts every MS_PER_SEG milliseconds.
+                           387     ;                    Timer0 counter is also clear, and the interrupt control is
+                           388     ;                    set.
+                           389     ;
+                           390     ; Operation:         The appropriate values are written to the timer control
+                           391     ;                    registers in the PCB.  Also, the timer count registers
+                           392     ;                    are reset to zero.  Finally, the interrupt controller is
+                           393     ;                    setup to accept timer interrupts and any pending
+                           394     ;                    interrupts are cleared by sending a TimerEOI to the
+                           395     ;                    interrupt controller.
+                           396     ;
+                           397     ; Arguments:         None.
+                           398     ; Return Value:      None.
+                           399     ;
+                           400     ; Local Variables:   None.
+                           401     ; Shared Variables:  None.
+                           402     ; Global Variables:  None.
+                           403     ;
+                           404     ; Input:             None.
+                           405     ; Output:            None.
+                           406     ;
+                           407     ; Error Handling:    None.
+                           408     ;
+                           409     ; Algorithms:        None.
+                           410     ; Data Structures:   None.
+                           411     ;
+                           412     ; Registers Changed: AX, DX
+                           413     ; Stack Depth:       0 words
+                           414     ;
+                           415     ; Author:            Glen George
+                           416     ; Last Modified:     Oct. 29, 1997
+                           417     ;                    Pseudo code - 11-02-2013 - Anjian Wu
+                           418     
+                           419     
+005F                       420     InitTimer       PROC    NEAR
+                           421     
+                           422     
+                           423                                     ;initialize Timer #0 for MS_PER_SEG ms interrupts
+005F BA50FF                424             MOV     DX, Tmr0Count   ;initialize the count register to 0
+0062 33C0                  425             XOR     AX, AX
+0064 EE                    426             OUT     DX, AL
+                           427     
+0065 BA52FF                428             MOV     DX, Tmr0MaxCntA ;setup max count for milliseconds per segment
+0068 B88813                429             MOV     AX, CTS_PER_MILSEC  ;   count so can time the segments
+006B EE                    430             OUT     DX, AL
+                           431     
+006C BA56FF                432             MOV     DX, Tmr0Ctrl    ;setup the control register, interrupts on
+006F B801E0                433             MOV     AX, Tmr0CtrlVal
+0072 EE                    434             OUT     DX, AL
+8086/87/88/186 MACRO ASSEMBLER    HW4_MAIN                                                 22:53:30  11/08/;3  PAGE    9
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           435     
+                           436                                     ;initialize interrupt controller for timers
+0073 BA32FF                437             MOV     DX, INTCtrlrCtrl;setup the interrupt control register
+0076 B80100                438             MOV     AX, INTCtrlrCVal
+0079 EE                    439             OUT     DX, AL
+                           440     
+007A BA22FF                441             MOV     DX, INTCtrlrEOI ;send a timer EOI (to clear out controller)
+007D B80800                442             MOV     AX, TimerEOI
+0080 EE                    443             OUT     DX, AL
+                           444     
+                           445     
+0081 C3                    446             RET                     ;done so return
+                           447     
+                           448     
+                           449     InitTimer       ENDP
+                           450     
+----                       451     CODE    ENDS
+                           452     
+                           453     
+                           454     
+                           455     ;the stack
+                           456     
+----                       457     STACK   SEGMENT STACK  'STACK'
+                           458     
+0000 (80                   459                     DB      80 DUP ('Stack ')       ;240 words
+     537461636B20
+     )
+                           460     
+01E0                       461     TopOfStack      LABEL   WORD
+                           462     
+----                       463     STACK   ENDS
+                           464     
+                           465     
+                           466     
+                           467             END     START
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND
