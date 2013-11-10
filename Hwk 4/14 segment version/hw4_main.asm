@@ -3,29 +3,39 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
-;                                   hw4_main                                 ;
-;                            Homework #3 Main Loop                           ;
-;                                  EE/CS  51                                 ;
-;                               Anjian Wu                                    ;
+;                                 hw4_main                                   ;
+;                            Homework #4 Main Loop                           ;
+;                                EE/CS  51                                   ;
+;                                 Anjian Wu                                  ;
 ;                               TA: Pipe-mazo                                ;
 ;                                                                            ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                 What's in here?
 ;
-;   Mainloop    -   This is the mainloop that initializes chip selects,
-;                   timer interrupts, and display.
+;   Mainloop        -   This is the mainloop that initializes chip selects,
+;                       timer interrupts, and display.
 ;
-;   InitCS      -   This function sets up the chip select
+;   ClrIRQVectors   -   This functions installs the IllegalEventHandler for all
+;                       interrupt vectors in the interrupt vector table.
 ;
-;   InitTimer  -    This function initializes the timer interrupts
+;   InitCS          -   Initialize the Peripheral Chip Selects on the 80188.
+;
+;   InitTimer       -   Initialize the 80188 Timers. Only uses Timer0 for now
+;
+;   IllegalEventHandler -   This procedure is the event handler for illegal
+;                           (uninitialized) interrupts.  It does nothing 
 ;
 ;
 ;       			Pseudo code - 11-02-2013 - Anjian Wu
-;
+;              	    Added to Main - 11-09-2013 - Anjian Wu
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ; Description:      This program tests the display functions for Homework
-;                   #4.  It calls Glenn's mystery functions that display
-;                   test strings into the Display.
+;                   #4.  It calls Glenn's test functions that display
+;                   test strings into the Display, and then loops between
+;                   DisplayNum and DisplayHex
+;
 ; Input:            None.
 ; Output:           Display, 7-segment 8 chars.
 ;
@@ -46,7 +56,6 @@
 $INCLUDE(general.inc);
 $INCLUDE(timer.inc);
 $INCLUDE(chips.inc);
-$INCLUDE(main.inc);
 
 
 CGROUP  GROUP   CODE
@@ -96,7 +105,7 @@ MAIN:
 ;                   that all 256 vectors are initialized so the code must be
 ;                   located above 400H.  The initialization skips  (does not
 ;                   initialize vectors) from vectors FIRST_RESERVED_VEC to
-;                   LAST_RESERVED_VEC.
+;                   LAST_RESERVED_VEC. This is taken from Glenn's exmaples
 ;
 ; Arguments:        None.
 ; Return Value:     None.
@@ -119,6 +128,8 @@ MAIN:
 ;
 ; Author:           Glen George
 ; Last Modified:    Feb. 8, 2002
+;              	    Added to Main - 11-09-2013 - Anjian Wu
+
 
 ClrIRQVectors   PROC    NEAR
 
@@ -133,18 +144,18 @@ InitClrVectorLoop:              ;setup to store the same handler 256 times
 
 
 ClrVectorLoop:                  ;loop clearing each vector
-				;check if should store the vector
-	CMP     SI, 4 * FIRST_RESERVED_VEC
-	JB	DoStore		;if before start of reserved field - store it
-	CMP	SI, 4 * LAST_RESERVED_VEC
-	JBE	DoneStore	;if in the reserved vectors - don't store it
-	;JA	DoStore		;otherwise past them - so do the store
+                                ;check if should store the vector
+        CMP     SI, 4 * FIRST_RESERVED_VEC
+        JB	    DoStore		     ;if before start of reserved field - store it
+        CMP	    SI, 4 * LAST_RESERVED_VEC
+        JBE	    DoneStore	     ;if in the reserved vectors - don't store it
+        ;JA	DoStore		         ;otherwise past them - so do the store
 
 DoStore:                        ;store the vector
         MOV     ES: WORD PTR [SI], OFFSET(IllegalEventHandler)
         MOV     ES: WORD PTR [SI + 2], SEG(IllegalEventHandler)
 
-DoneStore:			;done storing the vector
+DoneStore:			            ;done storing the vector
         ADD     SI, 4           ;update pointer to next vector
 
         LOOP    ClrVectorLoop   ;loop until have cleared all vectors
@@ -185,9 +196,11 @@ ClrIRQVectors   ENDP
 ; Author:            Glen George
 ; Last Modified:     Oct. 29, 1997
 ;              	     Pseudo code - 11-02-2013 - Anjian Wu
+;              	     Added to Main - 11-09-2013 - Anjian Wu
 
 
-InitCS  PROC    NEAR; DO what we did for HWK1 part 5 :)
+
+InitCS  PROC    NEAR; Do what we did for HWK1 part 5 :)
 
 
         MOV     DX, PACSreg     ;setup to write to PACS register
@@ -232,6 +245,8 @@ InitCS  ENDP
 ;
 ; Author:            Glen George
 ; Last Modified:     Dec. 25, 2000
+;              	     Added to Main - 11-09-2013 - Anjian Wu
+
 
 IllegalEventHandler     PROC    NEAR
 
@@ -286,28 +301,35 @@ IllegalEventHandler     ENDP
 ; Author:            Glen George
 ; Last Modified:     Oct. 29, 1997
 ;              	     Pseudo code - 11-02-2013 - Anjian Wu
+;              	     Added to Main - 11-09-2013 - Anjian Wu
 
 
 InitTimer       PROC    NEAR
 
-
+InitTimerCountSet:
                                 ;initialize Timer #0 for MS_PER_SEG ms interrupts
         MOV     DX, Tmr0Count   ;initialize the count register to 0
         XOR     AX, AX
         OUT     DX, AL
+InitTimerMaxSet:
 
         MOV     DX, Tmr0MaxCntA ;setup max count for milliseconds per segment
         MOV     AX, CTS_PER_MILSEC  ;   count so can time the segments
         OUT     DX, AL
+        
+InitTimerControlSet:
 
-        MOV     DX, Tmr0Ctrl    ;setup the control register, interrupts on
-        MOV     AX, Tmr0CtrlVal
+        MOV     DX, Tmr0Ctrl    ;setup the control register
+        MOV     AX, Tmr0CtrlVal ;Set appropriate bits to timer register
         OUT     DX, AL
+        
+InitTimerIntControlSet:              
 
                                 ;initialize interrupt controller for timers
         MOV     DX, INTCtrlrCtrl;setup the interrupt control register
         MOV     AX, INTCtrlrCVal
         OUT     DX, AL
+InitTimerDone:
 
         MOV     DX, INTCtrlrEOI ;send a timer EOI (to clear out controller)
         MOV     AX, TimerEOI

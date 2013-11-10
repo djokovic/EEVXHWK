@@ -2,6 +2,7 @@ NAME        conv
 
 ; local include files
 $INCLUDE(CONV.inc)
+$INCLUDE(general.inc)
 
 ;Procedure:			Hex2String
 ;

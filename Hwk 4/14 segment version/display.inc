@@ -1,12 +1,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                         	;
 ;                                  Display.INC                         		;
-;                           Display Constants                            	;
+;                               Display Constants                           ;
 ;                                 Include File                              ;
 ;                                                                           ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; This file contains the definitions for the queue functions
+; This file contains the definitions for the display functions
 ;
 ; Revision History:
 ;    11/02/2013			Created - Anjian Wu
@@ -18,6 +18,7 @@
 ArrayEmpty      EQU     0               ; Empty is set at 0 index
 Display_SIZE    EQU     8               ; Size of chars that can fit in display
 SEGMENT_NULL    EQU     0               ; Byte value for ASCII_NULL in segment
+SegPTRAdjust    EQU     1               ; Since we want WORD, we need to adjust 
 
 ; Display Addresses
 
@@ -26,27 +27,9 @@ LEDDisplay2     EQU     8               ; 14- seg also hardware mapped to 8h - 0
 
 
 DISPLAYSTRUC     STRUC           	    ;structure containing all queue info
-    array		DB	    Display_SIZE	DUP	(?) ;pointer to the function to get switch 
+    buffer		DB	    Display_SIZE	DUP	(?) ;pointer to the function to get switch 
                                         ;status
 DISPLAYSTRUC      ENDS
 
-;Structure for storing Queue return values or args
 
-DISPLAYVARS      STRUC           	    ;structure containing all queue info
-    buffer		DB	    Display_SIZE	DUP	(?) ;pointer to the function to get switch 
-                                        ;status
-DISPLAYVARS      ENDS
-
-
-; Interrupt Controller Definitions
-
-; Addresses
-INTCtrlrCtrl    EQU     0FF32H          ;address of interrupt controller for timer
-INTCtrlrEOI     EQU     0FF22H          ;address of interrupt controller EOI register
-
-; Register Values
-INTCtrlrCVal    EQU     00001H          ;set priority for timers to 1 and enable
-                                        ;000000000000----  reserved
-                                        ;------------0---  enable timer interrupt
-                                        ;-------------001  timer priority
 
