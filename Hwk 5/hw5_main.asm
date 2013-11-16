@@ -72,7 +72,6 @@ CODE    SEGMENT PUBLIC 'CODE'
 
 
         EXTRN   KeyHandlerInit:NEAR    ;initialize keyhandler
-        EXTRN   KeyCheck:NEAR          ;checks if there is a key pressed
 
 
 START:  
@@ -88,14 +87,13 @@ MAIN:
         CALL    InitCS                   ; Initialize the chip selects
         CALL    ClrIRQVectors           ;
         
-        CALL    KeyHandlerInit       ; Initialize display handler
+        CALL    KeyHandlerInit          ; Initialize keypad handler
 
         CALL    InitTimer                ; Initialize timer events, note interrupts
         
         STI                              ; start NOW
         
 Looping:
-        CALL    KeyCheck              ;Now keep checking for new keys forever
                                       ; EnqueueEvent is handled in Key functions
         JMP     Looping
         
@@ -309,6 +307,7 @@ IllegalEventHandler     ENDP
 
 InitTimer       PROC    NEAR
 
+;-------------------TIMER 1 Interrupt Setup--------------------------------------
 InitTimerCountSet:
                                 ;initialize Timer #0 for MS_PER_SEG ms interrupts
         MOV     DX, Tmr1Count   ;initialize the count register to 0
