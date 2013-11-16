@@ -1,0 +1,17 @@
+set 0 keypad.keyhandler
+set 1 keypad.keyhandler.KeyHandKeySort
+
+
+DUMPs
+
+
+d   keypad.Dflag 2                                      
+d   keypad.Dcounter 2  
+d   keypad.Rcounter 2
+d   keypad.DebouncedKey 2  	
+d   keypad.keytemp 2		
+d   EventBuf
+ 
+
+
+ 

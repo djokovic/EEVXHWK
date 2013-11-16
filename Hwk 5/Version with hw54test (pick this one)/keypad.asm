@@ -122,15 +122,16 @@ $INCLUDE(timer.inc);
 ;------------------------------------------------------------------------------
 
 CGROUP  GROUP   CODE
+DGROUP GROUP    DATA
 
 CODE SEGMENT PUBLIC 'CODE'
 
-        ASSUME  CS:CGROUP, DS:DATA
+        ASSUME  CS:CGROUP, DS:DGROUP
 
 ;-------------------------------------------------------------------------------
+        EXTRN   EnqueueEvent:NEAR          ; Used to convert passed AX into hex ASCII
+        EXTRN   KeyHandlerTable:NEAR   ;
 
-        EXTRN   KeyHandlerTable:NEAR          ; Used to convert passed AX into dec ASCII
-        EXTRN   EnqueueEvent:NEAR          ; Used to convert passed AX into dec ASCII
 
     
 KeyHandler		PROC    NEAR
@@ -148,7 +149,7 @@ KeyHandInit:
 KeyRowLoop:
 
     CMP     CX, numOfRows   ; Check to see if counter is done with all rows
-    JG      KeyRowLoopExit  ; If so, then exit loop
+    JGE     KeyRowLoopExit  ; If so, then exit loop
     ;JLE    KeyRowLoopBody  ; Else, continue
     
 KeyRowLoopBody:
@@ -158,7 +159,7 @@ KeyRowLoopBody:
     IN      AL, DX          ; Grab the next row's column values
     
     NOT     AX              ; Keys are 'active' low   
-    AND     AX, 0x000F      ; Mask off the unused bits (only lowest nibble needed)
+    AND     AX, lownibblemask   ; Mask off the unused bits (only lowest nibble needed)
     
 ;Now we have AL = xxxx-xxxx-xxxx-[][][][], where [] -> valid column value
     
@@ -202,7 +203,7 @@ KeyHandKeySort:; Determines if it is SAME key as before or NEW key
 KeyHandDiffKey:
 
     MOV     DebouncedKey, AX    ; Store that key with AX (mem2mem MOV not allowed)
-    JMP     KeyHandReset        ; Still reset all other variables though
+    JMP     KeyHandResetAll        ; Still reset all other variables though
     
 
 KeyHandSameKey:
@@ -244,9 +245,14 @@ KeyHandEnqueue:
 
     ;MOV     AX, keytemp        ; Not used since AX should still have keytemp...
     
-    MOV	    BX, OFFSET(KeyTable);point into the table of Keys
-    XLAT	CS:KeyTable		    ;Get that key mapped value to AL <- BX[AL]
+    MOV	    BX, OFFSET(KeyHandlerTable);point into the table of Keys
     
+	ADD		BX, AX			        ; Get absolute appropriate seg table addr
+    
+    MOV		AL,	CS:[BX]		        ;Now seg val is in AX
+    
+    ;XLAT	CS:KeyHandlerTable		    ;Get that key mapped value to AL 
+  
     MOV     AH, KEYEVENT        ;Set the keyevent to AH
     CALL    EnqueueEvent        ;Passing AX into enqueue
     
@@ -323,9 +329,10 @@ KeyHandlerInit  PROC    NEAR
 
 
 KeyHandlerInitStart:
-        MOV     Dflag, 0          ; Clear the Dflag
-        Dcounter = 0        ; Clear the Dcounter 
-        DebouncedKey = 0    ; Clear the DebouncedKey
+        MOV     Dflag, 0          	; Clear the Dflag
+        MOV     Dcounter, 0       	; Clear the Dcounter 
+        MOV     DebouncedKey, 0   	; Clear the DebouncedKey
+		MOV		Rcounter, 0			; CLear the Repeat counter
         
 KeyHandlerInitVector:
        
@@ -334,8 +341,8 @@ KeyHandlerInitVector:
         XOR     AX, AX          ;clear ES (interrupt vectors are in segment 0)
         MOV     ES, AX
                                 ;store the vector
-        MOV     ES: WORD PTR (4 * Tmr1Vec), OFFSET(KeyHandlerInit)
-        MOV     ES: WORD PTR (4 * Tmr1Vec + 2), SEG(KeyHandlerInit)
+        MOV     ES: WORD PTR (4 * Tmr0Vec), OFFSET(KeyHandler)
+        MOV     ES: WORD PTR (4 * Tmr0Vec + 2), SEG(KeyHandler)
 
 
         RET                     ;all done, return
@@ -343,7 +350,7 @@ KeyHandlerInitVector:
 
 KeyHandlerInit  ENDP
 				
-
+CODE    ENDS
     
 DATA    SEGMENT PUBLIC  'DATA'
 
@@ -355,6 +362,8 @@ DATA    SEGMENT PUBLIC  'DATA'
     Rcounter        DW  ?     ;The shared counter for KeyHandler, and KeyHandlerInit
 
     DebouncedKey    DW  ?     ;The shared KEYCODE for KeyHandler, KeyCheck, and KeyHandlerInit
+	
+	keytemp			DW  ?     ;The shared KEYCODE for KeyHandler, KeyCheck, and KeyHandlerInit
 	
 DATA    ENDS
 

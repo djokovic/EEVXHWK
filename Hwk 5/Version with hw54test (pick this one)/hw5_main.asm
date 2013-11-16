@@ -58,7 +58,7 @@ $INCLUDE(chips.inc);
 
 
 CGROUP  GROUP   CODE
-DGROUP  GROUP   STACK
+DGROUP  GROUP   STACK, DATA
 
 
 
@@ -72,6 +72,8 @@ CODE    SEGMENT PUBLIC 'CODE'
 
 
         EXTRN   KeyHandlerInit:NEAR    ;initialize keyhandler
+        EXTRN   DisplayHandlerInit:NEAR    ;initialize keyhandler
+
 
 
 START:  
@@ -88,7 +90,7 @@ MAIN:
         CALL    ClrIRQVectors           ;
         
         CALL    KeyHandlerInit          ; Initialize keypad handler
-
+        CALL    DisplayHandlerInit  ;   
         CALL    InitTimer                ; Initialize timer events, note interrupts
         
         STI                              ; start NOW
@@ -307,19 +309,37 @@ IllegalEventHandler     ENDP
 
 InitTimer       PROC    NEAR
 
-;-------------------TIMER 1 Interrupt Setup--------------------------------------
-InitTimerCountSet:
+;-------------------TIMER 0 Interrupt Setup--------------------------------------
+InitTimer0CountSet:
+                                ;initialize Timer #0 for MS_PER_SEG ms interrupts
+        MOV     DX, Tmr0Count   ;initialize the count register to 0
+        XOR     AX, AX
+        OUT     DX, AL
+InitTimer0MaxSet:
+
+        MOV     DX, Tmr0MaxCntA ;setup max count for milliseconds per segment
+        MOV     AX, CTS_PER_MILSEC  ;   count so can time the segments
+        OUT     DX, AL
+        
+InitTimer0ControlSet:
+
+        MOV     DX, Tmr0Ctrl    ;setup the control register
+        MOV     AX, Tmr0CtrlVal ;Set appropriate bits to timer register
+        OUT     DX, AL
+        
+ ;-------------------TIMER 1 Interrupt Setup--------------------------------------
+InitTimer1CountSet:
                                 ;initialize Timer #0 for MS_PER_SEG ms interrupts
         MOV     DX, Tmr1Count   ;initialize the count register to 0
         XOR     AX, AX
         OUT     DX, AL
-InitTimerMaxSet:
+InitTimer1MaxSet:
 
         MOV     DX, Tmr1MaxCntA ;setup max count for milliseconds per segment
         MOV     AX, CTS_PER_MILSEC  ;   count so can time the segments
         OUT     DX, AL
         
-InitTimerControlSet:
+InitTimer1ControlSet:
 
         MOV     DX, Tmr1Ctrl    ;setup the control register
         MOV     AX, Tmr1CtrlVal ;Set appropriate bits to timer register
@@ -345,7 +365,12 @@ InitTimer       ENDP
 
 CODE    ENDS
 
+    
+DATA    SEGMENT PUBLIC  'DATA'
 
+; FOr setting up data seg
+	
+DATA    ENDS
 
 ;the stack
 

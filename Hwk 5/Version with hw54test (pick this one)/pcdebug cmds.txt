@@ -1,0 +1,22 @@
+set 0 keypad.keyhandler
+set 1 keypad.KeyHandKeySort
+
+
+set 2 keypad.KeyHandSameKeyAutoRepeat
+set 2 keypad.KeyHandSameKeyAutoRepeat
+set 2 keypad.KeyHandSameKeyAutoRepeat
+
+
+DUMPs
+
+
+d   keypad.Dflag 2                                      
+d   keypad.Dcounter 2  
+d   keypad.Rcounter 2
+d   keypad.DebouncedKey 2  	
+d   keypad.keytemp 2		
+d   EventBuf
+ 
+
+
+ 
