@@ -32,6 +32,11 @@ NOKEYPRESS      EQU     0               ; Value to indicate no keys pressed
 ; Key Definitions
 
 ; The following are constants that indicate what value maps to each key
+;                   The way KEYS are arranged is...
+;                   [0]     [1]   [2]   [3]
+;                   [4]     [5]   [6]   [7]
+;                   [8]     [9]   [10]  [11]
+;                   [12]    [13]  [14]  [15]
 KEY0        	EQU     0               
 KEY1        	EQU     1   
 KEY2        	EQU     2   
