@@ -148,7 +148,7 @@ InitClrVectorLoop:              ;setup to store the same handler 256 times
 
         XOR     AX, AX          ;clear ES (interrupt vectors are in segment 0)
         MOV     ES, AX
-        MOV     SI, 0           ;initialize SI to skip RESERVED_VECS (4 bytes each)
+        MOV     SI, 0           ;initialize SI to bottom of Vector table
 
         MOV     CX, 256         ;up to 256 vectors to initialize
 
@@ -167,6 +167,9 @@ DoStore:                        ;store the vector
 
 DoneStore:			            ;done storing the vector
         ADD     SI, 4           ;update pointer to next vector
+                                ; We increment by 4 since each vector is comprised
+                                ; of a CS:IP (WORD:WORD). Thus each unit is normalized
+                                ; to four bytes and we need to jump 4 positions per vector.
 
         LOOP    ClrVectorLoop   ;loop until have cleared all vectors
         ;JMP    EndClrIRQVectors;and all done
@@ -216,11 +219,11 @@ InitCS  PROC    NEAR; Do what we did for HWK1 part 5 :)
 
         MOV     DX, PACSreg     ;setup to write to PACS register
         MOV     AX, PACSval
-        OUT     DX, AL          ;write PACSval to PACS (base at 0, 3 wait states)
+        OUT     DX, AL          ;write PACSval to PACS 
 
         MOV     DX, MPCSreg     ;setup to write to MPCS register
         MOV     AX, MPCSval
-        OUT     DX, AL          ;write MPCSval to MPCS (I/O space, 3 wait states)
+        OUT     DX, AL          ;write MPCSval to MPCS
 
 
         RET                     ;done so return

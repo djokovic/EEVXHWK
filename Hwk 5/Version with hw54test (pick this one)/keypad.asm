@@ -1,9 +1,13 @@
 NAME        Keypad
 
+; Include files
 $INCLUDE(Keypad.inc);
 $INCLUDE(general.inc);
 $INCLUDE(timer.inc);
 
+;External Procedures needed
+        EXTRN   EnqueueEvent:NEAR      ; Used to enqueue key event/code
+        EXTRN   KeyHandlerTable:NEAR   ; Used for key code table look up
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
 ;                                 HW5 Keypad Functions                       ;
@@ -48,21 +52,28 @@ $INCLUDE(timer.inc);
 
 ;Procedure:			KeyHandler
 ;
-;Description:      	This procedure debounce a key by scanning a all FOUR rows
-;                   every interrupt. It is divided into the following sections:
+;Description:      	This interrupt procedure debounces a key press specifically 
+;                   for the 4 x 4 keypad. This interrupt is using the Timer1 interrupt
+;                   and set to occur around every 1 ms. A key is debounced after
+;                   DEBOUNCE_TARGET interrupts (thus DEBOUNCE_TARGET ms). It also
+;                   can handle auto-repeat, where the user holds down the key. 
+;                   That repeat rate is control similarly by AUTO_REPEAT constant. 
+;                   Besides debouncing the key, this function will also convert 
+;                   the key read directly into a key code using the KEYTABLE table.
+;                   Finally it will auto enqueue the key code and event (EnqueueEvent)
 ;
-;                   Key Detection -> Loop numOfRows times by grabbing
-;                   each ROW by increasing order from port address KEYOFFSET
-;                   to KEYOFFSET + numOfRows - 1. After grabbing each row BYTE
-;                   , invert the BYTE (since active low) and then mask off 
-;                   unused upper nibble of that byte. Then combine the row
-;                   and column information into one BYTE where low nibble is
-;                   the column (from before) and the UPPER nibble is just the
-;                   row index. This is stored in keytemp which will 
-;                   have xx[R1][R0]-[C3][C2][C1][C0].
+;                   In more detailed, the procedure is divided into the following steps:
+;
+;                   Key Detection:
+;                   Loop numOfRows times by grabbing
+;                   each ROW by increasing order. If the key is determined to be pressed
+;                   That row code is combined the column information. 
+;                   This is stored in keytemp which will have the form 
 ;                   
-;                   Key Processing -> Now we have keytemp, which I use to check
-;                   if a key was even pressed. 
+;                               00[R1][R0]-[C3][C2][C1][C0]
+;                   
+;                   Key Processing:
+
 ;                   There are three possible paths of key processing
 ;                   1. No Key
 ;                   2. Different key than the DebounceKey from before
@@ -73,7 +84,7 @@ $INCLUDE(timer.inc);
 ;                   4. If either 3a or 3b's debouncekey is deemed ready then 
 ;                      access the KeyTable and grabbed the key value.
 ;
-;                   When a key has been debounced, the Dflag is set high, the 
+;                   When a key is FIRST debounced, the Dflag is set high, the 
 ;                   Dcounter has hit DEBOUNCE_TARGET and needs to be reset,
 ;                   and the value in DebounceKey is considered VALID.
 ;
@@ -123,8 +134,9 @@ $INCLUDE(timer.inc);
 ;                           a)  If the DFlag is HIGH
 ;                               * Increment Rcounter
 ;                               * Check if Rcounter is full
-;                               * If full then grab mapped key value from Keytable
-;                                 and pass to EnqueueEvent. Also set Dflag true.
+;                               * If full then grab mapped key value from Keytable into AL
+;                                 and put KEYEVENT into AH.
+;                                 Lastly, pass AX to EnqueueEvent. Also set Dflag true.
 ;
 ;                   * Finally send out end of interrupt
 ;
@@ -139,8 +151,8 @@ $INCLUDE(timer.inc);
 ;
 ;Result:            Possibly new DCounter, Rcounter, DebouncedKey, and DFlag
 ;
-;Shared Variables: 	The DFlag, DebounceKey, Keytemp, RCounter, and Dcounter are
-;                   only shared with KeyHandlerInit.
+;Shared Variables: 	The DFlag, DebounceKey, Keytemp, RCounter, and Dcounter (Read and Write)
+;                   
 ;
 ;Local Variables:	keytemp -   temporary variable that stores direct keypad values
 ;                   AX      -   Used to store values for CMP
@@ -197,20 +209,15 @@ CODE SEGMENT PUBLIC 'CODE'
 
         ASSUME  CS:CGROUP, DS:DGROUP
 
-;-------------------------------------------------------------------------------
-        EXTRN   EnqueueEvent:NEAR          ; Used to convert passed AX into hex ASCII
-        EXTRN   KeyHandlerTable:NEAR   ;
-
-
     
 KeyHandler		PROC    NEAR
 				PUBLIC  KeyHandler
 				
-	PUSHA;  Save all regs
+	PUSHA;  Save all used regs. Always save regs for interrupts
 	
 KeyHandInit:
 
-    XOR     CX, CX          ; Clear CX
+    XOR     CX, CX          ; Clear the counter before start of loop
     MOV     keytemp, NOKEYPRESS ; Assume no key pressed so far
     
 ;------------------------Key Detection-----------------------------------------
@@ -312,13 +319,10 @@ KeyHandAUTODone:
     
 KeyHandEnqueue:
 
-    ;MOV     AX, keytemp        ; Not used since AX should still have keytemp...
+	MOV		BX, AX			    ; Prepare for table offset for lookup
+                                ; Note AX still has keytemp...
     
-    MOV	    BX, OFFSET(KeyHandlerTable);point into the table of Keys
-    
-	ADD		BX, AX			    ; Get absolute appropriate seg table addr
-    
-    MOV		AL,	CS:[BX]		    ;Now key code val is in AL
+    MOV		AL,	CS:KeyHandlerTable[BX]		    ;Now key code val is in AL
       
     MOV     AH, KEYEVENT        ;Set the keyevent to AH
     
@@ -343,7 +347,7 @@ KeyHandlerDONE:; Send out EOI as usual
     OUT     DX, AL
     
         
-    POPA; restore all regs
+    POPA; restore all used regs
     
     IRET
     
@@ -372,7 +376,7 @@ KeyHandlerDONE:; Send out EOI as usual
 ;
 ; Local Variables:   AX - Used to temporarily store vector table offset for ES
 ; 
-; Shared Variables:  Dflag, Rcounter, Dcounter, and DebouncedKey.
+; Shared Variables:  Dflag, Rcounter, Dcounter, and DebouncedKey (WRITE ONLY)
 ;
 ; Global Variables:  None.
 ;

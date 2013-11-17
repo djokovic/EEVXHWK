@@ -42,8 +42,15 @@ $INCLUDE(timer.inc);
 
 ;Procedure:			KeyHandler
 ;
-;Description:      	This procedure debounce a key by scanning a all FOUR rows
-;                   every interrupt. It is divided into the following sections:
+;Description:      	This interrupt procedure debounces a key press specifically 
+;                   for the 4 x 4 keypad. After scanning a all FOUR rows
+;                   every interrupt. Besides debouncing the key, this function
+;                   will also convert the key read directly into a key code using
+;                   the KEYTABLE table.
+;                   After hitting his function will CALL the EnqueueEvent
+;                   and store the 
+;
+;                   It is divided into the following sections:
 ;
 ;                   Key Detection -> Loop numOfRows times by grabbing
 ;                   each ROW by increasing order from port address KEYOFFSET
