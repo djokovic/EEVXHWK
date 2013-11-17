@@ -149,7 +149,8 @@ $INCLUDE(timer.inc);
 ;                   DebouncedKey -> Stores the last key being tested for debouncing.
 
 ;
-;Result:            Possibly new DCounter, Rcounter, DebouncedKey, and DFlag
+;Result:            Possibly new DCounter, Rcounter, DebouncedKey, and DFlag values. Also
+;                   enqueues any debounced keys.
 ;
 ;Shared Variables: 	The DFlag, DebounceKey, Keytemp, RCounter, and Dcounter (Read and Write)
 ;                   
@@ -174,11 +175,11 @@ $INCLUDE(timer.inc);
 ;
 ;Known Bugs:		None.
 ;
-;Data Structures:	None.
+;Data Structures:	Queue is used for EnqueueEvent.
 ;
 ;Error Handling:   	If a key is pressed that does not Map to a key function
 ;                   then the KeyTable will return a NOTAKEY cmd written to 
-;                   EnqueueEvent which indicated to ignore this action.
+;                   EnqueueEvent which indicate to ignore this action.
 ;
 ;Algorithms:       	Loops all rows and checked each row for valid key press.
 ;
@@ -414,7 +415,7 @@ KeyHandlerInitVector:
                                 ;store the vector
         MOV     ES: WORD PTR (4 * Tmr0Vec), OFFSET(KeyHandler)
         MOV     ES: WORD PTR (4 * Tmr0Vec + 2), SEG(KeyHandler)
-
+                                ; Again 4x since vector table is CS:IP (WORD:WORD)
 
         RET                     ;all done, return
 
