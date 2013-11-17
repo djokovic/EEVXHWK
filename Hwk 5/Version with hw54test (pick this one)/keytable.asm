@@ -7,12 +7,10 @@
 ;                                                                            ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; This file contains tables of 14-segment codes.  The segment ordering is a to
-; p followed by the decimal point with segment a in the low bit (bit 0) and
-; segment p in bit 14 (the decimal point is in bit 7 for backward
-; compatibility with 7-segment displays).  Bit 15 (high bit) is always zero
-; (0).  The tables included are:
-;    KeyHandlerTable - table of codes for 7-bit ASCII characters
+; This file contains tables of the possible 4x4 keypad codes.  
+; The tables included:
+;
+;    KeyHandlerTable - table of codes each possible KEY press for KeyHandler
 ;
 ; Revision History:
 ;    11/15/2013   Anjian Wu              initial revision 
@@ -35,11 +33,24 @@ CODE    SEGMENT PUBLIC 'CODE'
 ; KeyHandlerTable
 ;
 ; Description:      This table contains all combinations of KEYs (ROW wise)
-;                   The way KEYS are arranged is...
+;                   The way KEYS are mapped physically is...
 ;                   [0]     [1]   [2]   [3]
 ;                   [4]     [5]   [6]   [7]
 ;                   [8]     [9]   [10]  [11]
 ;                   [12]    [13]  [14]  [15]
+;
+;                   The values are address mapped to the right key by the bits
+;                   0-0-[R1]-[R0]:[C3]-[C2]-[C1]-[C0]
+;
+;                   Where lower nibble's bits indicates which column is pressed
+;                   and the lower TWO bits of the upper nibble.
+;                   
+;                   Thus the table contains 2^6 entries.
+;
+;                   Advantage: Easier coding by using a table look up
+;                   Can support multiple key presses (in a row) easily.
+;
+;                   Disadvantage: Used up more code segment, but not that much :)
 ;
 ; Author:           Anjian Wu
 ; Last Modified:    11/15/2013
@@ -48,7 +59,7 @@ CODE    SEGMENT PUBLIC 'CODE'
 KeyHandlerTable	LABEL	BYTE
                 PUBLIC  KeyHandlerTable
                 
-                        ;xx[R1][R0]:[C3][C2][C1][C0]
+                        ;00[R1][R0]:[C3][C2][C1][C0]
                         
 	DB		NOTAKEY	;	0	->	00000000	->
 	

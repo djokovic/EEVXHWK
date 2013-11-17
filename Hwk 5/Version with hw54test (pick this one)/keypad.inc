@@ -15,21 +15,24 @@
 
 ; General Definitions
 
-KEYEVENT        EQU     1               ; 
-AUTO_REPEAT     EQU     1000               ; 
-DEBOUNCE_TARGET EQU     100               ; 
+KEYEVENT        EQU     1               ; Even code indicating key pressed
 
-numOfRows 		EQU     4               ; 
+AUTO_REPEAT     EQU     1000            ; Counter for auto-repeat
 
-KEYOFFSET 		EQU     080h            ; 
+DEBOUNCE_TARGET EQU     100             ; Count for single key debounce
 
-lownibblemask   EQU     000Fh           ;
+numOfRows 		EQU     4               ; number of rows in display
 
+KEYOFFSET 		EQU     080h            ; Where keypad is first mapped 
 
+lownibblemask   EQU     000Fh           ; Used to mask lower nibble
+
+NOKEYPRESS      EQU     0               ; Value to indicate no keys pressed
 
 ; Key Definitions
 
-KEY0        	EQU     0
+; The following are constants that indicate what value maps to each key
+KEY0        	EQU     0               
 KEY1        	EQU     1   
 KEY2        	EQU     2   
 KEY3        	EQU     3   

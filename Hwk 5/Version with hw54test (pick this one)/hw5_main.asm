@@ -20,47 +20,52 @@
 ;
 ;   InitCS          -   Initialize the Peripheral Chip Selects on the 80188.
 ;
-;   KeyHandlerInit  -   Initialize the KeyHandler values 
+;   KeyHandlerInit  -   Initializes Timer 0 and Timer 1 for Keypad and Display
 ;
 ;   IllegalEventHandler -   This procedure is the event handler for illegal
 ;                           (uninitialized) interrupts.  It does nothing 
 ;
 ;
 ;       			Pseudo code - 11-11-2013 - Anjian Wu
-
+;       			Working - 11-15-2013 - Anjian Wu
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; Description:      This program tests the key functions for Homework
-;                   #5.  It will clear the vector table, initialize the CS,
-;                   initialize KeyHandler values, and then LOOP calling
-;                   KeyCheck.
+;                   #5, keypad. It does this by:
+;                   *   First doing standard main loop chip select and vector table
+;                       clearing
+;                   *   Calling Keyhandler and display handler initialization functions
+;                   *   Initializing Timers
+;                   *   Starting interrupts
+;                   *   Finally just goes into looping indefinitely so that interrupts
+;                       do all the work.
 ;
-; Input:            None.
-; Output:           None.
+; Input:            Keypad is input for Keyhandler (interrupt driven.)
+; Output:           14 seg Display is output for DisplayHandler (interrupt driven.)
 ;
-; User Interface:   Breakpoints.
+; User Interface:   The output char on 14-seg display which shows key pressed and num times.
 ;
 ; Error Handling:   None.
 ;
 ; Algorithms:       None.
-; Data Structures:  Queue in EnqueueEvent
+;
+; Data Structures:  Queues in HW5test.obj
 ;
 ; Known Bugs:       None.
 ; Limitations:      Only outputs 8 char strings max.
 ;
 ; Revision History:
 ;History:			11-11-2013: Pseudo code - Anjian Wu
+;       			Working - 11-15-2013 - Anjian Wu
 
 
-$INCLUDE(general.inc);
+$INCLUDE(general.inc); Include files
 $INCLUDE(timer.inc);
 $INCLUDE(chips.inc);
 
 
 CGROUP  GROUP   CODE
 DGROUP  GROUP   STACK, DATA
-
-
 
 CODE    SEGMENT PUBLIC 'CODE'
 
@@ -71,8 +76,8 @@ CODE    SEGMENT PUBLIC 'CODE'
 ;external function declarations
 
 
-        EXTRN   KeyHandlerInit:NEAR    ;initialize keyhandler
-        EXTRN   DisplayHandlerInit:NEAR    ;initialize keyhandler
+        EXTRN   KeyHandlerInit:NEAR         ;For initializing keyhandler
+        EXTRN   DisplayHandlerInit:NEAR     ;For initializing displayhandler
 
 
 
@@ -86,19 +91,21 @@ MAIN:
         MOV     AX, DGROUP              ;initialize the data segment
         MOV     DS, AX
 
-        CALL    InitCS                   ; Initialize the chip selects
+        CALL    InitCS                  ; Initialize the chip selects
         CALL    ClrIRQVectors           ;
         
         CALL    KeyHandlerInit          ; Initialize keypad handler
-        CALL    DisplayHandlerInit  ;   
-        CALL    InitTimer                ; Initialize timer events, note interrupts
+        CALL    DisplayHandlerInit      ; Initialize displayhandler
+        CALL    InitTimer               ; Initialize timer events, note interrupts
         
-        STI                              ; start NOW
+        STI                             ; Begin interrupts
         
 Looping:
-                                      ; EnqueueEvent is handled in Key functions
+                                        ; EnqueueEvent is handled in Key functions
+                                        ; So just keep looping as interrupts store
+                                        ; keys and display.
         JMP     Looping
-        
+        HLT                             ; Hopefully next hit here.
         
 
 ; ClrIRQVectors
@@ -200,6 +207,7 @@ ClrIRQVectors   ENDP
 ; Last Modified:     Oct. 29, 1997
 ;              	     Pseudo code - 11-02-2013 - Anjian Wu
 ;              	     Added to Main - 11-09-2013 - Anjian Wu
+;       			Working - 11-15-2013 - Anjian Wu
 
 
 
@@ -271,10 +279,14 @@ IllegalEventHandler     PROC    NEAR
 IllegalEventHandler     ENDP
 ; InitTimer
 ;
-; Description:       Initialize the 80188 Timers.  The timers are initialized
-;                    to generate interrupts every MS_PER_SEG milliseconds.
-;                    Timer0 counter is also clear, and the interrupt control is
-;                    set.
+; Description:       Initialize the 80188 Timers.  The timers 0 & 1 are initialized
+;                    to generate interrupts approximately every millisecond.
+;
+;                    Timer0 counter is cleared, and the interrupt control is
+;                    set to be enabled, continuous, and generate interrupts.
+;
+;                    Timer1 counter is cleared, and the interrupt control is
+;                    set to be enabled, continuous, and generate interrupts.
 ;
 ; Operation:         The appropriate values are written to the timer control
 ;                    registers in the PCB.  Also, the timer count registers
@@ -305,13 +317,14 @@ IllegalEventHandler     ENDP
 ; Last Modified:     Oct. 29, 1997
 ;              	     Pseudo code - 11-02-2013 - Anjian Wu
 ;              	     Added to Main - 11-09-2013 - Anjian Wu
+;       			 Working - 11-15-2013 - Anjian Wu
 
 
 InitTimer       PROC    NEAR
 
 ;-------------------TIMER 0 Interrupt Setup--------------------------------------
 InitTimer0CountSet:
-                                ;initialize Timer #0 for MS_PER_SEG ms interrupts
+                                ;initialize Timer #0 for 1 ms interrupts
         MOV     DX, Tmr0Count   ;initialize the count register to 0
         XOR     AX, AX
         OUT     DX, AL
@@ -329,7 +342,7 @@ InitTimer0ControlSet:
         
  ;-------------------TIMER 1 Interrupt Setup--------------------------------------
 InitTimer1CountSet:
-                                ;initialize Timer #0 for MS_PER_SEG ms interrupts
+                                ;initialize Timer #0 for 1 ms interrupts
         MOV     DX, Tmr1Count   ;initialize the count register to 0
         XOR     AX, AX
         OUT     DX, AL
@@ -368,7 +381,7 @@ CODE    ENDS
     
 DATA    SEGMENT PUBLIC  'DATA'
 
-; FOr setting up data seg
+; For setting up data seg.
 	
 DATA    ENDS
 

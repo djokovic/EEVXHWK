@@ -6,7 +6,7 @@ $INCLUDE(timer.inc);
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
-;                                 HW5 Keypad Functions                      ;
+;                                 HW5 Keypad Functions                       ;
 ;                                 EE51                                  	 ;
 ;                                 Anjian Wu                                  ;
 ;                                                                            ;
@@ -17,78 +17,136 @@ $INCLUDE(timer.inc);
 ;
 ;                                   Code Segment
 ;
-;   KeyHandler  -   Timer1 event handler that interrupts every MILI_SEC. It will
-;                   scan the next keypad ROW OR continue debouncing a current
-;                   row. If a key is deemed debounced, then it is stored into
-;                   a local shared variable and a debounce flag is raised.
+;   KeyHandler  -   Timer0 event handler that interrupts every milisecond.
+;                   Every interrupt, the function scans ALL 4 rows from lowest
+;                   to highest address. Each ROW's port values contain information
+;                   on all columns, but making the index of the row and column
+;                   sufficient to determine a specific key press.    
 ;
-;   KeyCheck    -   This is the function accessed by the mainloop to check whether
-;                   a key is debounced. It just polls the debounce flag. If 
-;                   a debounce is flagged, then it will grab that key and 
-;                   CALL EnqueueEvent.
-;                   
+;                   After scanning, the function will then continue to debounce
+;                   the key if a key is pressed.
 ;
 ;   KeyHandlerInit - This installs the KeyHandler into vector table and
-;                   initializes all values.
+;                    initializes all data seg variables used by Keyhandler 
+;                    as zero.
 ;
 ;
 ;                                   Data Segment
 ;
 ;
-;   DCounter(DW)-   The debouncing counter holder for KeyHandler.
+;   DCounter    -   The debouncing counter holder for KeyHandler.
+;   RCounter    -   The auto_repeat counter holder for KeyHandler.
 ;   Dflag       -   The flag used by Handler to signal a key has been debounced.
-;   DebouncedKey-   Stores the key that was debounced.
+;   DebouncedKey-   Stores the key that was/in process of being debounced
+;   Keytemp     -   Stores the temporary variable in KeyHandler (also helps debugging)
 ;
 ;                                 What's was last edit?
 ;
 ;       			Pseudo code -> 11-11-2013 - Anjian Wu
-
+;       			Working     -> 11-15-2013 - Anjian Wu
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;Procedure:			KeyHandler
 ;
 ;Description:      	This procedure debounce a key by scanning a all FOUR rows
-;                   every interrupt.  This design decision is because then the procedure
-;                   will not have ot keep track of a ROW counter.
-;           
-;                   This function will loop through all 4 rows and save a KEYCODE
-;                   if it detects a key pressed. Notice that if more than ONE row's key
-;                   is pressed, then the KEYCODE will take the ROW with the LARGEST index.
-;                   This is because the loop going from row = 0 to row = 3.
+;                   every interrupt. It is divided into the following sections:
 ;
-;                   The keycode is a byte with TOP nibble = ROW index, bottom nibble = COLUMN
-;
-;                   It will then check if the KEYCODE is valid (aka > 0). If so it will check
-;                   whether this keycode was caught before, which would mean incrementing the counter;
-;
-;                   If the keycode is NEW, or if no keycode was detected, then the counter is emptied.
-;
-;                   Lastly, the counter is checked to see if the debounce value MILLI_SEC is reached.
+;                   Key Detection -> Loop numOfRows times by grabbing
+;                   each ROW by increasing order from port address KEYOFFSET
+;                   to KEYOFFSET + numOfRows - 1. After grabbing each row BYTE
+;                   , invert the BYTE (since active low) and then mask off 
+;                   unused upper nibble of that byte. Then combine the row
+;                   and column information into one BYTE where low nibble is
+;                   the column (from before) and the UPPER nibble is just the
+;                   row index. This is stored in keytemp which will 
+;                   have xx[R1][R0]-[C3][C2][C1][C0].
 ;                   
-;                   
-;Operation:			*   Grab the debounce counter and the previous key
-;                   *   Loop from row = 0 to 4, and save the KEYCODE if key is pressed
-;                   *   Check if KEYCODe is even valid
-;                       *   If valid, then see if it is same as previous, if so increase counter
-;                       *   Else empty counter   
-;                   *   If KEYCODe not valid, also empty counter
-;                   *   CHeck if counter has reached the proper value
-;                       *   If so, then empty counter and set TRUE return flag
-;                   *   Store back counter to Data seg.
+;                   Key Processing -> Now we have keytemp, which I use to check
+;                   if a key was even pressed. 
+;                   There are three possible paths of key processing
+;                   1. No Key
+;                   2. Different key than the DebounceKey from before
+;                   3. SAME key, which gets treated in two differnt ways
+;                           a)  Same key, but hasn't been debounced yet
+;                           b)  Same key, but HAS been debounced and needs
+;                               auto-repeat.
+;                   4. If either 3a or 3b's debouncekey is deemed ready then 
+;                      access the KeyTable and grabbed the key value.
 ;
-;Arguments:        	DCounter       -> Latest debouncing counter value
-;                   DebouncedKey   -> Stores the last key being tested for debouncing.
+;                   When a key has been debounced, the Dflag is set high, the 
+;                   Dcounter has hit DEBOUNCE_TARGET and needs to be reset,
+;                   and the value in DebounceKey is considered VALID.
+;
+;                   Afterwards, the Dflag will remain high if the same key is HELD
+;                   indicating that this needs to use Rcounter instead to hit
+;                   the AUTO_REPEAT value before the key is debounced again.
+;
+;                   Otherwise if there is any diff key or NO key detected in 
+;                   between the Dflag will be reset and the value inside
+;                   DebounceKey is considered invalid on again.
+;                                    
+;                   
+;Operation:			Key Detection -> 
+;                   *   Loop numOfRows times by grabbing
+;                       each ROW by increasing order from port address KEYOFFSET
+;                       to KEYOFFSET + numOfRows - 1. 
+;                       *   Invert the BYTE (since active low) and then mask off 
+;                           unused upper nibble of that byte.
+;                       *   If a key is detected (aka keytemp > 0) then move on
+;                           to add in ROW bits into upper nibble, else keytemp = 0
+;                   *   When the loop terminated, only the key from the HIGHER
+;                       index is ultimately recorded. Thus if a user pressed a
+;                       key at address KEYOFFSET and another at KEYOFFSET +
+;                       numOfRows - 1, then only the LATTER key is saved.
+;
+;
+;                   Key Processing -> Now we have keytemp, which I use to check
+;                   if a key was even pressed. 
+;
+;                   There are three possible paths of key processing
+;
+;                   *   No key
+;                           * Reset DCounter, Dflag, and RCounter
+;
+;                   *   Different key than the DebounceKey from before   
+;                           * Store NEW key in debouncedkey
+;                           * Reset DCounter, Dflag, and RCounter
+;
+;                   * SAME key, which gets treated in two differnt ways
+;                           a)  If the DFlag is LOW
+;                               * Increment Dcounter
+;                               * Check if counter is full
+;                               * If full then grab mapped key value from Keytable
+;                                 and pass to EnqueueEvent. Also set Dflag true.
+;
+;                   * Different key, which gets treated in two differnt ways
+;                           a)  If the DFlag is HIGH
+;                               * Increment Rcounter
+;                               * Check if Rcounter is full
+;                               * If full then grab mapped key value from Keytable
+;                                 and pass to EnqueueEvent. Also set Dflag true.
+;
+;                   * Finally send out end of interrupt
+;
+;Arguments:        	DCounter     -> Latest debouncing counter value
+;                   Rcounter     -> Latest auto repeat counter (usually much larger)
+;                   DebouncedKey -> Stores the last key being tested for debouncing.
+;                   DFlag        -> Shows whether debounced has occured
 ;
 ;Return Values:    	DFlag -> FLag used by KeyCheck to see if key is ready to grab.
+;                   DebouncedKey -> Stores the last key being tested for debouncing.
+
 ;
-;Result:            New DCounter, and possibly new DebouncedKey
+;Result:            Possibly new DCounter, Rcounter, DebouncedKey, and DFlag
 ;
-;Shared Variables: 	The DFlag and DebouncedKey is shared with KeyCheck.
+;Shared Variables: 	The DFlag, DebounceKey, Keytemp, RCounter, and Dcounter are
+;                   only shared with KeyHandlerInit.
 ;
-;Local Variables:	key - stores the KEYCODE (can be valid or not)
-;                   lastkey - stores the last key used to compare with KEYCODE
-;                   counter - Stores the DCounter
-;                   keytemp - temporary variable that stores direct keypad values
+;Local Variables:	keytemp -   temporary variable that stores direct keypad values
+;                   AX      -   Used to store values for CMP
+;                   BX      -   Used for talke look up
+;                   CX      -   Counter
+;                   DX      -   PORT addressing and interrupt EOI
 ;                   
 ;
 ;Global Variables:	None.
@@ -96,29 +154,40 @@ $INCLUDE(timer.inc);
 ;					
 ;Input:            	4 x 4 Keypad.
 ;
-;Output:           	None.
+;Output:           	14-seg display (via EnqueueEvent)
 ;
-;Registers Used:	None.
+;Registers Used:	AX, BX, CX, DX
 ;
-;Stack Depth:		None.
+;Stack Depth:		8 Words
 ;
 ;Known Bugs:		None.
 ;
 ;Data Structures:	None.
 ;
-;Error Handling:   	None.  
+;Error Handling:   	If a key is pressed that does not Map to a key function
+;                   then the KeyTable will return a NOTAKEY cmd written to 
+;                   EnqueueEvent which indicated to ignore this action.
 ;
 ;Algorithms:       	Loops all rows and checked each row for valid key press.
 ;
-;Limitations:  		Does not check for whether DFlag is already high,
-;                   thus there is a chance that a new debounce key might
-;                   be pressed and debounced before previous key is fully
-;                   handled. However I assume the key is handled much faster
-;                   than human user pressing.
+;Limitations:  		1.  Only detects keys pressed in a single ROW, not an issue
+;                       if only designed for 1 key functionality.
+;
+;                   2.  Only considers the higher indexed ROW's keys, thus if
+;                       key is pressed at KEYOFFSET and KEYOFFSET + 1, then only
+;                       the latter is recognized. 
+;
+;                   3.  Since DebounceKey is not reset, functionally it 
+;                       takes ONE less interrupt count to debounce the same
+;                       key pressed consecutively (not key being held), as opposed
+;                       to debouncing a NEW key. However the difference is 
+;                       indistinguishable from the users perspective. 
 ;
 ;
 ;Author:			Anjian Wu
 ;History:			11-11-2013: Pseudo code - Anjian Wu
+;       			11-15-2013: Working     - Anjian Wu
+
 ;------------------------------------------------------------------------------
 
 CGROUP  GROUP   CODE
@@ -142,9 +211,9 @@ KeyHandler		PROC    NEAR
 KeyHandInit:
 
     XOR     CX, CX          ; Clear CX
-    MOV     keytemp, 0      ; Clear temporary variable
+    MOV     keytemp, NOKEYPRESS ; Assume no key pressed so far
     
-;------------------------Key Grabbing-----------------------------------------
+;------------------------Key Detection-----------------------------------------
     
 KeyRowLoop:
 
@@ -163,7 +232,7 @@ KeyRowLoopBody:
     
 ;Now we have AL = xxxx-xxxx-xxxx-[][][][], where [] -> valid column value
     
-    CMP     AL, 0           ; Were there any keys even pressed?
+    CMP     AL, NOKEYPRESS  ; Were there any keys even pressed?
     JE      KeyRowLoopEnd   ;
 ;   JNE     KeyRowLoopAbsCalc;
 
@@ -178,13 +247,13 @@ KeyRowLoopAbsCalc:          ; Lets include information of ROW into AL
     
 KeyRowLoopEnd:
 
-    INC     CX              ;
-    JMP     KeyRowLoop      ;
+    INC     CX              ; Update counter
+    JMP     KeyRowLoop      ; Loop
     
 KeyRowLoopExit:
 ;------------------------Key Processing-----------------------------------------
 
-    CMP     keytemp,    0       ; Was there even a key pressed?
+    CMP     keytemp,NOKEYPRESS  ; Was there even a key pressed after loop?
     JE      KeyHandResetAll     ; Nope, so reset every data variable. Fresh start :)
                                 ; Notice that DebouncedKey is not reset, but should
                                 ; already have been reset from previous states.
@@ -247,13 +316,12 @@ KeyHandEnqueue:
     
     MOV	    BX, OFFSET(KeyHandlerTable);point into the table of Keys
     
-	ADD		BX, AX			        ; Get absolute appropriate seg table addr
+	ADD		BX, AX			    ; Get absolute appropriate seg table addr
     
-    MOV		AL,	CS:[BX]		        ;Now seg val is in AX
-    
-    ;XLAT	CS:KeyHandlerTable		    ;Get that key mapped value to AL 
-  
+    MOV		AL,	CS:[BX]		    ;Now key code val is in AL
+      
     MOV     AH, KEYEVENT        ;Set the keyevent to AH
+    
     CALL    EnqueueEvent        ;Passing AX into enqueue
     
     JMP     KeyHandlerDONE      ;Finished!
@@ -291,11 +359,11 @@ KeyHandlerDONE:; Send out EOI as usual
 ;
 ;                    Installs the displayhandler for the timer0 interrupt at 
 ;                    interrupt table index Tmr0Vec. ALso clears the Dflag,
-;                    Dcounter, and DebouncedKey.
+;                    Rcounter, Dcounter, and DebouncedKey.
 ;
-; Operation:         First clear Dflag, Dcounter, and DebouncedKey.
-;                    THen writes the address of the KeyHandler to the
-;                    timer1 location in the interrupt vector table. Notice
+; Operation:         First clear Dflag, Dcounter, Rcounter and DebouncedKey.
+;                    Then writes the address of the KeyHandler to the
+;                    timer0 location in the interrupt vector table. Notice
 ;                    need to multiple by 4 since table stores a CS and IP.
 ;                     
 ;
@@ -304,7 +372,7 @@ KeyHandlerDONE:; Send out EOI as usual
 ;
 ; Local Variables:   AX - Used to temporarily store vector table offset for ES
 ; 
-; Shared Variables:  Dflag, Dcounter, and DebouncedKey
+; Shared Variables:  Dflag, Rcounter, Dcounter, and DebouncedKey.
 ;
 ; Global Variables:  None.
 ;
@@ -322,6 +390,7 @@ KeyHandlerDONE:; Send out EOI as usual
 ;
 ;Author:			Anjian Wu
 ;History:			11-11-2013: Pseudo code - Anjian Wu
+;       			11-15-2013: Working     - Anjian Wu
 ;-------------------------------------------------------------------------------
 
 KeyHandlerInit  PROC    NEAR
@@ -336,8 +405,6 @@ KeyHandlerInitStart:
         
 KeyHandlerInitVector:
        
-        ; Bottom left in ASSEMBLY since it stays the same anyways.
-
         XOR     AX, AX          ;clear ES (interrupt vectors are in segment 0)
         MOV     ES, AX
                                 ;store the vector
@@ -355,15 +422,15 @@ CODE    ENDS
 DATA    SEGMENT PUBLIC  'DATA'
 
 
-    Dflag           DW  ?     ;The shared flag for KeyHandler, KeyCheck, and KeyHandlerInit
+    Dflag           DW  ?     ;Flag to show that a Key was debounced recently
                                            
-    Dcounter        DW  ?     ;The shared counter for KeyHandler, and KeyHandlerInit
+    Dcounter        DW  ?     ;Debounce count for single key press
 
-    Rcounter        DW  ?     ;The shared counter for KeyHandler, and KeyHandlerInit
+    Rcounter        DW  ?     ;Debounce count for auto-repeat key press
 
-    DebouncedKey    DW  ?     ;The shared KEYCODE for KeyHandler, KeyCheck, and KeyHandlerInit
+    DebouncedKey    DW  ?     ;Stores key pressed 
 	
-	keytemp			DW  ?     ;The shared KEYCODE for KeyHandler, KeyCheck, and KeyHandlerInit
+	keytemp			DW  ?     ;Temporary variable used in Keyhandler
 	
 DATA    ENDS
 
