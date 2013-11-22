@@ -1,9 +1,9 @@
 
-        NAME    hw5_main
+        NAME    hw6_main
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
-;                                 hw5_main                                   ;
+;                                 hw6_main                                   ;
 ;                            Homework #5 Main Loop                           ;
 ;                                EE/CS  51                                   ;
 ;                                 Anjian Wu                                  ;
@@ -20,7 +20,7 @@
 ;
 ;   InitCS          -   Initialize the Peripheral Chip Selects on the 80188.
 ;
-;   KeyHandlerInit  -   Initializes Timer 0 and Timer 1 for Keypad and Display
+;   TimerInit       -   Initializes Timer 0 and Timer 1 for Keypad and Display
 ;
 ;   IllegalEventHandler -   This procedure is the event handler for illegal
 ;                           (uninitialized) interrupts.  It does nothing
@@ -49,7 +49,7 @@
 ;
 ; Algorithms:       None.
 ;
-; Data Structures:  Queues in HW5test.obj
+; Data Structures:  Queues in hw6test.obj
 ;
 ; Known Bugs:       None.
 ; Limitations:      Only outputs 8 char strings max.
@@ -76,8 +76,8 @@ CODE    SEGMENT PUBLIC 'CODE'
 ;external function declarations
 
 
-        EXTRN   KeyHandlerInit:NEAR         ;For initializing keyhandler
-        EXTRN   DisplayHandlerInit:NEAR     ;For initializing displayhandler
+        EXTRN   MotorInit:NEAR         ;For initializing keyhandler
+        EXTRN   COUNT_FOR_100HZ:NEAR     ;For initializing displayhandler
 
 
 
@@ -94,18 +94,12 @@ MAIN:
         CALL    InitCS                  ; Initialize the chip selects
         CALL    ClrIRQVectors           ;
 
-        CALL    KeyHandlerInit          ; Initialize keypad handler
-        CALL    DisplayHandlerInit      ; Initialize displayhandler
+        CALL    MotorInit               ; Initialize keypad handler
         CALL    InitTimer               ; Initialize timer events, note interrupts
 
         STI                             ; Begin interrupts
 
-Looping:
-                                        ; EnqueueEvent is handled in Key functions
-                                        ; So just keep looping as interrupts store
-                                        ; keys and display.
-        JMP     Looping
-        HLT                             ; Hopefully next hit here.
+        CALL    MotorTest               ; Start Glenn's test code
 
 
 ; ClrIRQVectors
@@ -334,31 +328,13 @@ InitTimer0CountSet:
 InitTimer0MaxSet:
 
         MOV     DX, Tmr0MaxCntA ;setup max count for milliseconds per segment
-        MOV     AX, CTS_PER_MILSEC  ;   count so can time the segments
+        MOV     AX, COUNT_FOR_100HZ  ;   count so can time the segments
         OUT     DX, AL
 
 InitTimer0ControlSet:
 
         MOV     DX, Tmr0Ctrl    ;setup the control register
         MOV     AX, Tmr0CtrlVal ;Set appropriate bits to timer register
-        OUT     DX, AL
-
- ;-------------------TIMER 1 Interrupt Setup--------------------------------------
-InitTimer1CountSet:
-                                ;initialize Timer #0 for 1 ms interrupts
-        MOV     DX, Tmr1Count   ;initialize the count register to 0
-        XOR     AX, AX
-        OUT     DX, AL
-InitTimer1MaxSet:
-
-        MOV     DX, Tmr1MaxCntA ;setup max count for milliseconds per segment
-        MOV     AX, CTS_PER_MILSEC  ;   count so can time the segments
-        OUT     DX, AL
-
-InitTimer1ControlSet:
-
-        MOV     DX, Tmr1Ctrl    ;setup the control register
-        MOV     AX, Tmr1CtrlVal ;Set appropriate bits to timer register
         OUT     DX, AL
 
 InitTimerIntControlSet:
@@ -378,6 +354,8 @@ InitTimerDone:
 
 
 InitTimer       ENDP
+
+
 
 CODE    ENDS
 
