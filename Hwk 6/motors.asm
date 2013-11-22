@@ -3,8 +3,7 @@ NAME        Motors
 $INCLUDE(motors.inc);
 $INCLUDE(general.inc);
 $INCLUDE(timer.inc);
-;External Procedures needed
-        EXTRN   XWORDLAT:NEAR      ; Used to enqueue key event/code
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
@@ -126,6 +125,11 @@ DGROUP GROUP    DATA
 CODE SEGMENT PUBLIC 'CODE'
 
         ASSUME  CS:CGROUP, DS:DGROUP
+        
+;External Procedures needed
+        EXTRN   XWORDLAT:NEAR      ; Used to enqueue key event/code
+        EXTRN   Cos_Table:NEAR      ; Used to enqueue key event/code
+        EXTRN   Sin_Table:NEAR      ; Used to enqueue key event/code
 
 SetMotorSpeed		PROC    NEAR
 				    PUBLIC  SetMotorSpeed
@@ -135,19 +139,15 @@ SetMotorSpeedAngChk:
 
 	PUSH	AX						; Save Speed for later
     CMP     BX, NO_ANGLE_CHANGE     ; Do we need to change the angle?
-    JNE     SetMotorAngleCalc        ; Yes
-    ;JE     SetMotorSameAngle       ; No
-    
-SetMotorSameAngle:
-    
-    MOV     BX, AngleStored         ; Use current angle
-    JMP     SetMotorSpeedChk        ; Angle is ready to use, so proceed to 
-                                    ; deal with motor speed.
+    JNE     SetMotorAngleCalc       ; Yes
+    JE      SetMotorSpeedChk        ; No, go to speed check
+
 SetMotorAngleCalc:
 
     XOR     DX, DX                  ; Always clear remainder
 	MOV		AX, BX					; Need to use AX specifically for IDIV
     MOV     BX, FULL_ANGLE          ; 
+    CWD                             ;
     IDIV    BX          	        ; Take the MOD to Full angle
 ; Angle now in DX since we want MOD
 	CMP		DX,	0					; Is the Angle Neg?
@@ -156,7 +156,7 @@ SetMotorAngleCalc:
 
 SetMotorAngleNeg:
 	ADD		DX, FULL_ANGLE			; Calc positive equivalent angle
-	;jmp
+	;jmp    SetMotorAngleSave
 SetMotorAngleSave:
 	MOV		AngleStored, DX			; Store this abs angle
     
@@ -173,18 +173,16 @@ SetMotorDiffSpeed:
 ;-----------------------Motor Speed Math---------------------------------
 
 SetMotor_SpeedCalcInit:
-    XOR     CX, CX                  ; Clear loop counter
-    MOV     ES, CS                  ; Prepare to use XWORDLAT in code segment
+    XOR     BX, BX                  ; Clear loop counter
+    MOV     AX, CS
+    MOV     ES, AX                  ; Prepare to use XWORDLAT in code segment
     
 SetMotor_CalcLoop:  
-    CMP     CX, numOfmotors         ;
+    CMP     BX, numOfmotors         ;
     JGE     SetMotor_DONE           ;
     ;JL     SetMotor_GrabAllArgs    ;
     
-SetMotor_GrabAllArgs: 
-
-    MOV     BX, CX                  ; We are on the CX'th motoR     
-    
+SetMotor_GrabAllArgs:     
     CALL    SetMotor_GetArgs        ; Update COS, SIN, Fx, and Fy values
                                     ; Passes ES, and CX
 SetMotor_CalcX:     
@@ -194,7 +192,7 @@ SetMotor_CalcX:
     IMUL    Fx                      ; Fx * SpeedStored. 
     MOV     AX, DX                  ; Truncated answer in DX
     IMUL    COS_VAL                 ; (Fx * SpeedStored)*COS(AngleStored)
-    SHL     DX, 2                   ; Truncated double sign bit
+    SAL     DX, 2                   ; Truncated double sign bit
     
     MOV     S[BX], DH               ; Take only high byte of high word  
     
@@ -205,13 +203,13 @@ SetMotor_CalcY:
     IMUL    Fy                      ; Fy * SpeedStored. 
     MOV     AX, DX                  ; Truncated answer in DX
     IMUL    SIN_VAL                 ; (Fy * SpeedStored)*SIN(AngleStored)
-    SHL     DX, 2                   ; Truncated double sign bit
+    SAL     DX, 2                   ; Truncated double sign bit
     
     ADD     S[BX], DH               ; Fx * v * cos q + Fy * v * sin q
 
 SetMotor_LoopDone:
     
-    INC     CX                      ; Increment the counter
+    INC     BX                      ; Increment the counter
     JMP     SetMotor_CalcLoop       ; LOOP
     
 SetMotor_DONE:
@@ -239,12 +237,17 @@ GetArgsFx:
     
 GetArgsFy:
 ; Grab Fy     
-    MOV     AX, offset(MotorFTable) + FY_OFFSET ; First grab CX'th Fy component
+    MOV     AX, offset(MotorFTable) + 2*FY_OFFSET ; First grab CX'th Fy component
+                                                  ; Mul FY_OFFSET since this is
+                                                  ; WORD table and offset is in
+                                                  ; terms of 'elements'
+                                                  
     CALL    XWORDLAT                ; Fx component in AX
     MOV     Fy, AX                  ; Save it
     
 GetArgsCos:
-    MOV     BX, AngleStored         ; Grab stored angle
+    MOV     BX, AngleStored         ; Grab stored angle, this is the proper element
+                                    ; index for look up
 ; Grab Cos(AngleStored)    
     MOV     AX, offset(Cos_Table)   ; Do COS operation table lookup
     CALL    XWORDLAT                ; COSVal component in AX
@@ -258,8 +261,8 @@ GetArgsSin:
 
 GetArgsDone:
 
-    PUSH    AX;
-    PUSH    BX                      ; Restore all used regs
+    POP    AX;
+    POP    BX                      ; Restore all used regs
     
     RET
     
@@ -430,6 +433,7 @@ GetMotorDirection ENDP
 ;------------------------------------------------------------------------------
 
 SetLaser		    PROC    NEAR
+                    PUBLIC  SetLaser
 
     MOV     LaserFlag, AX;
     RET
@@ -543,26 +547,28 @@ GetLaser ENDP
 
 ;-------------------------------------------------------------------------------
 
-MOTORINIT  PROC    NEAR
+MOTORINIT          PROC    NEAR
                    PUBLIC  MOTORINIT
                    
-; Left it in assembly since this is standard;
-
 MOTORINITInitStart:
         MOV     LaserFlag, FALSE        ; Clear the LaserFlag to OFF
         MOV     SpeedStored, STOPPED_SPEED      ; Clear the SpeedStored to NOT moving
         MOV     AngleStored, ZERO_ANGLE   	; Clear the AngleStored to 0 deg
-        
-        XOR     CX, CX              ; Clear Counter
+        MOV     Fx, 0                   ;
+        MOV     Fy , 0                  ; 
+        MOV     COS_VAL, 0              ; 
+        MOV     SIN_VAL, 0              ;  
+        MOV     S_PWM, 0                ; Clear PWM counters (fresh PWM cycle)
+
+        XOR     BX, BX              ; Clear Counter
         
 MOTORINITClearPWMvars:
 
-        CMP     CX, numOfmotors     ; 
-        JGE      MOTORINITInitVector ;
+        CMP     BX, numOfmotors     ; 
+        JGE     MOTORINITInitVector ;
         
-        MOV     S[CX], ZERO_SPEED_PWM   ; Clear PWM widths (not moving)
-        MOV     S_PWM[CX], ZERO_SPEED_PWM   ; Clear PWM counters (fresh PWM cycle)
-        INC     CX                      ; Increment counter/motor index
+        MOV     S[BX], ZERO_SPEED_PWM   ; Clear PWM widths (not moving)
+        INC     BX                      ; Increment counter/motor index
         JMP     MOTORINITClearPWMvars; Loop until all entries are cleared
         
 MOTORINITInitVector:
@@ -684,44 +690,46 @@ MotorHandler  PROC    NEAR
     PUSHA   ; Always Save all regs in interrupt
 MotorHandInit:
 
-    XOR     BX, BX          ; Start with motor 0/ clear counter
+    XOR     BX, BX              ; Start with motor 0/ clear counter
     MOV     PORTB_BUFF, RESET   ; Clear portB such that we only need to turn on
-                            ; bits we want. (No AND MASKs needed)
-MotorHandLoop:
-    CMP     BX, numOfmotors             ;
-    JGE     LaserHandler                ;   
-    ;JL     MotorHandPWMChk             ;
-
+                                ; bits we want. (No AND MASKs needed)
 MotorHandPWMChk:
-    CMP     S_PWM[BX], PWM_WIDTH_MAX    ;
-    JBE      MotorHandPWMMux            ;
-    ;JA    MotorHandPWMChkRESET         ;
-MotorHandPWMChkRESET:
-    MOV     S_PWM[BX], 0                ;
-    ;JMP    MotorHandPWMMux             ;
+    CMP     S_PWM, PWM_WIDTH_MAX    ; Is the current PWM counter outside PWN range?
+    JBE     MotorHandLoop           ; Nope, proceed
+    ;JA    MotorHandPWMChkRESET     ; Yes it is, clear it.
+MotorHandPWMChkRESET
+    MOV     S_PWM, 0                ;
+    ;JMP    MotorHandLoop           ;
+
+MotorHandLoop:
+    CMP     BX, numOfmotors             ; For each numOfmotors motors
+    JGE     LaserHandler                ; If each is done, proceed to Laser handling
+    ;JL     MotorHandPWMMux             ;
     
 MotorHandPWMMux:
     MOV     AL, S[BX]                   ; Grab counter ref value, it is used for many CMPs
-    CMP     AL, 0                       ; Cx'th motor going reverse or forwards?
+    CMP     AL, 0                       ; Bx'th motor going reverse or forwards?
     JL      MotorHandPWM_NEG            ; Going reverse
     ;JGE    MotorHandPWM_POS            ; Going forward/stopped
     
 MotorHandPWM_POS:
-    CMP     S_PWM[BX], AL               ; Pwm counter over Active phase? (S_PWM[cx] < S[cx] ??)
+    CMP     S_PWM, AL                   ; Pwm counter over Active phase? (S_PWM < S[bx] ??)
     JGE     MotorHandOFFPHASE           ; Motor should be in inactive phase
     ;JL     MotorHandPOSPHASE           ; Motor should be active pos
 MotorHandPOSPHASE:                      ;
-    OR      PORTB_BUFF, CS:BYTE PTR MOTORTABLE_POS[BX]; Turn on appropriate bits for FORWARD
-    JMP     MotorHandLoopEnd                ;
+    MOV     CL, CS:MOTORTABLE_POS[BX]
+    OR      PORTB_BUFF, CL              ; Turn on appropriate bits for FORWARD
+    JMP     MotorHandLoopEnd            ;
     
 MotorHandPWM_NEG:
     NEG     AL                          ; Get the absolute value (we already know to go neg dir)
-    CMP     S_PWM[BX], AL               ; Pwm counter over Active phase? (S_PWM[cx] < S[cx] ??)
+    CMP     S_PWM[BX], AL               ; Pwm counter over Active phase? (S_PWM < S[bx] ??)
     JGE     MotorHandOFFPHASE           ; Motor should be in inactive phase
     ;JL     MotorHandNEGPHASE           ; Motor should be active pos
 
 MotorHandNEGPHASE:
-    OR      PORTB_BUFF, CS:BYTE PTR MOTORTABLE_NEG[BX]; Turn on appropriate bits for FORWARD
+    MOV     CL, CS:MOTORTABLE_NEG[BX]
+    OR      PORTB_BUFF, CL              ; Turn on appropriate bits for FORWARD
     JMP     MotorHandLoopEnd    
     ;   
 MotorHandOFFPHASE:
@@ -729,25 +737,25 @@ MotorHandOFFPHASE:
     JMP     MotorHandLoopEnd 
     
 MotorHandLoopEnd:
-   
     INC     BX;
     JMP     MotorHandLoop
     
 LaserHandler:
-    CMP     LaserFlag, 0                ; Laser time?
-    JG      LaserHandlerON              ; pew pew
-    ;JLE    LaserHandlerOFF             ; don't pew pew 
+    CMP     LaserFlag, FALSE            ; Laser time?
+    JNE     LaserHandlerON              ; pew pew
+    ;JE     LaserHandlerOFF             ; Turn off laser
     
 LaserHandlerOFF:
-    OR      PORTB_BUFF, LASER_OFF       ; Turn on appropriate bits for laser off
-    JMP     MotorHandEOI                ;       
+    JMP     MotorHandEOI                ; Don't turn on laser
 
 LaserHandlerON:
     OR      PORTB_BUFF, LASER_ON        ; Turn on appropriate bits for laser on
     ;JMP     MotorHandEOI               ;        
 
 MotorHandEOI:
-    MOV     DX, PORT_B                  ;Finally write out the calculates Port B values
+    INC     S_PWM                      ; Update shared PWM counter
+
+    MOV     DX, PORTB                  ;Finally write out the calculates Port B values
     MOV     AL, PORTB_BUFF
     OUT     DX, AL
 
@@ -758,6 +766,8 @@ MotorHandEOI:
     POPA    ; Restore all regs (AX, BX, CX, and DX were used)
     
     IRET
+    
+ MotorHandler ENDP
 ;-------------------------------Stub Functions-----------------------------------
 GetTurretAngle      PROC    NEAR
                     PUBLIC  GetTurretAngle
@@ -859,12 +869,18 @@ DATA    SEGMENT PUBLIC  'DATA'
     SpeedStored     DW  ?     ;Flag to show that a Key was debounced recently
                                            
     AngleStored     DW  ?     ;Debounce count for single key press
+   
+    Fx              DW  ?     ;Debounce count for single key press
+    Fy              DW  ?     ;Debounce count for single key press
+    COS_VAL         DW  ?     ;Debounce count for single key press
+    SIN_VAL         DW  ?     ;Debounce count for single key press
+
 
     LaserFlag       DW  ?     ;Debounce count for auto-repeat key press
     
     S		DB	    numOfMotors	DUP	(?) ; Motor speed array (essentially PWM width)
 
-    S_PWM   DB      numOfMotors DUP (?) ; Current motor pulse width counter
+    S_PWM   DB      ? ; Current motor pulse width counter
     
     PORTB_BUFF      DB  ?     ; Buffer for PORT B values (gets masked a lot)
 

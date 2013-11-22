@@ -92,8 +92,8 @@ XWORDLAT		PROC    NEAR
     
     PUSH    BX;
 XWORDLATBODY:    
-    SHL     BX, 1                   ; Adjust relative pointer for WORD entries
-    ADD     BX, AX                  ; Grab absolute address by adding offset
+    SHL     BX, 1                   ; Adjust pointer for WORD entries
+    ADD     BX, AX                  ; Grab absolute address
     MOV     AX, ES:[BX]             ; Grab the word from table
     
     POP     BX;

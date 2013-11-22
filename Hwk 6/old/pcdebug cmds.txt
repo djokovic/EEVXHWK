@@ -1,0 +1,32 @@
+set 0 motors.motorhandler
+
+set 1 motors.motorinit
+
+set 2 motors.SetMotorSpeed
+
+set 3 motors.SetLaser
+
+
+
+d motors.laserflag 1
+d motors.SpeedStored 2                                           
+d motors.AngleStored 2
+d motors.Fx 2   
+d motors.Fy 2          
+d motors.COS_VAL 2  
+d motors.SIN_VAL 2      
+d motors.S 3
+d motors.S_PWM 3
+d motors.PORTB_BUFF 1
+ 
+    
+    PORTB_BUFF     
+
+        CALL    InitCS                   ; Initialize the chip selects
+        CALL    ClrIRQVectors           ;
+        
+        CALL    DisplayHandlerInit       ; Initialize display handler
+
+        CALL    InitTimer                ; Initialize timer events, note interrupts
+                                         ; start NOW
+        CALL    DisplayTest  

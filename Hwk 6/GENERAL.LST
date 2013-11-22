@@ -1,0 +1,329 @@
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   22:38:42  11/21/;3  PAGE    1
+
+
+DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE MOTORS
+OBJECT MODULE PLACED IN GENERAL.OBJ
+ASSEMBLER INVOKED BY:  C:\UTIL\ASM86.EXE GENERAL.ASM M1 DB EP
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                             1     NAME        Motors
+                             2     
+                             3 +1  $INCLUDE(motors.inc);
+                      =1     4     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1     5     ;                                                                               ;
+                      =1     6     ;                                  Motors.INC                                   ;
+                      =1     7     ;                               Motor Constants                             ;
+                      =1     8     ;                                 Include File                              ;
+                      =1     9     ;                                                                           ;
+                      =1    10     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    11     
+                      =1    12     ; This file contains the definitions for the Motor functions
+                      =1    13     ;
+                      =1    14     ; Revision History:
+                      =1    15     ;    11/18/2013                 Created - Anjian Wu
+                      =1    16     
+                      =1    17     
+                      =1    18     
+                      =1    19     ; Fx Table Definitions
+                      =1    20     
+  7FFF                =1    21     Fx1             EQU     07FFFH         ; Fx component for Motor 1
+  C000                =1    22     Fx2             EQU     0C000H         ; Fx component for Motor 2
+  C000                =1    23     Fx3             EQU     0C000H         ; Fx component for Motor 3
+  0000                =1    24     Fy1             EQU     0              ; Fy component for Motor 1
+  9127                =1    25     Fy2             EQU     09127H         ; Fy component for Motor 2
+  6ED9                =1    26     Fy3             EQU     06ED9H         ; Fy component for Motor 3
+                      =1    27     
+  0003                =1    28     FY_offset       EQU     3              ; Fy components are 3 down in table
+                      =1    29     
+                      =1    30     ; Motor Conv. Constants
+                      =1    31     
+  0168                =1    32     FULL_ANGLE      EQU     360             ; There are 360 deg in a full circle
+ -8000                =1    33     NO_ANGLE_CHANGE EQU     -32768          ; NO angle change is denoted by -32768
+  FFFF                =1    34     NO_SPEED_CHANGE EQU     65535           ; No speed change is denoted by 65534;
+  0003                =1    35     numOfmotors     EQU     3               ; There are three motors on Robotrike
+                      =1    36     
+  0000                =1    37     STOPPED_SPEED   EQU     0               ;
+  0000                =1    38     ZERO_ANGLE      EQU     0               ;
+                      =1    39     
+  0000                =1    40     ZERO_SPEED_PWM  EQU     0               ;
+                      =1    41     
+  007F                =1    42     PWM_WIDTH_MAX   EQU     127             ;
+                      =1    43     
+                      =1    44     
+                      =1    45     
+                      =1    46     ; Motor PORT Vals
+  0183                =1    47     _8255_CNTRL_REG EQU     183H    ;Control Word Address
+  0080                =1    48     _8255_CNTRL_VAL EQU     80H     ;Control Word Write val: MODE 0 for BOTH groups A & B
+                      =1    49     
+  0181                =1    50     PORTB           EQU     181H    ;Address of port B
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   22:38:42  11/21/;3  PAGE    2
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1    51     
+                      =1    52     ; MOtor MASK vals
+                      =1    53                                       
+  0002                =1    54     FORWARD_M1          EQU     00000010B   ;   MASK FORWARD for Motor 1
+  0008                =1    55     FORWARD_M2          EQU     00001000B   ;   MASK FORWARD for Motor 2
+  0020                =1    56     FORWARD_M3          EQU     00100000B   ;   MASK FORWARD for Motor 3
+  0003                =1    57     BACKWARD_M1     EQU     00000011B   ;   MASK BACKWARD for Motor 1
+  000C                =1    58     BACKWARD_M2     EQU     00001100B   ;   MASK BACKWARD for Motor 2
+  0030                =1    59     BACKWARD_M3     EQU     00110000B   ;   MASK BACKWARD for Motor 3
+  00FD                =1    60     STOP_M1             EQU     11111101B   ;   MASK STOP for Motor 1 Dont need
+  00F7                =1    61     STOP_M2             EQU     11110111B   ;   MASK STOP for Motor 2 dont need
+  00DF                =1    62     STOP_M3             EQU     11011111B   ;   MASK STOP for Motor 3 dont need
+  0080                =1    63     LASER_ON        EQU     10000000B   ;   OR MASK for laser ON (PortB)
+  007F                =1    64     LASER_OFF       EQU     01111111B   ;   AND MASK for laser OFF (PortB)
+                      =1    65     
+                      =1    66     
+                      =1    67     
+                      =1    68     
+                            69 +1  $INCLUDE(general.inc);
+                      =1    70     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    71     ;                                                                               ;
+                      =1    72     ;                                  General.INC                                  ;
+                      =1    73     ;                               General Constants                           ;
+                      =1    74     ;                                 Include File                              ;
+                      =1    75     ;                                                                           ;
+                      =1    76     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    77     
+                      =1    78     ; This file contains general operations
+                      =1    79     ;
+                      =1    80     ; Revision History:
+                      =1    81     ;    11/02/2013                 Created - Anjian Wu
+                      =1    82     
+                      =1    83     
+                      =1    84     ; General Constants
+                      =1    85     
+  0000                =1    86     ASCII_NULL      EQU     0           ;
+  0004                =1    87     nibble_size     EQU     4           ;
+  0008                =1    88     BYTE_size       EQU     8           ;
+  0010                =1    89     WORD_size       EQU     16          ;
+                      =1    90     
+  0001                =1    91     TRUE            EQU     1           ;
+  0000                =1    92     FALSE           EQU     0           ;
+                      =1    93     
+  0000                =1    94     RESET           EQU     0           ; General Value for Resetting something
+                      =1    95     
+  0000                =1    96     CLEAR           EQU     0           ;
+                      =1    97     ; General Definitions for Main Loops
+                      =1    98     
+  0001                =1    99     FIRST_RESERVED_VEC      EQU     1           ;reserve vectors 1-3
+  0003                =1   100     LAST_RESERVED_VEC       EQU     3       ;
+  0100                =1   101     NUM_IRQ_VECTORS     EQU 256     ;number of interrupt vectors
+                      =1   102     
+                           103 +1  $INCLUDE(timer.inc);
+                      =1   104     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   105     ;                                                                               ;
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   22:38:42  11/21/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   106     ;                                  Timer.INC                                    ;
+                      =1   107     ;                              Timer Constants                              ;
+                      =1   108     ;                                 Include File                              ;
+                      =1   109     ;                                                                           ;
+                      =1   110     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   111     
+                      =1   112     ; This file contains the definitions for timers and their interupts
+                      =1   113     ;
+                      =1   114     ; Revision History:
+                      =1   115     ;    11/02/2013                 Created - Anjian Wu
+                      =1   116     
+                      =1   117     
+                      =1   118     
+                      =1   119                                             ; Timer Definitions
+                      =1   120     
+                      =1   121     ; Addresses
+  FF56                =1   122     Tmr0Ctrl        EQU     0FF56H          ;address of Timer 0 Control Register
+  FF52                =1   123     Tmr0MaxCntA     EQU     0FF52H          ;address of Timer 0 Max Count A Register
+  FF50                =1   124     Tmr0Count       EQU     0FF50H          ;address of Timer 0 Count Register
+                      =1   125     
+  FF5E                =1   126     Tmr1Ctrl        EQU     0FF5EH          ;address of Timer 1 Control Register
+  FF52                =1   127     Tmr1MaxCntA     EQU     0FF52H          ;address of Timer 1 Max Count A Register
+  FF50                =1   128     Tmr1Count       EQU     0FF50H          ;address of Timer 1 Count Register
+                      =1   129     
+                      =1   130     
+  FF66                =1   131     Tmr2Ctrl        EQU     0FF66H          ;address of Timer 2 Control Register
+  FF62                =1   132     Tmr2MaxCnt      EQU     0FF62H          ;address of Timer 2 Max Count A Register
+  FF60                =1   133     Tmr2Count       EQU     0FF60H          ;address of Timer 2 Count Register
+                      =1   134     
+                      =1   135     ; Control Register Values
+  E001                =1   136     Tmr0CtrlVal     EQU     0E001H          ;value to write to Timer 0 Control Register
+                      =1   137                                             ;1---------------  enable timer
+                      =1   138                                             ;-1--------------  write to control
+                      =1   139                                             ;--1-------------  enable interrupts
+                      =1   140                                             ;----000000------  reserved
+                      =1   141                                             ;---0------0-----  read only
+                      =1   142                                             ;-----------0----  TMRIN0 is an enable
+                      =1   143                                             ;------------00--  count timer 2 outs
+                      =1   144                                             ;--------------0-  single counter mode
+                      =1   145                                             ;---------------1  continuous mode
+                      =1   146     ; Control Register Values
+  E001                =1   147     Tmr1CtrlVal     EQU     0E001H          ;value to write to Timer 0 Control Register
+                      =1   148                                             ;1---------------  enable timer
+                      =1   149                                             ;-1--------------  write to control
+                      =1   150                                             ;--1-------------  enable interrupts
+                      =1   151                                             ;----000000------  reserved
+                      =1   152                                             ;---0------0-----  read only
+                      =1   153                                             ;-----------0----  TMRIN0 is an enable
+                      =1   154                                             ;------------00--  count timer 2 outs
+                      =1   155                                             ;--------------0-  single counter mode
+                      =1   156                                             ;---------------1  continuous mode
+                      =1   157     
+                      =1   158     
+                      =1   159     ; Control Register Values
+                      =1   160                                           
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   22:38:42  11/21/;3  PAGE    4
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   161                                             ; Control Register Values
+  08CA                =1   162     CTS_PER_MILSEC  EQU     2250            ; 18MHZ/(8 * 1KHz) ~ 2250 counts per MS
+  0008                =1   163     TimerEOI        EQU     00008H          ;Timer EOI command (same for all timers)
+  8000                =1   164     NonSpecEOI      EQU     08000H          ;Non-specific EOI command
+                      =1   165     
+  57E4                =1   166     COUNT_FOR_100HZ EQU     22500           ; 18,000,000 HZ/(8 * 100 Hz) ~ 22500 counts f
+                                   or 100 HZ
+                      =1   167                                             ; NOTE THIS IS APPROXIMATE, Clock is actually
+                                    a bit faster
+                      =1   168                                             ; than 18 MHZ
+                      =1   169     
+                      =1   170     
+                      =1   171     ; Interrupt Vectors and their control values
+  0008                =1   172     Tmr0Vec         EQU     8               ;interrupt vector for Timer 0
+  0012                =1   173     Tmr1Vec         EQU     18              ;interrupt vector for Timer 18
+                      =1   174     
+  FF32                =1   175     INTCtrlrCtrl    EQU     0FF32H          ;address of interrupt controller for timer
+  FF22                =1   176     INTCtrlrEOI     EQU     0FF22H          ;address of interrupt controller EOI register
+                      =1   177     
+  0001                =1   178     INTCtrlrCVal    EQU     00001H          ;set priority for timers to 1 and enable
+                      =1   179                                             ;000000000000----  reserved
+                      =1   180                                             ;------------0---  enable timer interrupt
+                      =1   181                                             ;-------------001  timer priority
+                           182     
+                           183     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           184     ;                                                                            ;
+                           185     ;                                 General Functions                          ;
+                           186     ;                                 EE51                                           ;
+                           187     ;                                 Anjian Wu                                  ;
+                           188     ;                                                                            ;
+                           189     ;                                 TA: Pipe-Mazo                              ;
+                           190     ;                                                                            ;
+                           191     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           192     ;                                 What's in here?
+                           193     ;
+                           194     ;                                   Code Segment
+                           195     ;
+                           196     ;   XWORDLAT  -   Sets the motor speed by changing PWM width
+                           197     ;
+                           198     ;
+                           199     ;                                 What's was last edit?
+                           200     ;
+                           201     ;                               Pseudo code -> 11-18-2013 - Anjian Wu
+                           202     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           203     
+                           204     ;Procedure:                     XWORDLAT
+                           205     ;
+                           206     ;Description:           This interrupt performs the holonomic calculations for each
+                           207     ;           
+                           208     ;                   
+                           209     ;Operation:                     * Check if angle needs to be changed
+                           210     ;                       * If not, then used previous angle
+                           211     ;
+                           212     ;Arguments:             AX     -> Offset of WORD look up table
+                           213     ;                   BX     -> Element Pointer
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   22:38:42  11/21/;3  PAGE    5
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           214     ;                   ES     -> Which segment, CS or DS
+                           215     ;
+                           216     ;Return Values:         None.
+                           217     ;
+                           218     ;Result:            Possibly new values in S[0 to 2], speedstored, and anglestored
+                           219     ;
+                           220     ;Shared Variables:      S[0 to 2] (WRITE)
+                           221     ;                   SpeedStored (WRITE/READ) 
+                           222     ;                   AngleStored (WRITE/READ)
+                           223     ;
+                           224     ;Local Variables:       Angletemp -   temporary variable that stores angle values
+                           225     ;                   Speedtemp -   temporary variable that stores angle values
+                           226     ;                   counter   -   stores counter index
+                           227     ;                   Fx        -   stores x component
+                           228     ;                   Fy        -   stores y component
+                           229     ;                   
+                           230     ;
+                           231     ;Global Variables:      None.
+                           232     ;                                       
+                           233     ;                                       
+                           234     ;Input:                 none.
+                           235     ;
+                           236     ;Output:                none.
+                           237     ;
+                           238     ;Registers Used:        none.
+                           239     ;
+                           240     ;Stack Depth:           none.
+                           241     ;
+                           242     ;Known Bugs:            None.
+                           243     ;
+                           244     ;Data Structures:       None.
+                           245     ;
+                           246     ;Error Handling:        none.
+                           247     ;
+                           248     ;Algorithms:            none.
+                           249     ;
+                           250     ;Limitations:           None.
+                           251     ;
+                           252     ;
+                           253     ;Author:                        Anjian Wu
+                           254     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                           255     ;------------------------------------------------------------------------------
+                           256     
+                           257     CGROUP  GROUP   CODE
+                           258     DGROUP GROUP    DATA
+                           259     
+----                       260     CODE SEGMENT PUBLIC 'CODE'
+                           261     
+                           262             ASSUME  CS:CGROUP, DS:DGROUP
+                           263     
+0000                       264     XWORDLAT                PROC    NEAR
+                           265                                     PUBLIC  XWORDLAT    ; Used by many functions
+                           266     
+                           267     
+                           268         
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   22:38:42  11/21/;3  PAGE    6
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0000 53                    269         PUSH    BX;
+0001                       270     XWORDLATBODY:    
+0001 D1E3                  271         SHL     BX, 1                   ; Adjust pointer for WORD entries
+0003 03D8                  272         ADD     BX, AX                  ; Grab absolute address
+0005 268B07                273         MOV     AX, ES:[BX]             ; Grab the word from table
+                           274         
+0008 5B                    275         POP     BX;
+                           276         
+0009 C3                    277         RET
+                           278         
+                           279     XWORDLAT ENDP
+                           280     
+                           281                                     
+----                       282     CODE    ENDS
+                           283         
+----                       284     DATA    SEGMENT PUBLIC  'DATA'
+                           285     
+                           286     ; Empty for now
+                           287             
+----                       288     DATA    ENDS
+                           289     
+                           290             END 
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND
