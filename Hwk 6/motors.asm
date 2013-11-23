@@ -192,9 +192,10 @@ SetMotor_CalcX:
     IMUL    Fx                      ; Fx * SpeedStored. 
     MOV     AX, DX                  ; Truncated answer in DX
     IMUL    COS_VAL                 ; (Fx * SpeedStored)*COS(AngleStored)
-    SAL     DX, 2                   ; Truncated double sign bit
+    ;SAL     DX, 2                   ; Truncated double sign bit
     
-    MOV     S[BX], DH               ; Take only high byte of high word  
+    MOV     CX, DX;
+    ;MOV     S[BX], DH               ; Take only high byte of high word  
     
 SetMotor_CalcY:   
  
@@ -203,9 +204,15 @@ SetMotor_CalcY:
     IMUL    Fy                      ; Fy * SpeedStored. 
     MOV     AX, DX                  ; Truncated answer in DX
     IMUL    SIN_VAL                 ; (Fy * SpeedStored)*SIN(AngleStored)
-    SAL     DX, 2                   ; Truncated double sign bit
+    ;SAL     DX, 2                  ; Truncated double sign bit
     
-    ADD     S[BX], DH               ; Fx * v * cos q + Fy * v * sin q
+    ADD     CX, DX                  ;
+    
+    SAL     CX, 2                   ;
+    
+    MOV     S[BX], CH               ; Fx * v * cos q + Fy * v * sin q
+
+    ;ADD     S[BX], DH               ; Fx * v * cos q + Fy * v * sin q
 
 SetMotor_LoopDone:
     
@@ -697,7 +704,7 @@ MotorHandPWMChk:
     CMP     S_PWM, PWM_WIDTH_MAX    ; Is the current PWM counter outside PWN range?
     JBE     MotorHandLoop           ; Nope, proceed
     ;JA    MotorHandPWMChkRESET     ; Yes it is, clear it.
-MotorHandPWMChkRESET
+MotorHandPWMChkRESET:
     MOV     S_PWM, 0                ;
     ;JMP    MotorHandLoop           ;
 
@@ -723,7 +730,7 @@ MotorHandPOSPHASE:                      ;
     
 MotorHandPWM_NEG:
     NEG     AL                          ; Get the absolute value (we already know to go neg dir)
-    CMP     S_PWM[BX], AL               ; Pwm counter over Active phase? (S_PWM < S[bx] ??)
+    CMP     S_PWM, AL               ; Pwm counter over Active phase? (S_PWM < S[bx] ??)
     JGE     MotorHandOFFPHASE           ; Motor should be in inactive phase
     ;JL     MotorHandNEGPHASE           ; Motor should be active pos
 
@@ -739,7 +746,8 @@ MotorHandOFFPHASE:
 MotorHandLoopEnd:
     INC     BX;
     JMP     MotorHandLoop
-    
+ ;-------------------------------Laser Functions-----------------------------------
+   
 LaserHandler:
     CMP     LaserFlag, FALSE            ; Laser time?
     JNE     LaserHandlerON              ; pew pew
@@ -755,6 +763,7 @@ LaserHandlerON:
 MotorHandEOI:
     INC     S_PWM                      ; Update shared PWM counter
 
+    XOR     DX, DX
     MOV     DX, PORTB                  ;Finally write out the calculates Port B values
     MOV     AL, PORTB_BUFF
     OUT     DX, AL
@@ -782,6 +791,27 @@ SetTurretAngle      PROC    NEAR
     RET
     
 SetTurretAngle ENDP
+
+SetRelTurretAngle      PROC    NEAR
+                        PUBLIC  SetRelTurretAngle
+                    
+    RET
+    
+SetRelTurretAngle ENDP
+
+SetTurretElevation      PROC    NEAR
+                    PUBLIC  SetTurretElevation
+                    
+    RET
+    
+SetTurretElevation ENDP
+
+ GetTurretElevation      PROC    NEAR
+                    PUBLIC  GetTurretElevation
+                    
+    RET
+    
+GetTurretElevation ENDP
 
 ; MotorFTables (F1 to F3)
 ;

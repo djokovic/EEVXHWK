@@ -6,8 +6,10 @@ set 2 motors.SetMotorSpeed
 
 set 3 motors.SetLaser
 
+set 4 motors.MotorHandEOI
 
 
+go 
 d motors.laserflag 1
 d motors.SpeedStored 2                                           
 d motors.AngleStored 2
@@ -16,7 +18,7 @@ d motors.Fy 2
 d motors.COS_VAL 2  
 d motors.SIN_VAL 2      
 d motors.S 3
-d motors.S_PWM 3
+d motors.S_PWM 1
 d motors.PORTB_BUFF 1
  
     

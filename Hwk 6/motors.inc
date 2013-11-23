@@ -50,14 +50,18 @@ PORTB           EQU     181H    ;Address of port B
 ; MOtor MASK vals
                                   
 FORWARD_M1 	    EQU     00000010B   ;   MASK FORWARD for Motor 1
-FORWARD_M2 	    EQU     00001000B   ;   MASK FORWARD for Motor 2
-FORWARD_M3 	    EQU     00100000B   ;   MASK FORWARD for Motor 3
 BACKWARD_M1 	EQU     00000011B   ;   MASK BACKWARD for Motor 1
+
+FORWARD_M2 	    EQU     00001000B   ;   MASK FORWARD for Motor 2
 BACKWARD_M2 	EQU     00001100B   ;   MASK BACKWARD for Motor 2
+
+FORWARD_M3 	    EQU     00100000B   ;   MASK FORWARD for Motor 3
 BACKWARD_M3 	EQU     00110000B   ;   MASK BACKWARD for Motor 3
+
 STOP_M1 	    EQU     11111101B   ;   MASK STOP for Motor 1 Dont need
 STOP_M2 	    EQU     11110111B   ;   MASK STOP for Motor 2 dont need
 STOP_M3 	    EQU     11011111B   ;   MASK STOP for Motor 3 dont need
+
 LASER_ON        EQU     10000000B   ;   OR MASK for laser ON (PortB)
 LASER_OFF       EQU     01111111B   ;   AND MASK for laser OFF (PortB)
 
