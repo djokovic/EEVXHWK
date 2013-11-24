@@ -35,6 +35,10 @@ numOfmotors     EQU     3               ; There are three motors on Robotrike
 STOPPED_SPEED   EQU     0               ;
 ZERO_ANGLE      EQU     0               ;
 
+SPEED_ADJUST    EQU     1               ;
+
+EXTRA_SIGN_BITS EQU     2               ;
+
 ZERO_SPEED_PWM  EQU     0               ;
 
 PWM_WIDTH_MAX   EQU     127             ;
@@ -58,9 +62,9 @@ BACKWARD_M2 	EQU     00001100B   ;   MASK BACKWARD for Motor 2
 FORWARD_M3 	    EQU     00100000B   ;   MASK FORWARD for Motor 3
 BACKWARD_M3 	EQU     00110000B   ;   MASK BACKWARD for Motor 3
 
-STOP_M1 	    EQU     11111101B   ;   MASK STOP for Motor 1 Dont need
-STOP_M2 	    EQU     11110111B   ;   MASK STOP for Motor 2 dont need
-STOP_M3 	    EQU     11011111B   ;   MASK STOP for Motor 3 dont need
+STOP_M1 	    EQU     11111101B   ;   MASK STOP for Motor 1 Did not use
+STOP_M2 	    EQU     11110111B   ;   MASK STOP for Motor 2 Did not use
+STOP_M3 	    EQU     11011111B   ;   MASK STOP for Motor 3 Did not use
 
 LASER_ON        EQU     10000000B   ;   OR MASK for laser ON (PortB)
 LASER_OFF       EQU     01111111B   ;   AND MASK for laser OFF (PortB)

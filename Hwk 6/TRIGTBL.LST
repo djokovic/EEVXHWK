@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE TRIG_TABLE
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
                             48     ;       DW      normalized value (decimal)
                             49                             
 0000 0000                   50             DW             0        ; 0 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
 006A 3966                  103             DW         26169        ; 53 degrees
 006C 8D67                  104             DW         26509        ; 54 degrees
 006E D968                  105             DW         26841        ; 55 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
 00D6 677A                  158             DW         31335        ; 107 degrees
 00D8 BB79                  159             DW         31163        ; 108 degrees
 00DA 0679                  160             DW         30982        ; 109 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
 0144 8E27                  213             DW         10126        ; 162 degrees
 0146 6C25                  214             DW          9580        ; 163 degrees
 0148 4823                  215             DW          9032        ; 164 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
 01B0 C4B4                  268             DW        -19260        ; 216 degrees
 01B2 F8B2                  269             DW        -19720        ; 217 degrees
 01B4 33B1                  270             DW        -20173        ; 218 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -358,7 +358,7 @@ LOC  OBJ                  LINE     SOURCE
                            323     
 021E 0680                  324             DW        -32762        ; 271 degrees
 0220 1580                  325             DW        -32747        ; 272 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE    7
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -418,7 +418,7 @@ LOC  OBJ                  LINE     SOURCE
 028A 96B6                  378             DW        -18794        ; 325 degrees
 028C 6DB8                  379             DW        -18323        ; 326 degrees
 028E 4ABA                  380             DW        -17846        ; 327 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE    8
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE    8
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -478,7 +478,7 @@ LOC  OBJ                  LINE     SOURCE
                            433     ;       DW      normalized value (decimal)      
                            434             
                            435     
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE    9
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE    9
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -538,7 +538,7 @@ LOC  OBJ                  LINE     SOURCE
 033A CD4E                  488             DW         20173        ; 52 degrees
 033C 084D                  489             DW         19720        ; 53 degrees
 033E 3C4B                  490             DW         19260        ; 54 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE   10
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE   10
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -598,7 +598,7 @@ LOC  OBJ                  LINE     SOURCE
 03A6 B8DC                  543             DW         -9032        ; 106 degrees
 03A8 94DA                  544             DW         -9580        ; 107 degrees
 03AA 72D8                  545             DW        -10126        ; 108 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE   11
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE   11
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -658,7 +658,7 @@ LOC  OBJ                  LINE     SOURCE
 0414 FA86                  598             DW        -30982        ; 161 degrees
 0416 4586                  599             DW        -31163        ; 162 degrees
 0418 9985                  600             DW        -31335        ; 163 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE   12
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE   12
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -718,7 +718,7 @@ LOC  OBJ                  LINE     SOURCE
 0480 2797                  653             DW        -26841        ; 215 degrees
 0482 7398                  654             DW        -26509        ; 216 degrees
 0484 C799                  655             DW        -26169        ; 217 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE   13
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE   13
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -778,7 +778,7 @@ LOC  OBJ                  LINE     SOURCE
 04EE 0000                  708             DW             0        ; 270 degrees
                            709     
 04F0 3C02                  710             DW           572        ; 271 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE   14
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE   14
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -838,7 +838,7 @@ LOC  OBJ                  LINE     SOURCE
 055A 8D67                  763             DW         26509        ; 324 degrees
 055C D968                  764             DW         26841        ; 325 degrees
 055E 1D6A                  765             DW         27165        ; 326 degrees
-8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               17:09:47  11/22/;3  PAGE   15
+8086/87/88/186 MACRO ASSEMBLER    TRIG_TABLE                                               00:08:35  11/24/;3  PAGE   15
 
 
 LOC  OBJ                  LINE     SOURCE

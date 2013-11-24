@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 17:09:46  11/22/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 00:08:34  11/24/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE HW6_MAIN
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
                             46     ; User Interface:   The output char on 14-seg display which shows key pressed and num
                                     times.
                             47     ;
-8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 17:09:46  11/22/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 00:08:34  11/24/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   100     ;                              Timer Constants                              ;
                       =1   101     ;                                 Include File                              ;
                       =1   102     ;                                                                           ;
-8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 17:09:46  11/22/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 00:08:34  11/24/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
   08CA                =1   155     CTS_PER_MILSEC  EQU     2250            ; 18MHZ/(8 * 1KHz) ~ 2250 counts per MS
   0008                =1   156     TimerEOI        EQU     00008H          ;Timer EOI command (same for all timers)
   8000                =1   157     NonSpecEOI      EQU     08000H          ;Non-specific EOI command
-8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 17:09:46  11/22/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 00:08:34  11/24/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
                            208     
                            209     CGROUP  GROUP   CODE
                            210     DGROUP  GROUP   STACK, DATA
-8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 17:09:46  11/22/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 00:08:34  11/24/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
                            263     ; Local Variables:  CX    - vector counter.
                            264     ;                   ES:SI - pointer to vector table.
                            265     ; Shared Variables: None.
-8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 17:09:46  11/22/;3  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 00:08:34  11/24/;3  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -358,7 +358,7 @@ LOC  OBJ                  LINE     SOURCE
                            315             ;JMP    EndClrIRQVectors;and all done
                            316     
                            317     
-8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 17:09:46  11/22/;3  PAGE    7
+8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 00:08:34  11/24/;3  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -418,7 +418,7 @@ LOC  OBJ                  LINE     SOURCE
                            370     
                            371     
                            372     InitCS  ENDP
-8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 17:09:46  11/22/;3  PAGE    8
+8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 00:08:34  11/24/;3  PAGE    8
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -478,7 +478,7 @@ LOC  OBJ                  LINE     SOURCE
                            425     ; Description:       Initialize the 80188 Timers.  The timers 0 & 1 are initialized
                            426     ;                    to generate interrupts approximately every millisecond.
                            427     ;
-8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 17:09:46  11/22/;3  PAGE    9
+8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 00:08:34  11/24/;3  PAGE    9
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -538,7 +538,7 @@ LOC  OBJ                  LINE     SOURCE
 006E                       480     InitTimer0ControlSet:
                            481     
 006E BA56FF                482             MOV     DX, Tmr0Ctrl    ;setup the control register
-8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 17:09:46  11/22/;3  PAGE   10
+8086/87/88/186 MACRO ASSEMBLER    HW6_MAIN                                                 00:08:34  11/24/;3  PAGE   10
 
 
 LOC  OBJ                  LINE     SOURCE

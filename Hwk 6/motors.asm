@@ -4,7 +4,17 @@ $INCLUDE(motors.inc);
 $INCLUDE(general.inc);
 $INCLUDE(timer.inc);
 
+CGROUP  GROUP   CODE
+DGROUP GROUP    DATA
 
+CODE SEGMENT PUBLIC 'CODE'
+
+        ASSUME  CS:CGROUP, DS:DGROUP
+        
+;External Procedures needed
+        EXTRN   XWORDLAT:NEAR      ; Used to enqueue key event/code
+        EXTRN   Cos_Table:NEAR      ; Used to enqueue key event/code
+        EXTRN   Sin_Table:NEAR      ; Used to enqueue key event/code
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
 ;                                 HW6 Motor Functions                        ;
@@ -36,20 +46,25 @@ $INCLUDE(timer.inc);
 ;   S           -   this is the PWM width value set by SetMotorSpeed
 ;   S_PWM       -   This is the PWM counter that keeps track of where in the 
 ;                   PWM phase each motor is in.
-;   S_PWM_STATUS-   This stores the status bit of each motor such that no 
-;                   repetitive PORTB writing is needed.
 ;   SpeedStored -   Current ABS motor speed
 ;   AngleStored -   Current robot moving angle
 ;   LaserFlag   -   Status of laser
+;   Fx          -   This is the calculated Fx component, which changed per motor 
+;   Fy          -   This is the calculated Fy component, which changed per motor 
+;   COS_VAL     -   Stores the COS(anglestored)
+;   SIN_VAL     -   Stores the SIN(anglestored)
+;   PORTB_BUFF  -   Holds the buffer value to be outputted.
 ;
 ;                                 What's was last edit?
 ;
 ;       			Pseudo code -> 11-18-2013 - Anjian Wu
+;       			Finished, but buggy -> 11-20-2013 - Anjian Wu
+;       			Working -> 11-22-2013 - Anjian Wu
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;Procedure:			SetMotorSpeed
 ;
-;Description:      	This interrupt performs the holonomic calculations for each
+;Description:      	This function performs the holonomic calculations for each
 ;                   respective motor by storing the speed and angle passed, as
 ;                   well as calculating each motor's PWM length/counter such that
 ;                   the overall speed and angle of the system matches the stored
@@ -59,21 +74,28 @@ $INCLUDE(timer.inc);
 ;                   each motor can be turned on or off.
 ;           
 ;                   
-;Operation:			* Check if angle needs to be changed
-;                       * If not, then used previous angle
-;                   * Map the angle from + 32767 to - 32767
-;                     to +360 to -360 by dividing by ANGLE_NORM
-;                   * If angle is neg, then add 360 deg to get POS equivalent
-;                   * Store this angle
+;Operation:			1.Check Angle 2.Angle Calc 3.Check Speed 4. Speed Calc
 ;
-;                   * Check if speed needs to be changed
-;                       * If not, then used previous speed
-;                   * Store this speed. Divide speed by two.
-;                   * For i'th motor
-;                       *   Fx = MotorFTable[i] * speed * cos(angle). take only DX
-;                       *   Fy = MotorFTable[i + FY_OFFSET] * speed * sin(angle). take only DX
-;                       *   S[i] = SAL (FX + Fy), 2
-;                       *   increment counter
+;                                           Check Angle
+;                   * Check if angle needs to be changed (comp to NO_ANGLE_CHANGE)
+;                       * If not, then use previous anglestored and go to Check Calc
+;
+;                                           Angle Calc
+;                   * AngleStored = BX MOD FULL_ANGLE
+;                       * If angle is neg, AngleStored = AngleStored + FULL_ANGLE deg
+;
+;                                           Check Speed
+;                   * Check if speed needs to be changed (comp to NO_SPEED_CHANGE)
+;                       * If not, then use previous speedstored and go to Speed Calc
+;
+;                                           SpeedCalc
+;                   * Grab speed. Divide speed by two (To get into range 0 to 7FFFH)
+;                   * For each i'th motor out of numOfMotors
+;                       *   CALL SetMotor_GetArgs(i)
+;                       *   CX = TopWordOf(TopWordOf(Fx * speedstored) * COS_VAL)
+;                       *   DX = TopWordOf(TopWordOf(Fy * speedstored) * SIN_VAL)
+;                       *   S[i] = TopByteOf((CX + DX) << 2)
+;                   * DONE
 ;
 ;Arguments:        	AX     -> ABS speed to be set
 ;                   BX     -> Angle to be set
@@ -82,15 +104,19 @@ $INCLUDE(timer.inc);
 ;
 ;Result:            Possibly new values in S[0 to 2], speedstored, and anglestored
 ;
-;Shared Variables: 	S[0 to 2] (WRITE)
+;Shared Variables: 	S[0 to 2]   (WRITE)
 ;                   SpeedStored (WRITE/READ) 
 ;                   AngleStored (WRITE/READ)
+;                   Fx          (READ)
+;                   Fy          (READ)
+;                   COS_VAL     (READ)
+;                   SIN_VAL     (READ)
 ;
-;Local Variables:	Angletemp -   temporary variable that stores angle values
-;                   Speedtemp -   temporary variable that stores angle values
-;                   counter   -   stores counter index
-;                   Fx        -   stores x component
-;                   Fy        -   stores y component
+;Local Variables:	AX      -   Used for DIV and MUL operations
+;                   BX      -   Counter as well as pointer
+;                   CX      -   Used for ADDing X and Y components
+;                   DX      -   Holds MOD and remainder values
+;                   ES      -   Used to pass Code Segment
 ;                   
 ;
 ;Global Variables:	None.
@@ -100,41 +126,54 @@ $INCLUDE(timer.inc);
 ;
 ;Output:           	none.
 ;
-;Registers Used:	none.
+;Registers Used:	AX, BX, CX, DX, ES.
 ;
-;Stack Depth:		none.
+;Stack Depth:		8 words.
 ;
 ;Known Bugs:		None.
 ;
-;Data Structures:	None.
+;Data Structures:	1D array.
 ;
 ;Error Handling:   	none.
 ;
 ;Algorithms:       	none.
 ;
-;Limitations:  		None.
+;Limitations:  		Limited to 127 bits of resolution for PWM.
+;                   Also during operation, Shared variables will be changed
+;                   as the MotorHandler is READing from those variables. However
+;                   it should not affect operation much.
 ;
 ;
 ;Author:			Anjian Wu
 ;History:			11-18-2013: Pseudo code - Anjian Wu
+;       			Working -> 11-22-2013 - Anjian Wu
 ;------------------------------------------------------------------------------
+;Argument equates (include the return address (1 word) and BP (1 word)).
+;
+;
+;
+;    Fx              DW  ?     ;Debounce count for single key press
+;    Fy              DW  ?     ;Debounce count for single key press
+;    COS_VAL         DW  ?     ;Debounce count for single key press
+ ;   SIN_VAL         DW  ?     ;Debounce count for single key press
+ 
+Fx          EQU     WORD PTR [BP - 2]
+Fy          EQU     WORD PTR [BP - 4]
+COS_VAL     EQU     WORD PTR [BP - 6]
+SIN_VAL     EQU     WORD PTR [BP - 8]
 
-CGROUP  GROUP   CODE
-DGROUP GROUP    DATA
-
-CODE SEGMENT PUBLIC 'CODE'
-
-        ASSUME  CS:CGROUP, DS:DGROUP
-        
-;External Procedures needed
-        EXTRN   XWORDLAT:NEAR      ; Used to enqueue key event/code
-        EXTRN   Cos_Table:NEAR      ; Used to enqueue key event/code
-        EXTRN   Sin_Table:NEAR      ; Used to enqueue key event/code
+;local variables - 2 words
+LocalVarSize    EQU     8
 
 SetMotorSpeed		PROC    NEAR
 				    PUBLIC  SetMotorSpeed
+                    
+SetMotorStackFrameInit:
+    PUSH    BP                      ;save BP
+    MOV     BP, SP                  ;and get BP pointing at our stack frame
+    SUB     SP, LocalVarSize        ;save space on stack for local variables
 
-
+    PUSHA           ; Save all regs used (AX - DX)
 SetMotorSpeedAngChk:
 
 	PUSH	AX						; Save Speed for later
@@ -144,13 +183,13 @@ SetMotorSpeedAngChk:
 
 SetMotorAngleCalc:
 
-    XOR     DX, DX                  ; Always clear remainder
+    ;XOR     DX, DX                  ; Always clear remainder
 	MOV		AX, BX					; Need to use AX specifically for IDIV
     MOV     BX, FULL_ANGLE          ; 
-    CWD                             ;
+    CWD                             ; Prepare for signed DIV
     IDIV    BX          	        ; Take the MOD to Full angle
 ; Angle now in DX since we want MOD
-	CMP		DX,	0					; Is the Angle Neg?
+	CMP		DX,	ZERO_ANGLE			; Is the Angle Neg?
 	JGE		SetMotorAngleSave		; Nope, store it
 	;JL		SetMotorAngleNeg		; Yes, it is ,need adjustment
 
@@ -159,12 +198,12 @@ SetMotorAngleNeg:
 	;jmp    SetMotorAngleSave
 SetMotorAngleSave:
 	MOV		AngleStored, DX			; Store this abs angle
-    
+    ;jmp    SetMotorSpeedChk
 SetMotorSpeedChk:
     POP     AX                      ; Now retrieve the Speed Arg
 	CMP		AX, NO_SPEED_CHANGE     ; Are we changing the speed?
-    JNE     SetMotorDiffSpeed       ; Yes
-    JMP     SetMotor_SpeedCalcInit  ; No, so Start speed calculations
+    JE      SetMotor_SpeedCalcInit  ; No, so Start speed calculations
+    ;JNE    SetMotorDiffSpeed       ; Yes, so save that speed
     
 SetMotorDiffSpeed:  
     MOV     SpeedStored, AX         ; Store that speed
@@ -178,41 +217,34 @@ SetMotor_SpeedCalcInit:
     MOV     ES, AX                  ; Prepare to use XWORDLAT in code segment
     
 SetMotor_CalcLoop:  
-    CMP     BX, numOfmotors         ;
-    JGE     SetMotor_DONE           ;
-    ;JL     SetMotor_GrabAllArgs    ;
+    CMP     BX, numOfmotors         ; Is the counter done with all motors?
+    JGE     SetMotor_DONE           ; Yes, done
+    ;JL     SetMotor_GrabAllArgs    ; No, keep going
     
 SetMotor_GrabAllArgs:     
-    CALL    SetMotor_GetArgs        ; Update COS, SIN, Fx, and Fy values
+    CALL    SetMotor_GetArgs        ; Update COS, SIN, Fx, and Fy values for BX'th motor
                                     ; Passes ES, and CX
 SetMotor_CalcX:     
 
     MOV     AX, SpeedStored         ; Grab current speed 
-    SHR     AX, 1                   ; Div Speed by two to get into range [0, 7FFFH]     
+    SHR     AX, SPEED_ADJUST        ; Div Speed to get into range [0, 7FFFH]     
     IMUL    Fx                      ; Fx * SpeedStored. 
     MOV     AX, DX                  ; Truncated answer in DX
-    IMUL    COS_VAL                 ; (Fx * SpeedStored)*COS(AngleStored)
-    ;SAL     DX, 2                   ; Truncated double sign bit
-    
-    MOV     CX, DX;
-    ;MOV     S[BX], DH               ; Take only high byte of high word  
-    
+    IMUL    COS_VAL                 ; (Fx * SpeedStored)*COS(AngleStored)    
+    MOV     CX, DX;    
 SetMotor_CalcY:   
  
     MOV     AX, SpeedStored         ; Grab current speed 
-    SHR     AX, 1                   ; Div Speed by two to get into range [0, 7FFFH]     
+    SHR     AX, SPEED_ADJUST        ; Div Speed by two to get into range [0, 7FFFH]     
     IMUL    Fy                      ; Fy * SpeedStored. 
     MOV     AX, DX                  ; Truncated answer in DX
     IMUL    SIN_VAL                 ; (Fy * SpeedStored)*SIN(AngleStored)
-    ;SAL     DX, 2                  ; Truncated double sign bit
     
-    ADD     CX, DX                  ;
+    ADD     CX, DX                  ; Add X and Y components
     
-    SAL     CX, 2                   ;
+    SAL     CX, EXTRA_SIGN_BITS     ; Take out the duplicated sign bits
     
-    MOV     S[BX], CH               ; Fx * v * cos q + Fy * v * sin q
-
-    ;ADD     S[BX], DH               ; Fx * v * cos q + Fy * v * sin q
+    MOV     S[BX], CH               ; Store (Fx * v * cos q + Fy * v * sin q)
 
 SetMotor_LoopDone:
     
@@ -221,14 +253,91 @@ SetMotor_LoopDone:
     
 SetMotor_DONE:
 
+    POPA    ; Restore all regs used.
+
+    ADD     SP, LocalVarSize        ;remove local variables from stack
+    POP     BP                      ;restore BP
+
     RET
 
 SetMotorSpeed ENDP
 
-
+;Procedure:			SetMotor_GetArgs
+;
+;Description:      	This function takes in a relative pointer (BX), and memory segment (ES)
+;                   and updates shared variables Fx, Fy, COS_VAL, and SIN_VAL. It does this
+;                   through using the relative pointer ARG on tables MotorFTable, Cos_Table
+;                   and Sin_Table. Since these are WORD tables, the actual table grabbing is
+;                   done though function XWORDLAT (from General.asm).
+;           
+;                   NOTE: XWORDLAT takes the following ARGs.
+;                   XWORDLAT(AX = table offset, BX = relative offset, ES = CS or DS)
+;
+;                   By doing this, the SetMotorSpeed is easier to debug since shared variables
+;                   can be easily searched.
+;                   
+;Operation:			
+;                                           Fx Grab
+;                   * CALL XWORDLAT(AX = offset(MotorFTable), BX = i'th motor)
+;                   * Fx = AX.
+;                                           Fy Grab
+;                   * CALL XWORDLAT(AX = offset(MotorFTable) + 2*FY_OFFSET, BX = i'th motor)
+;                   * Fy = AX.
+;                                           COS Grab
+;                   * CALL XWORDLAT(AX = offset(Cos_Table) + 2*FY_OFFSET, AngleStored)
+;                   * COS_VAL = AX.
+;                                           SIN Grab
+;                   * CALL XWORDLAT(AX = offset(Sin_Table) + 2*FY_OFFSET, AngleStored)
+;                   * SIN_VAL = AX.
+;
+;Arguments:        	BX     -> Motor index (0 to numOfMotors -1)
+;                   ES     -> Code segment or Data segment
+;
+;Return Values:    	None.
+;
+;Result:            Updated Fx, Fy, COS_VAL, SIN_VAL for SetMotorSpeed
+;
+;Shared Variables: 	SpeedStored (READ) 
+;                   AngleStored (READ)
+;                   Fx          (WRITE)
+;                   Fy          (WRITE)
+;                   COS_VAL     (WRITE)
+;                   SIN_VAL     (WRITE)
+;
+;Local Variables:	AX      -   Used as table offset arg to pass to XWORDLAT, also holds
+;                               XWORLAT return values.
+;                   BX      -   Used as relative pointer arg for XWORDLAT
+;                   ES      -   Used to pass Code Segment
+;                   
+;
+;Global Variables:	None.
+;					
+;					
+;Input:            	none.
+;
+;Output:           	none.
+;
+;Registers Used:	AX, BX, ES.
+;
+;Stack Depth:		2 words.
+;
+;Known Bugs:		None.
+;
+;Data Structures:	None.
+;
+;Error Handling:   	none.
+;
+;Algorithms:       	Table look up.
+;
+;Limitations:  		None.
+;
+;
+;Author:			Anjian Wu
+;History:			11-18-2013: Pseudo code - Anjian Wu
+;       			Working -> 11-22-2013 - Anjian Wu
+;------------------------------------------------------------------------------
 
 SetMotor_GetArgs		PROC    NEAR
-                        PUBLIC  SetMotor_GetArgs    ; Used by many functions
 
     PUSH    BX                      ; Save All Used Regs
     PUSH    AX;
@@ -245,7 +354,7 @@ GetArgsFx:
 GetArgsFy:
 ; Grab Fy     
     MOV     AX, offset(MotorFTable) + 2*FY_OFFSET ; First grab CX'th Fy component
-                                                  ; Mul FY_OFFSET since this is
+                                                  ; 2x FY_OFFSET since this is
                                                   ; WORD table and offset is in
                                                   ; terms of 'elements'
                                                   
@@ -280,53 +389,30 @@ SetMotor_GetArgs    ENDP
 ;
 ;Description:      	This function returns the value of the motor speed. This value
 ;                   is exactly the speedstore shared variable. It will simply return
-;                   this value.
-;
-;                                    
-;                   
+;                   this value.    
 ;Operation:			Simply Returns the speedstore value
-;
 ;Arguments:        	None.
-;
 ;Return Values:    	AX -> Speedstore
-;
 ;Result:            Grabs the current motor speed for User.
-;
 ;Shared Variables: 	Speedstore (Read)
-;
 ;Local Variables:	None.
-;                   
-;
-;Global Variables:	None.
-;					
-;					
+;Global Variables:	None.			
 ;Input:            	None.
-;
 ;Output:           	None.
-;
 ;Registers Used:	AX
-;
 ;Stack Depth:		N/A
-;
 ;Known Bugs:		None.
-;
 ;Data Structures:	None.
-;
 ;Error Handling:   	None
-;
 ;Algorithms:       	None.
-;
 ;Limitations:  		None.
-;
-;
 ;Author:			Anjian Wu
 ;History:			11-18-2013: Pseudo code - Anjian Wu
+;       			Working -> 11-22-2013 - Anjian Wu
 ;------------------------------------------------------------------------------
-
-
 GetMotorSpeed		    PROC    NEAR
 
-    MOV     AX, SpeedStored;
+    MOV     AX, SpeedStored; Grab the stored speed
     RET
 
 GetMotorSpeed ENDP
@@ -334,57 +420,31 @@ GetMotorSpeed ENDP
 ;Procedure:			GetMotorDirection
 ;
 ;Description:      	This function returns the value of the motor angle. This value
-;                   is exactly the anglestore shared variable. It will simply return
-;                   value MOD 360. The MOD 360 is for when anglestore = 360, of which
-;                   it is equivalent to angle of 0 degs anyways.
-;
-;                                    
-;                   
-;Operation:			Simply Returns the anglestore MOD 360 deg value
-;
+;                   is exactly the anglestore shared variable. 
+;Operation:			Simply Returns the anglestore 
 ;Arguments:        	None.
-;
 ;Return Values:    	AX -> the angle to be returned, between 0 and 359 deg
-;
 ;Result:            Grabs the current motor speed for User.
-;
 ;Shared Variables: 	anglestore (Read)
-;
 ;Local Variables:	None.
-;                   
-;
-;Global Variables:	None.
-;					
-;					
+;Global Variables:	None.									
 ;Input:            	None.
-;
 ;Output:           	None.
-;
 ;Registers Used:	AX
-;
 ;Stack Depth:		N/A
-;
 ;Known Bugs:		None.
-;
 ;Data Structures:	None.
-;
 ;Error Handling:   	None
-;
 ;Algorithms:       	None.
-;
 ;Limitations:  		None.
-;
-;
 ;Author:			Anjian Wu
 ;History:			11-18-2013: Pseudo code - Anjian Wu
+;       			Working -> 11-22-2013 - Anjian Wu
 ;------------------------------------------------------------------------------
-
-
 GetMotorDirection		    PROC    NEAR
 
-    MOV     AX, AngleStored;
+    MOV     AX, AngleStored; Grab the angle stored
     RET
-
 GetMotorDirection ENDP
 
 ;Procedure:			SetLaser
@@ -392,59 +452,34 @@ GetMotorDirection ENDP
 ;Description:      	This function will turn the robot laser on or off depending
 ;                   on the passed arg in AX. If AX is 0 then lazer is turned off.
 ;                   Else it is turned on. Also will record laser status in LaserFlag.
-;
-;                                    
-;                   
 ;Operation:			* Compare arg to zero
-;                   * If zero then turn laser off by turning off bit 7 of port B 
-;                     of the 8255. Clear LaserFlag.
-;                   * If not then turn laser on by turning on bit 7 of port B 
-;                     of the 8255. Set LaserFlag.
+;                   * If zero then turn clear LaserFlag
+;                   * If not then set LaserFlag
 ;                   
-;
 ;Arguments:        	arg -> AX -> on or off.
-;
 ;Return Values:    	None.
-;
-;Result:            Grabs the current motor speed for User.
-;
+;Result:            Updates LaserFlag
 ;Shared Variables: 	LaserFlag (Write)
-;
-;Local Variables:	None.
-;                   
-;
-;Global Variables:	None.
-;					
-;					
+;Local Variables:	None.                  
+;Global Variables:	None.								
 ;Input:            	None.
-;
 ;Output:           	None.
-;
 ;Registers Used:	AX
-;
 ;Stack Depth:		N/A
-;
 ;Known Bugs:		None.
-;
 ;Data Structures:	None.
-;
-;Error Handling:   	None
-;
+;Error Handling:   	None.
 ;Algorithms:       	None.
-;
 ;Limitations:  		None.
-;
-;
 ;Author:			Anjian Wu
 ;History:			11-18-2013: Pseudo code - Anjian Wu
+;       			Working -> 11-22-2013 - Anjian Wu
 ;------------------------------------------------------------------------------
 
 SetLaser		    PROC    NEAR
                     PUBLIC  SetLaser
-
     MOV     LaserFlag, AX;
     RET
-
 SetLaser ENDP
 
 ;Procedure:			GetLaser
@@ -452,55 +487,30 @@ SetLaser ENDP
 ;Description:      	This function returns the value of the LaserFlag. This value
 ;                   is exactly the LaserFlag shared variable. It will simply return
 ;                   this value. Zero value indicates FALSE, other wise TRUE.
-;                                    
-;                   
 ;Operation:			Simply Returns the LaserFlag value
-;
 ;Arguments:        	None.
-;
 ;Return Values:    	AX -> LaserFlag
-;
 ;Result:            Grabs the current motor speed for User.
-;
 ;Shared Variables: 	LaserFlag (Read)
-;
 ;Local Variables:	None.
-;                   
-;
-;Global Variables:	None.
-;					
-;					
+;Global Variables:	None.								
 ;Input:            	None.
-;
 ;Output:           	None.
-;
 ;Registers Used:	AX
-;
 ;Stack Depth:		N/A
-;
 ;Known Bugs:		None.
-;
 ;Data Structures:	None.
-;
 ;Error Handling:   	None
-;
 ;Algorithms:       	None.
-;
 ;Limitations:  		None.
-;
-;
 ;Author:			Anjian Wu
 ;History:			11-18-2013: Pseudo code - Anjian Wu
+;       			Working -> 11-22-2013 - Anjian Wu
 ;------------------------------------------------------------------------------
-
-
 GetLaser		    PROC    NEAR
-
     MOV     AX, LaserFlag;
     RET
-
 GetLaser ENDP
-
 
 ; MOTORINIT
 ;
@@ -526,7 +536,7 @@ GetLaser ENDP
 ; Arguments:         None.
 ; Return Value:      None.
 ;
-; Local Variables:   AX - Used to temporarily store vector table offset for ES
+; Local Variables:   AX - Used to temporarily store vector table offset for ES
 ; 
 ; Shared Variables:  LaserFlag (WRITE)
 ;                    SpeedStored (WRITE)
@@ -778,34 +788,145 @@ MotorHandEOI:
     
  MotorHandler ENDP
 ;-------------------------------Stub Functions-----------------------------------
+;Procedure:			GetTurretAngle
+;
+;Description:      	This function is just a stub function
+;Operation:			Just returns
+;Arguments:        	None.
+;Return Values:    	None.
+;Result:            None.
+;Shared Variables: 	None.
+;Local Variables:	None.
+;Global Variables:	None.								
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		N/A
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None
+;Algorithms:       	None.
+;Limitations:  		None.
+;Author:			Anjian Wu
+;History:			11-18-2013: Pseudo code - Anjian Wu
+;       			Working -> 11-22-2013 - Anjian Wu
+;------------------------------------------------------------------------------
 GetTurretAngle      PROC    NEAR
                     PUBLIC  GetTurretAngle
                     
     RET
     
 GetTurretAngle ENDP
-
+;Procedure:			SetTurretAngle
+;
+;Description:      	This function is just a stub function
+;Operation:			Just returns
+;Arguments:        	None.
+;Return Values:    	None.
+;Result:            None.
+;Shared Variables: 	None.
+;Local Variables:	None.
+;Global Variables:	None.								
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		N/A
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None
+;Algorithms:       	None.
+;Limitations:  		None.
+;Author:			Anjian Wu
+;History:			11-18-2013: Pseudo code - Anjian Wu
+;       			Working -> 11-22-2013 - Anjian Wu
+;------------------------------------------------------------------------------
 SetTurretAngle      PROC    NEAR
                     PUBLIC  SetTurretAngle
                     
     RET
     
 SetTurretAngle ENDP
-
+;Procedure:			SetRelTurretAngle
+;
+;Description:      	This function is just a stub function
+;Operation:			Just returns
+;Arguments:        	None.
+;Return Values:    	None.
+;Result:            None.
+;Shared Variables: 	None.
+;Local Variables:	None.
+;Global Variables:	None.								
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		N/A
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None
+;Algorithms:       	None.
+;Limitations:  		None.
+;Author:			Anjian Wu
+;History:			11-18-2013: Pseudo code - Anjian Wu
+;       			Working -> 11-22-2013 - Anjian Wu
+;------------------------------------------------------------------------------
 SetRelTurretAngle      PROC    NEAR
                         PUBLIC  SetRelTurretAngle
                     
     RET
     
 SetRelTurretAngle ENDP
-
+;Procedure:			SetTurretElevation
+;
+;Description:      	This function is just a stub function
+;Operation:			Just returns
+;Arguments:        	None.
+;Return Values:    	None.
+;Result:            None.
+;Shared Variables: 	None.
+;Local Variables:	None.
+;Global Variables:	None.								
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		N/A
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None
+;Algorithms:       	None.
+;Limitations:  		None.
+;Author:			Anjian Wu
+;History:			11-18-2013: Pseudo code - Anjian Wu
+;       			Working -> 11-22-2013 - Anjian Wu
+;------------------------------------------------------------------------------
 SetTurretElevation      PROC    NEAR
                     PUBLIC  SetTurretElevation
                     
     RET
     
 SetTurretElevation ENDP
-
+;Procedure:			GetTurretElevation
+;
+;Description:      	This function is just a stub function
+;Operation:			Just returns
+;Arguments:        	None.
+;Return Values:    	None.
+;Result:            None.
+;Shared Variables: 	None.
+;Local Variables:	None.
+;Global Variables:	None.								
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		N/A
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None
+;Algorithms:       	None.
+;Limitations:  		None.
+;Author:			Anjian Wu
+;History:			11-18-2013: Pseudo code - Anjian Wu
+;       			Working -> 11-22-2013 - Anjian Wu
+;------------------------------------------------------------------------------
  GetTurretElevation      PROC    NEAR
                     PUBLIC  GetTurretElevation
                     
@@ -870,27 +991,7 @@ MOTORTABLE_NEG	    LABEL	BYTE
 	DB		BACKWARD_M2 	;MASK BACKWARD for Motor 2
 	DB		BACKWARD_M3 	;MASK BACKWARD for Motor 3
 
-
-; MOTORTABLE_ZERO
-;
-; Description:      This table contains all the MASK values for OR mask
-;                   such that when masked with PORTB bits, it will set
-;                   the (i+1)'th motor into ZERO rotation.
-;
-; Author:           Anjian Wu
-; Last Modified:    11/18/2013
-
-
-MOTORTABLE_ZERO	    LABEL	BYTE
-                    PUBLIC  MOTORTABLE_ZERO
-                                    
-	DB		STOP_M1 	;MASK STOP for Motor 1
-	DB		STOP_M2 	;MASK STOP for Motor 2
-	DB		STOP_M3 	;MASK STOP for Motor 3
-
-
-
-				
+			
 CODE    ENDS
     
 DATA    SEGMENT PUBLIC  'DATA'
@@ -900,10 +1001,10 @@ DATA    SEGMENT PUBLIC  'DATA'
                                            
     AngleStored     DW  ?     ;Debounce count for single key press
    
-    Fx              DW  ?     ;Debounce count for single key press
-    Fy              DW  ?     ;Debounce count for single key press
-    COS_VAL         DW  ?     ;Debounce count for single key press
-    SIN_VAL         DW  ?     ;Debounce count for single key press
+    ;Fx              DW  ?     ;Debounce count for single key press
+    ;Fy              DW  ?     ;Debounce count for single key press
+    ;COS_VAL         DW  ?     ;Debounce count for single key press
+    ;SIN_VAL         DW  ?     ;Debounce count for single key press
 
 
     LaserFlag       DW  ?     ;Debounce count for auto-repeat key press
