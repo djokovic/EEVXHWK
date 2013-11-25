@@ -1,21 +1,5 @@
-NAME        Motors
+NAME        Serial
 
-$INCLUDE(motors.inc);
-$INCLUDE(general.inc);
-$INCLUDE(timer.inc);
-$INCLUDE(vectors.inc);
-
-CGROUP  GROUP   CODE
-DGROUP GROUP    DATA
-
-CODE SEGMENT PUBLIC 'CODE'
-
-        ASSUME  CS:CGROUP, DS:DGROUP
-        
-;External Procedures needed
-        EXTRN   XWORDLAT:NEAR       ; Used to grab elements from WORD table
-        EXTRN   Cos_Table:NEAR      ; Table for COS operations
-        EXTRN   Sin_Table:NEAR      ; Table for SIN operations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
 ;                                 HW6 Motor Functions                        ;
@@ -29,37 +13,9 @@ CODE SEGMENT PUBLIC 'CODE'
 ;
 ;                                   Code Segment
 ;
-;   SetMotorSpeed  -   Sets the motor speed by changing PWM width
-;   GetMotorSpeed  -   Retrieves the motor speed 
-;   GetMotorDirection  -  retrieves motor angle (0 to 359 deg)
-;   SetLaser        -   Turns on/off the laser
-;   GetLaser        -   Checks if Laser is turned on or not
-;
-;
-;   MotorInit       - Initializes all motor vars, installs handler and sets up CS
-;   MotorHandler    -   Interrupt handler that outputs to PORTB with proper PWM
-;   SetMotor_GetTrig -   Used by MotorHandler to grab COS_VAL and SIN_VAL
-;   SetMotor_GetArgs -   Used by MotorHandler to grab Fx and Fy values
-
-;
-;                                   Data Segment
-;
-;
-;   s           -   this is the PWM width value set by SetMotorSpeed for each motor
-;   s_pwm       -   This is the PWM counter that keeps track of where in the 
-;                   PWM phase each motor is in.
-;   SpeedStored -   Current ABS motor speed
-;   AngleStored -   Current robot moving angle
-;   LaserFlag   -   Status of laser
-;   portb_buff  -   Holds the buffer value to be outputted.
-;
-;                                  Temporary Stack Variables
-;
-;   Fx          -   This is the calculated Fx component, which changed per motor 
-;   Fy          -   This is the calculated Fy component, which changed per motor 
-;   COS_VAL     -   Stores the COS(anglestored)
-;   SIN_VAL     -   Stores the SIN(anglestored)
-;
+;   SerialPutChar   -   Sets the motor speed by changing PWM width
+;   SetSerial       -   Retrieves the abs motor speed 
+;   SerialHandler   - 
 ;                                 What's was last edit?
 ;
 ;       			Pseudo code -> 11-18-2013 - Anjian Wu
@@ -74,8 +30,8 @@ CODE SEGMENT PUBLIC 'CODE'
 ;                   respective motor by storing the speed and angle passed, as
 ;                   well as calculating each motor's PWM length/counter such that
 ;                   the overall speed and angle of the system matches the stored
-;                   angle and speed. Ultimately the function's stored
-;                   PWM values for each counter (aka s[0 to 2]) will be accessed
+;                   ABS angle and ABS speed. Ultimately the function's stored
+;                   PWM values for each counter (aka S[0 to 2]) will be accessed
 ;                   by the MotorHandler as the PWM width reference by which
 ;                   each motor can be turned on or off.
 ;           
@@ -101,7 +57,7 @@ CODE SEGMENT PUBLIC 'CODE'
 ;                       *   CALL SetMotor_GetArgs(i)
 ;                       *   CX = TopWordOf(TopWordOf(Fx * speedstored) * COS_VAL)
 ;                       *   DX = TopWordOf(TopWordOf(Fy * speedstored) * SIN_VAL)
-;                       *   s[i] = TopByteOf((CX + DX) << 2)
+;                       *   S[i] = TopByteOf((CX + DX) << 2)
 ;                   * DONE
 ;
 ;Arguments:        	AX     -> ABS speed to be set
@@ -109,9 +65,9 @@ CODE SEGMENT PUBLIC 'CODE'
 ;
 ;Return Values:    	None.
 ;
-;Result:            Possibly new values in s[0 to 2], speedstored, and anglestored
+;Result:            Possibly new values in S[0 to 2], speedstored, and anglestored
 ;
-;Shared Variables: 	s[0 to 2]   (WRITE)
+;Shared Variables: 	S[0 to 2]   (WRITE)
 ;                   SpeedStored (WRITE/READ) 
 ;                   AngleStored (WRITE/READ)
 ;
@@ -147,7 +103,7 @@ CODE SEGMENT PUBLIC 'CODE'
 ;                   Math Algorithm ( * = IMUL)
 ;                       *   CX = TopWordOf(TopWordOf(Fx * speedstored) * COS_VAL)
 ;                       *   DX = TopWordOf(TopWordOf(Fy * speedstored) * SIN_VAL)
-;                       *   s[i] = TopByteOf((CX + DX) << 2) ; Cut off repetitive sign bits
+;                       *   S[i] = TopByteOf((CX + DX) << 2) ; Cut off repetitive sign bits
 ;                   
 ;
 ;Limitations:  		Limited to 127 bits of resolution for PWM.
@@ -160,11 +116,13 @@ CODE SEGMENT PUBLIC 'CODE'
 ;History:			11-18-2013: Pseudo code - Anjian Wu
 ;       			Working -> 11-22-2013 - Anjian Wu
 ;------------------------------------------------------------------------------
-; SetMotorSpeed Local Vars (In motors.inc but commented here for reference)
-;Fx          EQU     WORD PTR [BP - 2]   ; Stores the Fx component for each motor
-;Fy          EQU     WORD PTR [BP - 4]   ; Stores the Fy component for each motor
-;COS_VAL     EQU     WORD PTR [BP - 6]   ; Stores the COS(ANGLESTORED)
-;SIN_VAL     EQU     WORD PTR [BP - 8]   ; Stored the SIN(ANGLESTORED)
+;Argument equates (include the return address (1 word) and BP (1 word)).
+
+Fx          EQU     WORD PTR [BP - 2] 
+Fy          EQU     WORD PTR [BP - 4]
+COS_VAL     EQU     WORD PTR [BP - 6]
+SIN_VAL     EQU     WORD PTR [BP - 8]
+
 
 SetMotorSpeed		PROC    NEAR
 				    PUBLIC  SetMotorSpeed
@@ -184,6 +142,7 @@ SetMotorSpeedAngChk:
 
 SetMotorAngleCalc:
 
+    ;XOR     DX, DX                  ; Always clear remainder
 	MOV		AX, BX					; Need to use AX specifically for IDIV
     MOV     BX, FULL_ANGLE          ; 
     CWD                             ; Prepare for signed DIV
@@ -247,7 +206,7 @@ SetMotor_CalcY:
     
     SAL     CX, EXTRA_SIGN_BITS     ; Take out the duplicated sign bits
     
-    MOV     s[BX], CH               ; Store (Fx * v * cos q + Fy * v * sin q)
+    MOV     S[BX], CH               ; Store (Fx * v * cos q + Fy * v * sin q)
 
 SetMotor_LoopDone:
     
@@ -558,7 +517,7 @@ GetMotorDirection ENDP
 
 SetLaser		    PROC    NEAR
                     PUBLIC  SetLaser
-    MOV     LaserFlag, AX; Store new laserflag
+    MOV     LaserFlag, AX;
     RET
 SetLaser ENDP
 
@@ -588,7 +547,7 @@ SetLaser ENDP
 ;       			Working -> 11-22-2013 - Anjian Wu
 ;------------------------------------------------------------------------------
 GetLaser		    PROC    NEAR
-    MOV     AX, LaserFlag; return laserflag
+    MOV     AX, LaserFlag;
     RET
 GetLaser ENDP
 
@@ -598,13 +557,13 @@ GetLaser ENDP
 ;
 ;                    Installs the MotorHandler for the timer0 interrupt at 
 ;                    interrupt table index Tmr0Vec. ALso clears the 
-;                    LaserFlag, SpeedStored, s[0 to 2], AngleStored, s_pwm
+;                    LaserFlag, SpeedStored, S[0 to 2], AngleStored, S_PWM
 ;                    Thus rendering the motors NOT moving, and at 0 deg angle.
 ;
 ;                    Also sets up the PORTB on the 8255 and proper chip select
 ;
-; Operation:         First clear LaserFlag, SpeedStored, s[0 to 2], AngleStored, 
-;                    s_pwm.
+; Operation:         First clear LaserFlag, SpeedStored, S[0 to 2], AngleStored, 
+;                    S_PWM.
 ;
 ;                    Then writes the address of the MotorHandler to the
 ;                    timer0 location in the interrupt vector table. Notice
@@ -626,8 +585,8 @@ GetLaser ENDP
 ; Shared Variables:  LaserFlag (WRITE)
 ;                    SpeedStored (WRITE)
 ;                    AngleStored (WRITE)
-;                    s[0 to 2] (WRITE)
-;                    s_pwm (WRITE)
+;                    S[0 to 2] (WRITE)
+;                    S_PWM[0 to 2] (WRITE)
 ;
 ; Global Variables:  None.
 ;
@@ -655,7 +614,7 @@ MOTORINITInitStart:
         MOV     LaserFlag, FALSE            ; Laser OFF
         MOV     SpeedStored, STOPPED_SPEED  ; Should NOT be moving
         MOV     AngleStored, ZERO_ANGLE   	; Going straight 
-        MOV     s_pwm, ZERO_SPEED_PWM       ; Should NOT be moving e.g. PWM = 0
+        MOV     S_PWM, ZERO_SPEED_PWM       ; Should NOT be moving e.g. PWM = 0%
 
         XOR     BX, BX                      ; Clear Counter
         
@@ -664,7 +623,7 @@ MOTORINITClearPWMvars:
         CMP     BX, numOfmotors             ; For each motor PWM counter
         JGE     MOTORINITInitVector         ; If each done, then leave loop
         
-        MOV     s[BX], ZERO_SPEED_PWM       ; Should NOT be moving
+        MOV     S[BX], ZERO_SPEED_PWM       ; Should NOT be moving
         INC     BX                          ; Increment counter/motor index
         JMP     MOTORINITClearPWMvars       ; Loop until all entries are cleared
         
@@ -695,36 +654,34 @@ MOTORINIT  ENDP
 ;Procedure:			MotorHandler
 ;
 ;Description:      	This function performs the PWM for the three motors. It does this
-;                   by looping through each motor which share the s_pwm counter and determining
+;                   by looping through each motor which share the S_PWM counter and determining
 ;                   which phase in the PWM each motor is in. It will then set the
 ;                   PORT B buffer appropriately, ultimately outputting the final result
 ;                   to the parallel chip.
 ;
-;                   Approach is to CLEAR the portb_buff at the beginning of the interrupt, 
+;                   Approach is to CLEAR the PORTB_BUFF at the beginning of the interrupt, 
 ;                   by doing this, only OR masks are needed to turn on only the bits necessary.
 ;                   The function will then mux which MASKS to use accordingly to the sign of 
-;                   each s[i'th] PWM ref of each motor, as well as whether s_pwm is < abs(s[i'th]).
-;                   If in inactive PWM phase, then AND maskes are used to only turn off
-;                   forward bits, without touching REVERSE bit.
+;                   each S[i'th] PWM ref of each motor, as well as whether S_PWM is < abs(S[i'th]).
 ;                                    
 ;                   
-;Operation:			*   Clear i(BX) and portb_buff (assuming neither motor or laser on)
-;                   *   Is s_pwm above PWM_WIDTH_MAX? If so reset s_pwm, else continue
+;Operation:			*   Clear i(BX) and PORTB_BUFF (assuming neither motor or laser on)
+;                   *   Is S_PWM above PWM_WIDTH_MAX? If so reset S_PWM, else continue
 ;                   *   For i < numOfMotors
-;                       *   If s[i] is < 0, then 
-;                           *   If  neg(s[i]) > s_pwm
+;                       *   If S[i] is < 0, then 
+;                           *   If  neg(S[i]) > S_PWM
 ;                               *   Grab mask from MOTORTABLE_NEG[at i'th offset]
-;                               *   OR MASK portb_buff
-;                       *   If s[i] is >= 0, then 
-;                           *   If  (s[i]) > s_pwm
-;                               *   Grab mask from MOTORTABLE_POs[at i'th offset]
-;                               *   OR MASK portb_buff
+;                               *   OR MASK PORTB_BUFF
+;                       *   If S[i] is >= 0, then 
+;                           *   If  (S[i]) > S_PWM
+;                               *   Grab mask from MOTORTABLE_POS[at i'th offset]
+;                               *   OR MASK PORTB_BUFF
 ;                       *   Else ; we are in inactive phase of PWM
-;                           *   Mask off only the FORWARD bit of i'th motor
+;                           *   No need to do anything, since inactive -> bits off
 ;                   *   Is the LaserFlag set?
-;                       * If so OR MASK portb_buff with LASER_ON
+;                       * If so OR MASK PORTB_BUFF with LASER_ON
 ;                       * Else keep going
-;                   *   Increment s_pwm, OUTPUT portb_buff to parallel chip
+;                   *   Increment S_PWM, OUTPUT PORTB_BUFF to parallel chip
 ;                   *   Send out interrupt EOI
 ;                               
 ;
@@ -735,14 +692,14 @@ MOTORINIT  ENDP
 ;Result:            Sets each individual motor's PORTB bit depending on PWM phase of
 ;                   eash motor. Also sets Laser's bit.
 ;
-;Shared Variables: 	s[bx](READ)             - this is the PWM width value set by SetMotorSpeed
-;                   s_pwm(WRITE/READ)       - This is the PWM counter that keeps track of
+;Shared Variables: 	S[bx](READ)             - this is the PWM width value set by SetMotorSpeed
+;                   S_PWM(WRITE/READ)       - This is the PWM counter that keeps track of
 ;                                             where in the PWM phase each motor is in.
 ;
-;Local Variables:	portb_buff(WRITE/READ)   - Stores the bits which will eventually be written out to
+;Local Variables:	PORTB_BUFF(WRITE/READ)   - Stores the bits which will eventually be written out to
 ;                                              the parallel chip.
 ;                   BX  -   Stores counter for each motor, and acts as pointer for table
-;                   AL  -   Holds the s[i] values for compares
+;                   AL  -   Holds the S[i] values for compares
 ;                   DX  -   Holds address for PORT writing
 ;                   CL  -   Holds bits that are MASKED on  
 ;
@@ -787,14 +744,14 @@ MotorHandler  PROC    NEAR
 MotorHandInit:
 
     XOR     BX, BX              ; Start with motor 0/ clear counter
-    MOV     portb_buff, RESET   ; Clear portB such that we only need to turn on
+    MOV     PORTB_BUFF, RESET   ; Clear portB such that we only need to turn on
                                 ; bits we want. (No AND MASKs needed)
 MotorHandPWMChk:
-    CMP     s_pwm, PWM_WIDTH_MAX    ; Is the current PWM counter outside PWN range?
+    CMP     S_PWM, PWM_WIDTH_MAX    ; Is the current PWM counter outside PWN range?
     JBE     MotorHandLoop           ; Nope, proceed
     ;JA    MotorHandPWMChkRESET     ; Yes it is, clear it.
 MotorHandPWMChkRESET:
-    MOV     s_pwm, RESET            ; Reset the PWM counter to beginning of PWM phase
+    MOV     S_PWM, RESET            ; Reset the PWM counter to beginning of PWM phase
     ;JMP    MotorHandLoop           ;
 
 MotorHandLoop:
@@ -803,33 +760,33 @@ MotorHandLoop:
     ;JL     MotorHandPWMMux             ;
     
 MotorHandPWMMux:
-    MOV     AL, s[BX]                   ; Grab counter ref value, it is used for many CMPs
+    MOV     AL, S[BX]                   ; Grab counter ref value, it is used for many CMPs
     CMP     AL, ZERO_SPEED_PWM          ; Bx'th motor going reverse or forwards?
     JL      MotorHandPWM_NEG            ; Going reverse
     ;JGE    MotorHandPWM_POS            ; Going forward/stopped
     
 MotorHandPWM_POS:
-    MOV     CL, CS:MOTORTABLE_POs[BX]
-    OR      portb_buff, CL              ; Turn on appropriate bits for FORWARD
-    
-    CMP     s_pwm, AL                   ; Pwm counter over Active phase? (s_pwm < s[bx])
+    CMP     S_PWM, AL                   ; Pwm counter over Active phase? (S_PWM < S[bx])
     JGE     MotorHandOFFPHASE           ; Motor should be in inactive phase
+    ;JL     MotorHandPOSPHASE           ; Motor should be active pos
+MotorHandPOSPHASE:                      ;
+    MOV     CL, CS:MOTORTABLE_POS[BX]
+    OR      PORTB_BUFF, CL              ; Turn on appropriate bits for FORWARD
     JMP     MotorHandLoopEnd            ;
     
 MotorHandPWM_NEG:
     NEG     AL                          ; Get the absolute value (we already know to go neg dir)
-    MOV     CL, CS:MOTORTABLE_NEG[BX]   ; Grab REVERSE mask from table on bx'th motor.
-    OR      portb_buff, CL              ; Turn on appropriate bits for REVERSE
-    
-    CMP     s_pwm, AL                   ; Pwm counter over Active phase? (s_pwm < s[bx])
+    CMP     S_PWM, AL                   ; Pwm counter over Active phase? (S_PWM < S[bx])
     JGE     MotorHandOFFPHASE           ; Motor should be in inactive phase
-    JMP     MotorHandLoopEnd       
-    
+    ;JL     MotorHandNEGPHASE           ; Motor should be active pos
+
+MotorHandNEGPHASE:
+    MOV     CL, CS:MOTORTABLE_NEG[BX]   ; Grab REVERSE mask from table on bx'th motor.
+    OR      PORTB_BUFF, CL              ; Turn on appropriate bits for REVERSE
+    JMP     MotorHandLoopEnd    
+    ;   
 MotorHandOFFPHASE:
-    MOV     CL, CS:MOTORTABLE_ZERO[BX]   ; Grab OFF mask from table on bx'th motor.
-    AND      portb_buff, CL              ; Turn OFF forward bits, while leaving reverse
-                                         ; bit untouched.
-    ;JMP     MotorHandLoopEnd            ; 
+    ;JMP     MotorHandLoopEnd           ; The OFF phase does not need any AND masks
     
 MotorHandLoopEnd:
     INC     BX;
@@ -845,15 +802,15 @@ LaserHandlerOFF:
     JMP     MotorHandEOI                ; Don't turn on laser
 
 LaserHandlerON:
-    OR      portb_buff, LASER_ON        ; Turn on appropriate bits for laser on
+    OR      PORTB_BUFF, LASER_ON        ; Turn on appropriate bits for laser on
     ;JMP     MotorHandEOI               ;        
 
 MotorHandEOI:
-    INC     s_pwm                      ; Update shared PWM counter
+    INC     S_PWM                      ; Update shared PWM counter
 
     XOR     DX, DX
     MOV     DX, PORTB                  ;Finally write out the calculates Port B values
-    MOV     AL, portb_buff
+    MOV     AL, PORTB_BUFF
     OUT     DX, AL
 
     MOV     DX, INTCtrlrEOI             ;send the EOI to the interrupt controller
@@ -1069,36 +1026,25 @@ MOTORTABLE_NEG	    LABEL	BYTE
 	DB		BACKWARD_M2 	;MASK BACKWARD for Motor 2
 	DB		BACKWARD_M3 	;MASK BACKWARD for Motor 3
 
-; MOTORTABLE_ZERO
-;
-; Description:      This table contains all the MASK values for AND mask
-;                   such that when masked with PORTB bits, it will set
-;                   the (i+1)'th motor to stop.
-;
-; Author:           Anjian Wu
-; Last Modified:    11/18/2013
-
-
-MOTORTABLE_ZERO	    LABEL	BYTE
-                    PUBLIC  MOTORTABLE_ZERO
-                                    
-	DB		STOP_M1 	;MASK BACKWARD for Motor 1
-	DB		STOP_M2 	;MASK BACKWARD for Motor 2
-	DB		STOP_M3 	;MASK BACKWARD for Motor 3
 			
 CODE    ENDS
     
 DATA    SEGMENT PUBLIC  'DATA'
 
 
-    SpeedStored     DW  ?     ;Stores current speed                                        
-    AngleStored     DW  ?     ;Stores current motor angle
-    LaserFlag       DW  ?     ;Flag for whether laser should be on
-    s		DB	    numOfMotors	DUP	(?) ; Motor speed array (essentially PWM width)
-    s_pwm   DB      ? ; Current motor pulse width counter  
-    portb_buff      DB  ?     ; Buffer for PORT B values (gets masked a lot)
+    SpeedStored     DW  ?     ;Flag to show that a Key was debounced recently
+                                           
+    AngleStored     DW  ?     ;Debounce count for single key press
+   
+    LaserFlag       DW  ?     ;Debounce count for auto-repeat key press
+    
+    S		DB	    numOfMotors	DUP	(?) ; Motor speed array (essentially PWM width)
+
+    S_PWM   DB      ? ; Current motor pulse width counter
+    
+    PORTB_BUFF      DB  ?     ; Buffer for PORT B values (gets masked a lot)
 
     	
-DATA    ENDs
+DATA    ENDS
 
         END 

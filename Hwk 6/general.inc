@@ -10,6 +10,7 @@
 ;
 ; Revision History:
 ;    11/02/2013			Created - Anjian Wu
+;    11/23/2013			Added WORD_LOOKUP_ADJUST - Anjian Wu
 
 
 ; General Constants
@@ -25,6 +26,9 @@ FALSE           EQU     0           ;
 RESET           EQU     0           ; General Value for Resetting something
 
 CLEAR           EQU     0           ;
+
+WORD_LOOKUP_ADJUST  EQU    1           ; Two bytes in one word -> SHL by 2 
+
 ; General Definitions for Main Loops
 
 FIRST_RESERVED_VEC	EQU	1	    ;reserve vectors 1-3

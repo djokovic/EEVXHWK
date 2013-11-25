@@ -1,8 +1,6 @@
-NAME        Motors
+NAME        general
 
-$INCLUDE(motors.inc);
 $INCLUDE(general.inc);
-$INCLUDE(timer.inc);
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
@@ -27,34 +25,30 @@ $INCLUDE(timer.inc);
 
 ;Procedure:			XWORDLAT
 ;
-;Description:      	This interrupt performs the holonomic calculations for each
+;Description:      	This function performs the WORD equivalent of XLAT instr.
+;                   It takes arguments AX as the offset of the Table, BX as the
+;                   element pointer, and ES as the location of the where the segment
+;                   should be.
 ;           
+;                   It will then return the table lookup value in AX.
 ;                   
-;Operation:			* Check if angle needs to be changed
-;                       * If not, then used previous angle
+;Operation:			* Adjust element index for WORD look up
+;                   * Add in the absolute offset of the table
+;                   * Grab the value and store word in AX. Then return that.
 ;
 ;Arguments:        	AX     -> Offset of WORD look up table
 ;                   BX     -> Element Pointer
 ;                   ES     -> Which segment, CS or DS
 ;
-;Return Values:    	None.
+;Return Values:    	AX     -> The element grabbed.
 ;
-;Result:            Possibly new values in S[0 to 2], speedstored, and anglestored
 ;
-;Shared Variables: 	S[0 to 2] (WRITE)
-;                   SpeedStored (WRITE/READ) 
-;                   AngleStored (WRITE/READ)
+;Shared Variables: 	None.
 ;
-;Local Variables:	Angletemp -   temporary variable that stores angle values
-;                   Speedtemp -   temporary variable that stores angle values
-;                   counter   -   stores counter index
-;                   Fx        -   stores x component
-;                   Fy        -   stores y component
+;Local Variables:	BX -   absolute pointer for table look up
 ;                   
-;
 ;Global Variables:	None.
-;					
-;					
+;								
 ;Input:            	none.
 ;
 ;Output:           	none.
@@ -75,7 +69,7 @@ $INCLUDE(timer.inc);
 ;
 ;
 ;Author:			Anjian Wu
-;History:			11-18-2013: Pseudo code - Anjian Wu
+;History:			11-22-2013: Created - Anjian Wu
 ;------------------------------------------------------------------------------
 
 CGROUP  GROUP   CODE
@@ -92,7 +86,7 @@ XWORDLAT		PROC    NEAR
     
     PUSH    BX;
 XWORDLATBODY:    
-    SHL     BX, 1                   ; Adjust relative pointer for WORD entries
+    SHL     BX, WORD_LOOKUP_ADJUST  ; Adjust relative pointer for WORD entries
     ADD     BX, AX                  ; Grab absolute address by adding offset
     MOV     AX, ES:[BX]             ; Grab the word from table
     

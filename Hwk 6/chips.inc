@@ -9,7 +9,7 @@
 ; This file contains the definitions for chip select values
 ;
 ; Revision History:
-;    11/02/2013			Created - Anjian Wu
+;    11/23/2013			Created - Anjian Wu
 
 
 
