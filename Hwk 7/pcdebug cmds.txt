@@ -1,0 +1,28 @@
+
+set 1 serial.SerialPutChar
+set 2 serial.Install_Serial
+
+set 0 serial.serialhandler
+
+set 3 serial.SerialTX_Empty
+set 4 serial.SerialRX_Avail
+set 5 serial.SerialModem
+set 6 serial.SerialError
+set 7 serial.TxQueueOUT
+
+set 7 serial.setbaud
+
+
+go 
+d serial.tx_queue 10
+d serial.kickstart_flag 1
+
+
+
+	DW		offset(SerialModem) 	;0
+	DW		offset(SerialNone)      ;1 - Should Not Happen
+	DW		offset(SerialTX_Empty) 	;2
+	DW		offset(SerialNone) 	    ;3 - Should Not Happen
+	DW		offset(SerialRX_Avail) 	;4
+	DW		offset(SerialNone) 	    ;5 - Should Not Happen
+	DW		offset(SerialError) 	;6

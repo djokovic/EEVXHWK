@@ -1,4 +1,4 @@
-NAME        HW3
+NAME        queue
 
 $INCLUDE(queue.inc);
 $INCLUDE(general.inc);
@@ -103,12 +103,12 @@ $INCLUDE(general.inc);
 
 ;-------------------------------------------------------------------------------
 CGROUP  GROUP   CODE
+DGROUP GROUP    DATA
 
 CODE SEGMENT PUBLIC 'CODE'
 
-        ASSUME  CS:CGROUP, DS:DATA
-
-;-------------------------------------------------------------------------------
+        ASSUME  CS:CGROUP, DS:DGROUP
+		
 
 QueueInit		PROC    NEAR
 				PUBLIC  QueueInit
@@ -129,7 +129,7 @@ QIStart:; Reg changed: None
     MOV     [SI].tail,  ArrayEmpty          ; Clear Tail Pointer @ address SI in struc
 
 QIwordorbyte:; Reg changed: BL, BX
-    CMP     BL, ByteSizeQueue               ; Is this a byte queue?
+    CMP     BL, BYTE_QUEUE                  ; Is this a byte queue?
     JE      QIbytesize                      ; Yes
     ;JNE     QIwordsize                     ; NO, it is word queue
 

@@ -1,10 +1,12 @@
 $NOLIST
 
-
+; EE51 Extra Credit 3
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
 ;                                 MACRO.INC                                  ;
 ;                                 Include File                               ;
+;                                 Anjian Wu                                  ;
+;                                 TA: Pipe-Mazo                              ;
 ;                                                                            ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -22,13 +24,7 @@ $NOLIST
 ;   %WRITEPCB(addr, val)	write the 16-bit value val to the PCB register at address addr
 ;
 ; Revision History
-;    11/25/93  Glen George         initial revision
-;    11/21/94  Glen George         updated comments
-;    11/13/96  Glen George         updated comments
-;    11/19/97  Glen George         updated comments
-;    10/20/98  Glen George         updated comments
-;    12/26/99  Glen George         updated comments
-;     1/30/03  Glen George         updated comments
+;    11/26/2013  Glen George         initial revision
 
 
 
@@ -61,7 +57,7 @@ $NOLIST
 
 )
 
-; SETBIT
+; XLATW_AX
 ;
 ; Description:      This macro generates code to output an 8-bit value to an
 ;                   8-bit port.
@@ -78,10 +74,132 @@ $NOLIST
 ; Author:           Glen George
 ; Last Modified:    Nov. 25, 1993
 
-%*DEFINE(SETBIT(reg, bit))   (
-        
-    %
+%*DEFINE(XLATW_AX)   (
+    
+    ;PUSH    BX              ; Save BX
+    SHL     AX, 1           ; Adjust relative pointer for WORD access
+    ADD     BX, AX          ; Calc absolute address
+    MOV     AX, CS:[BX]     ; Grab that element
+    ;POP     BX              ; Restore BX and return AX.
 )
+
+; READPCB
+;
+; Description:      This macro generates code to output an 8-bit value to an
+;                   8-bit port.
+;
+; Operation:        The macro arguments are moved into DX and AL and an OUT
+;                   instruction is executed.
+;
+; Arguments:        port  - port to which to write.
+;                   value - 8-bit value to write to the port.
+;
+; Registers Used:   AL, DX
+; Stack Depth:      0 words
+;
+; Author:           Glen George
+; Last Modified:    Nov. 25, 1993
+
+%*DEFINE(READPCB(addr))   (
+    
+        MOV    DX, %addr               ;get the port number into DX
+        IN     AX, DX                  ;output to the port
+)
+
+; WRITEPCB
+;
+; Description:      This macro generates code to output an 8-bit value to an
+;                   8-bit port.
+;
+; Operation:        The macro arguments are moved into DX and AL and an OUT
+;                   instruction is executed.
+;
+; Arguments:        port  - port to which to write.
+;                   value - 8-bit value to write to the port.
+;
+; Registers Used:   AL, DX
+; Stack Depth:      0 words
+;
+; Author:           Glen George
+; Last Modified:    Nov. 25, 1993
+
+%*DEFINE(WRITEPCB(addr, val))   (
+  
+        PUSH    AX                      ; Save used regs
+        PUSH    DX                      ;  
+        
+        MOV     DX, %addr               ; Prepare to write to PCB @ addr
+        MOV     AX, %val                ; Prepare the value to be written
+        OUT     DX, AX                  ; Write word to that PCB
+        
+        POP     DX                      ;
+        POP     AX                      ; restore used regs 
+)
+; OUTPORT8
+;
+; Description:      This macro generates code to output an 8-bit value to an
+;                   8-bit port.
+;
+; Operation:        The macro arguments are moved into DX and AL and an OUT
+;                   instruction is executed.
+;
+; Arguments:        port  - port to which to write.
+;                   value - 8-bit value to write to the port.
+;
+; Registers Used:   AL, DX
+; Stack Depth:      0 words
+;
+; Author:           Glen George
+; Last Modified:    Nov. 25, 1993
+
+%*DEFINE(OUTPORT8(port, value))   (
+        MOV     AL, %value              ;setup value to output
+        MOV     DX, %port               ;get the port number into DX
+        OUT     DX, AL                  ;output to the port
+)
+; INPORT8_AL
+;
+; Description:      This macro generates code to output an 8-bit value to an
+;                   8-bit port.
+;
+; Operation:        The macro arguments are moved into DX and AL and an OUT
+;                   instruction is executed.
+;
+; Arguments:        port  - port to which to write.
+;                   value - 8-bit value to write to the port.
+;
+; Registers Used:   AL, DX
+; Stack Depth:      0 words
+;
+; Author:           Glen George
+; Last Modified:    Nov. 25, 1993
+
+%*DEFINE(INPORT8_AL(addr))   (
+        MOV     DX, %addr               ;get the port number into DX
+        IN      AL, DX                  ;output to the port
+)
+; OUTPORT8_AL
+;
+; Description:      This macro generates code to output an 8-bit value to an
+;                   8-bit port.
+;
+; Operation:        The macro arguments are moved into DX and AL and an OUT
+;                   instruction is executed.
+;
+; Arguments:        port  - port to which to write.
+;                   value - 8-bit value to write to the port.
+;
+; Registers Used:   AL, DX
+; Stack Depth:      0 words
+;
+; Author:           Glen George
+; Last Modified:    Nov. 25, 1993
+
+%*DEFINE(OUTPORT8_AL(port))   (
+        MOV     DX, %port               ;get the port number into DX
+        OUT     DX, AL                  ;output to the port
+)
+
 
 
 $LIST

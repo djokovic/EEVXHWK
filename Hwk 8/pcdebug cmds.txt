@@ -1,0 +1,55 @@
+
+set 1 hw8test.DoParse
+set 5 parser.ParseSerialChar
+
+
+set 2 hw8test.ParseDone
+set 3 hw8test.CompareOK
+set 4 hw8test.MisCompare
+set 5 parser.Concat_Num
+set 6 parser.SetSpeed
+set 7 parser.SetRelSpeed
+set 8 parser.SetDir
+set 9 parser.RotRelTurrAng
+set 10 parser.RotAbsTurrAng
+set 11 parser.SetTurrEleAng
+set 12 parser.LaserControl
+set 13 parser.SetError
+
+
+ 
+set 14 parser.ParseDone
+go
+
+d parser.Errorflag      1
+d parser.magnitude    	2	
+d parser.sign           1
+d parser.FSM_state      1
+ 
+
+
+;   no_op               -   Just returns
+;   SetSpeed            -   Handles absolute speed setting
+;   SetRelSpeed         -   Handles relative speed setting
+;   SetDir              -   Handles direction setting
+;   RotRelTurrAng       -   Handles rel turret rotation setting
+;   RotAbsTurrAng       -   Handles abs turret rotation setting
+;   SetTurrEleAng       -   Handles turrent ele angle setting
+;   LaserControl        -   Handles Laser ON or OFF
+;   SetSign             -   Sets the sign accordingly
+;   SetError            -   Sets the errorflag
+
+
+go 
+d serial.tx_queue 10
+d serial.kickstart_flag 1
+
+
+
+	DW		offset(SerialModem) 	;0
+	DW		offset(SerialNone)      ;1 - Should Not Happen
+	DW		offset(SerialTX_Empty) 	;2
+	DW		offset(SerialNone) 	    ;3 - Should Not Happen
+	DW		offset(SerialRX_Avail) 	;4
+	DW		offset(SerialNone) 	    ;5 - Should Not Happen
+	DW		offset(SerialError) 	;6
