@@ -13,7 +13,7 @@
 ;                                 What's in here?
 ;
 ;   Mainloop        -   This is the mainloop that initializes chip selects,
-;                       timer interrupts, and then LOOPS key functions.
+;                       parser variables, and then calls ParseTest
 ;
 ;                                 What's was last edit?
 ;
@@ -44,6 +44,7 @@
 ;
 ; Revision History:
 ;       			Initial Version ->  12-05-2013 - Anjian Wu
+;       			Documentation ->  12-08-2013 - Anjian Wu
 ;----------------------------------------------------------------------------------------
 
 $INCLUDE(general.inc); Include files
@@ -77,8 +78,8 @@ MAIN:
         CALL    InitUserInterfaceCS     ; Initialize the UI chip selects
         CALL    ClrIRQVectors           ;
         
-        CALL    ParseReset              ; Initialize Serial functions and chip
-        STI                             ; Begin interrupts
+        CALL    ParseReset              ; Initialize Parser functions
+
 
         CALL    ParseTest               ; Start Glenn's test code
 LOOPING:

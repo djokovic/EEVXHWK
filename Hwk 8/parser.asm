@@ -16,14 +16,14 @@ $INCLUDE(motors.inc);
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                 What's in here?
 ;
-;                                   Code Segment
+;                          Code Segment (* indicates public)
 ;
-;   ParseSerialChar     -   Passed a char for processing
-;   ParseReset          -   
-;   GetFPToken          -   Grabs next token 
-;   Concat_Num          -   Used to prepare passed args to Motor Vars from 
-;                           parsed chars.
-;
+;   ParseSerialChar*     -   Passed a char for processing in FSM
+;   ParseReset*          -   Resets all Parser variables
+;   GetTokenTypeVal      -   Grabs next token val and type
+;   Concat_Num           -   Used to prepare passed args to Motor Vars from 
+;                            parsed chars.
+;   FSM ACTION Functions:
 ;   no_op               -   Just returns
 ;   SetSpeed            -   Handles absolute speed setting
 ;   SetRelSpeed         -   Handles relative speed setting
@@ -31,22 +31,24 @@ $INCLUDE(motors.inc);
 ;   RotRelTurrAng       -   Handles rel turret rotation setting
 ;   RotAbsTurrAng       -   Handles abs turret rotation setting
 ;   SetTurrEleAng       -   Handles turrent ele angle setting
-;   LaserControl        -   Handles Laser ON or OFF
 ;   SetSign             -   Sets the sign accordingly
 ;   SetError            -   Sets the errorflag
+;   LaserON             -   Turns laser ON
+;   LaserOff            -   Turns laser OFF
 ;
 ;                                   Data Segment
 ;
 ;   sign                -   Stores the sign of the num being processed
 ;   magnitude           -   Stores the universal magnitude (can be speed, angle,etc.)
 ;   errorflag           -   Stores errors
-;   state_bit           -   Stores the current state
+;   FSM_state           -   Stores the current state
 ;
 ;                              What's was last edit?
 ;
 ;       			Pseudo code     ->  12-01-2013 - Anjian Wu
 ;                   Wrote Assembly  ->  12-04-2013 - Anjian Wu
 ;                   Wrote Assembly  ->  12-05-2013 - Anjian Wu
+;                   Working         ->  12-08-2013 - Anjian Wu
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CGROUP  GROUP   CODE
 DGROUP GROUP    DATA
@@ -55,59 +57,79 @@ CODE SEGMENT PUBLIC 'CODE'
 
         ASSUME  CS:CGROUP, DS:DGROUP
         
-        EXTRN   SetMotorSpeed:NEAR        
-        EXTRN   GetMotorSpeed:NEAR        
-        EXTRN   GetMotorDirection:NEAR    
-        EXTRN   SetLaser:NEAR           
-        EXTRN   GetLaser:NEAR          
-		EXTRN   SetTurretAngle:NEAR      
-        EXTRN   GetTurretAngle:NEAR          
-        EXTRN   SetRelTurretAngle:NEAR            
-		EXTRN   SetTurretElevation:NEAR      
-		EXTRN   GetTurretElevation:NEAR     
+        EXTRN   SetMotorSpeed:NEAR          ; Sets motor speed and angle
+        EXTRN   GetMotorSpeed:NEAR          ; Grabs abs speed
+        EXTRN   GetMotorDirection:NEAR      ; Grabs movement angle
+        EXTRN   SetLaser:NEAR               ; Sets laser on or off
+        EXTRN   GetLaser:NEAR               ; Gets laser status
+		EXTRN   SetTurretAngle:NEAR         ; Change abs turret angle
+        EXTRN   GetTurretAngle:NEAR         ; Get abs turret angle
+        EXTRN   SetRelTurretAngle:NEAR      ; Change relative turret angle
+		EXTRN   SetTurretElevation:NEAR     ; Set turret ele angle
+		EXTRN   GetTurretElevation:NEAR     ; Get current ele angle
 
 
 ;Procedure:			ParseSerialChar
 ;
-;Description:      	This function grabs the NEXT token val and type, and uses
+;Description:      	Used pass char in AX to grab NEXT token val and type, and uses
 ;                   that to calc the proper pointer to the function to be called
-;                   by the state machine. If the state machine returns to ST_INITIAL
-;                   then it also resets the parser variables.
+;                   by the state machine. The token TYPE is used to find the abs
+;                   action function offset and the token TYPE is always passed as
+;                   (AL) into the action function. The action function, however, may
+;                   or may not use the passed token val. The next FSM state is also
+;                   saved in a shared variable FSM_state for the next time.
 ;
-;Arguments:        	c   -> The new char to be placed
-;
-;Return Values:    	Error Flag - > indicates error occurred
-;
-;Shared Variables: 	Error flag (WRITE)
-;                   State_bit (READ/WRITE)
-;
-;Local Variables:	TokenIndex  - Holds the calculated pointer in state machine table
-;                   TokenType   - Holds token type
-;                   TokenVal    -  holds token val
+;                   If the state machine returns to ST_INITIAL then it also resets 
+;                   the parser variables. If there is an error detected after the action
+;                   function is call, then the function will also reset the parser 
+;                   variables.
 ;                   
-;Global Variables:	None.
-;								
+;                   This function always returns error status in AX. See 'Error Handling'.
+;
+;Operation:         * Clear Errorflag, grab next token val and key using GetTokenTypeVal.
+;                   * offset = (NUM_TOKEN_TYPES * FSM_State + token type)* SIZE TRANSITION_ENTRY
+;                   * Call Function (Action) using offset, passing token val in AL
+;                   * If Errorflag is true, store FSM_state and FSM_ERROR bytes into AX for return
+;                       * Call ParseReset
+;                   * Else, grab nextstate using offset, store the next state into FSM_state
+;                       * If next state is ST_INITIAL, then Call ParseReset
+;                   * Return Errorflag in AX 
+;
+;Arguments:        	AL   -> The next char to be parsed
+;
+;Return Values:    	AX - > The errorflag
+;
+;Shared Variables: 	Errorflag (WRITE/READ)
+;                   FSM_state (READ/WRITE)
+;
+;Local Variables:	AL      -   token val, char
+;                   AH      -   token type
+;                   AX      -   error, char
+;                   BX      -   table offset
+;                   DH      -   save token type
+;                   CH      -   save token val
+;                   
+;                   
+;Global Variables:	None.					
 ;Input:            	none.
-;
 ;Output:           	none.
-;
-;Registers Used:	None
-;
-;Stack Depth:		None.
-;
+;Registers Used:	AX, BX, CH, DH
+;Stack Depth:		3 words
 ;Known Bugs:		None.
-;
 ;Data Structures:	None.
+;Error Handling:   	Errors come in two ways:
+;                   FSM TYPE 1. Symbol/Char error -> NEXTSTATE already is ST_INITIAL
+;                   FSM TYPE 2. Value error  -> NEXTSTATE may or may not be ST_INITIAL
+;                   These errors are treated the same in that the return value AX
+;                   will contain the FSM_State in AL and the FSM_ERROR key in AH. The FSM
+;                   will also RESET immediately if error is seen.
 ;
-;Error Handling:   	none.
-;
-;Algorithms:        None.
-;                   
+;Algorithms:        Call Table FSM look up. Table offset = NUM_TOKEN_TYPES * FSM_State + token type
 ;Limitations:  		None.
-;
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
-;					12-04-2013: Modified from Glen's floatptd.asm - Anjian Wu :)
+;					12-04-2013: Modified from Glen's floatptd.asm - Anjian Wu 
+;                   12-08-2013: Working - Anjian Wu
 ;------------------------------------------------------------------------------
 
 ParseSerialChar		PROC	NEAR
@@ -122,9 +144,9 @@ ParseSerialInit:
     MOV	Errorflag, FALSE	    ;Assume no errors
 	
 ParseGrabTokens:	
-	CALL	GetFPToken	        ;
-	MOV		DH, AH			    ;Save token type
-	MOV		CH, AL			    ;Save token val
+	CALL	GetTokenTypeVal	        ; Grab next token key and val
+	MOV		DH, AH			    ; Save token type
+	MOV		CH, AL			    ; Save token val
 	
 ParseComputeTrans:		        ;figure out what transition to do
 	MOV		AL, NUM_TOKEN_TYPES	;find row in the table
@@ -140,7 +162,7 @@ ParseDoActions:				    ;do the actions (don't affect regs)
 	CALL	CS:StateTable[BX].ACTION	;do the actions
 
 ParseCheckError:
-    CMP     Errorflag, TRUE    ; Was there an error from the FSM action?
+    CMP     Errorflag, TRUE     ; Was there an error from the FSM action?
                                 ; Errors can come in two ways
                                 ; FSM TYPE 1. Symbol/Char error -> NEXTSTATE already is ST_INITIAL
                                 ; FSM TYPE 2. Value error  -> NEXTSTATE may or may not be ST_INITIAL
@@ -177,17 +199,18 @@ ParseDone:
     
 	POP  CX
 	POP	 BX
-	POP  DX
+	POP  DX                     ; Restore used regs
 	
     
     RET
     
 ParseSerialChar ENDP
-; GetFPToken
+
+; GetTokenTypeVal
 ;
 ; Description:      This procedure returns the token class and token value for
 ;                   the passed character.  The character is truncated to
-;                   7-bits.
+;                   7-bits because the table only has 127 ASCII chars inside.
 ;
 ; Operation:        Looks up the passed character in two tables, one for token
 ;                   types or classes, the other for token values.
@@ -214,35 +237,37 @@ ParseSerialChar ENDP
 ;
 ; Author:           Anjian Wu
 ; Last Modified:    12-02-2013: Adapted from Glen's floatptd.asm - Anjian Wu :)
+;                   12-08-2013: Add documentation to show understanding - Anjian Wu
 
 
-GetFPToken	PROC    NEAR
+GetTokenTypeVal	PROC    NEAR
 
 
 InitGetFPToken:				;setup for lookups
-	AND	AL, TOKEN_MASK		;strip unused bits (high bit)
-	MOV	AH, AL			;and preserve value in AH
+	AND	AL, TOKEN_MASK		;strip unused bits (high bit) ONLY 127 CHARS IN TABLE
+	MOV	AH, AL			    ;and preserve value in AH
 
+; TokenTypeTable and TokenValueTable's values are paired/mapped one to one
 
 TokenTypeLookup:                        ;get the token type
     MOV     BX, OFFSET(TokenTypeTable)  ;BX points at table
-	XLAT	CS:TokenTypeTable	;have token type in AL
-	XCHG	AH, AL			;token type in AH, character in AL
+	XLAT	CS:TokenTypeTable	        ;have token type in AL
+	XCHG	AH, AL			            ;token type in AH, character in AL
 
-TokenValueLookup:			;get the token value
+TokenValueLookup:			             ;get the token value
     MOV     BX, OFFSET(TokenValueTable)  ;BX points at table
-	XLAT	CS:TokenValueTable	;have token value in AL
+	XLAT	CS:TokenValueTable	         ;have token value in AL
 
 
-EndGetFPToken:                     	;done looking up type and value
+EndGetFPToken:                     	     ;done looking up type and value
         RET
 
 
-GetFPToken	ENDP
+GetTokenTypeVal	ENDP
 
 ;Function:			ParseReset
-;Description:      	Resets all Parser variables to no errors, initial state,
-;                   zero magnitude, and pos sign              
+;Description:      	Resets all Parser variables to initial state, zero magnitude, and pos sign     
+;Operation:         * Set sign as POS, set FSM_state as ST_INITIAL, and set magnitude as zero         
 ;Arguments:        	None.
 ;Return Values:    	none.
 ;Shared Variables: 	none.
@@ -260,9 +285,9 @@ GetFPToken	ENDP
 ;Author:			Anjian Wu
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 ParseReset  PROC    NEAR
-            PUBLIC  ParseReset
             
     MOV     sign, POS               ; Set default val as positive
     MOV     FSM_state, ST_INITIAL   ; Set Default FSM machine state
@@ -274,30 +299,45 @@ ParseReset  ENDP
 
 ;Procedure:			Concat_Num
 ;
-;Description:      	Takes the token value and adds the DIGIT into the magnitude
-;                   since table already translates ASCII to num, just need to
-;                   add the next digit into the store magnitude.
-;                   If the magnitude is 0 and arg = 0, it means that we have not
-;                   received a valid digit yet, so just return.
+;Description:      	Takes the token value (which should be the digit val) and inserts
+;                   that digit into the 1's (base 10) digit of the current magnitude.
+;                   IF the magnitude, during the calc, is determined to be too big
+;                   then the errorflag is raised, else the magnitude is stored.
 ;                	    
-;Arguments:        	c - token val
+;Operation:         * Multiply stored magnitude by DIGIT 
+;                   * Check if overflow
+;                   * ADD next digit's val (the arg)
+;                   * Check if carry
+;                   * Check if value is at MAX_MAG + 1 (which is OK if sign is NEG)
+;                       * If equal, then check if this is special case -(MAX_MAG + 1 )
+;                           * If so then continue to store it
+;                           * Else CALL SetError
+;                       * If greater than CALL SetError
+;                   * Else it is OK and store the new magnitude
+;                   * Return
+;
+;Arguments:        	AL = token val/next digit
 ;Return Values:    	none.
-;Shared Variables: 	magnitude(WRITE)
-;                   error_flag (WRITE)
-;Local Variables:	None.
+;Shared Variables: 	magnitude(READ/WRITE)
+;Local Variables:	AX  - stores digit, magnitude
+;                   BX  - copy of digit
+;                   DX  - operand of multiply 
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
-;Registers Used:	none.
-;Stack Depth:		none.
+;Registers Used:	AX, BX, DX
+;Stack Depth:		3 words
 ;Known Bugs:		None.
 ;Data Structures:	None.
-;Error Handling:   	If the magnitude is already exceeded MAG_BOUNDARY, then another
-;                   digit cannot be added. Thus just return errorflag raised.
-;Algorithms:       	None.
+;Error Handling:   	If during the calculation, the magnitude is...
+;                   1. Greater than 16-bits
+;                   2. Greater than MAX_MAG
+;                   Then the digit cannot be added. Thus just return with errorflag raised.
+;Algorithms:       	new magnitude = magnitude * 10 + digit
 ;Limitations:  		None.
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 Concat_Num  PROC    NEAR
 
@@ -312,23 +352,26 @@ Concat_NumInit:
 Concat_Num_Test:   
     MOV     AX, magnitude           ; Copy mag for math
     MOV     DX, DIGIT               ; We need a new spot for the next digit insertion
-    MUL     DX                      ; Add a 0's place into magnitudes one's digit
+    MUL     DX                      ; Add a 0's into magnitudes one's digit
     JO      Concat_MagTooBig        ; Did the mag get too large? if so error
     
     ADD     AX, BX                  ; Fill the new one's digit place with the passed digit
     JC      Concat_MagTooBig        ; Did the mag get too large? if so error
     
     CMP     AX, MAX_MAG + 1         ; Does the mag fit the # of bits restriction?
-    JE      Concat_MagMaybeTooBig   ; No, error
-	JA		Concat_MagTooBig		;
-    ;JLE    Concat_success          ; 
+    JE      Concat_MagMaybeTooBig   ; It is exactly MAX_MAG + 1 , check if special case
+	JA		Concat_MagTooBig		; Too large, report error
+    ;JLE    Concat_success          ; Everything ok, store the new mag
     
 Concat_success:
-    MOV     magnitude, AX           ; It is safe to store the new mag
-    JMP     Concat_done             ;
-	
+    MOV     magnitude, AX           ; Store new magnitude
+    JMP     Concat_done             ; Done
+
+;   Since we are concatenating string rep of a 16-bit signed, the
+;   -(MAX_MAG + 1) is handled as a special case. 
+
 Concat_MagMaybeTooBig:
-	CMP		sign, NEGA				;
+	CMP		sign, NEGA				; Are we dealing with negative number?
 	JE		Concat_success			;
 	;JMP	Concat_MagTooBig		;
 	
@@ -346,8 +389,9 @@ Concat_Num  ENDP
 
 ;Procedure:			SetSign
 ;
-;Description:      	Sets sign based on passed token val. If TokenVal < 0, the
-;                   make sign NEG, else sign is POS.
+;Description:      	Sets sign based on passed token val. The token val is exactly
+;                   the sign we want.
+;Operation:         *sign = token val
 ;Arguments:        	AL - Token val containing sign
 ;Return Values:    	none.
 ;Shared Variables: 	sign(write)
@@ -355,7 +399,7 @@ Concat_Num  ENDP
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
-;Registers Used:	None.
+;Registers Used:	AL
 ;Stack Depth:		none.
 ;Known Bugs:		None.
 ;Data Structures:	None.
@@ -364,6 +408,7 @@ Concat_Num  ENDP
 ;Limitations:  		None.
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 SetSign     PROC    NEAR
     
@@ -375,7 +420,9 @@ SetSign ENDP
 
 ;Procedure:			SetError
 ;
-;Description:      	An error has occurred, so set the error flag
+;Description:      	An error has occurred, so set the error flag true.
+;
+;Operation:         * Errorflag = TRUE
 ;        
 ;Arguments:        	None.
 ;Return Values:    	none.
@@ -393,6 +440,7 @@ SetSign ENDP
 ;Limitations:  		None.
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 SetError        PROC    NEAR
 
@@ -404,7 +452,7 @@ SetError ENDP
 
 ;Procedure:			no_op
 ;
-;Description:      	Just return.
+;Description:      	Just return (stub function)
 ;        
 ;Arguments:        	None.
 ;Return Values:    	none.
@@ -422,6 +470,7 @@ SetError ENDP
 ;Limitations:  		None.
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 no_op        PROC    NEAR
 
@@ -433,7 +482,10 @@ no_op   ENDP
 
 ;Procedure:			SetSpeed
 ;
-;Description:      	Call SetMotorSpeed with the stored magnitude
+;Description:      	Sets the speed only, and does not change angle. The speed is 
+;                   exactly the magnitude.
+;
+;Operation:         * SetMotorSpeed(magnitude, NO_ANGLE_CHANGED)
 ;                
 ;Arguments:        	None.
 ;Return Values:    	none.
@@ -442,7 +494,7 @@ no_op   ENDP
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
-;Registers Used:	None.
+;Registers Used:	AX, BX
 ;Stack Depth:		none.
 ;Known Bugs:		None.
 ;Data Structures:	None.
@@ -451,10 +503,11 @@ no_op   ENDP
 ;Limitations:  		None.
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 SetSpeed        PROC    NEAR
 
-	PUSH 	AX
+	PUSH 	AX                  ; Saved used regs
 	PUSH	BX
                 
     MOV     AX, magnitude       ; Concat_Num already ensures magnitude is VALID val
@@ -463,7 +516,7 @@ SetSpeed        PROC    NEAR
     CALL    SetMotorSpeed       ;
 
 	POP		BX
-	POP		AX
+	POP		AX                  ; Restore used regs
 	
     RET
     
@@ -471,26 +524,44 @@ SetSpeed    ENDP
 
 ;Procedure:			SetRelSpeed
 ;
-;Description:      	Call SetMotorSpeed with the current speed and signed magnitude
-;                   combined. No angle changes
+;Description:      	Sets the relative speed passed on stored values of magnitude and sign.
+;                   If magnitude * sign's change in speed is beyond MIN or MAX ABS_SPEED,
+;                   then CAP the value at exactly the MIN or MAX_ABS_SPEED.
+;
+;Operation:         * Grab motor speed
+;                   * If (sign is POS)
+;                       * next speed = current speed + magnitude 
+;                   * Else
+;                       * next speed = current speed - magnitude 
+;                   * If either previous operations exceeded 16-bits (carry flag)
+;                     then set next speed to MAX_ABS_SPEED and MIN_ABS_SPEED 
+;                     respectively.
+;                   * Also if next speed happens to be NO_SPEED_CHANGE, then also
+;                     set next speed as MAX_ABS_SPEED.
+;                   * Finally SetMotorSpeed(next speed, NO_ANGLE_CHANGE).
 ;                
 ;Arguments:        	None.
 ;Return Values:    	none.
 ;Shared Variables: 	magnitude (READ)
-;Local Variables:	None.
+;                   sign (READ)
+;Local Variables:	AX - next speed
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
-;Registers Used:	None.
-;Stack Depth:		none.
+;Registers Used:	AX, BX
+;Stack Depth:		2 words
 ;Known Bugs:		None.
 ;Data Structures:	None.
-;Error Handling:   	None
-;Algorithms:       	None.
+;Error Handling:   	If change in speed results in exceeding 16-bits (carry flag)
+;                   then set next speed to MAX_ABS_SPEED and MIN_ABS_SPEED 
+;                   respectively. Also if next speed happens to be NO_SPEED_CHANGE, 
+;                   then also set next speed as MAX_ABS_SPEED.
+;Algorithms:       	next speed = current speed +- magnitude
 ;Limitations:  		None.
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
 ;                   12-04-2013: Initial assembly - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 SetRelSpeed     PROC    NEAR
 
@@ -500,31 +571,31 @@ SetRelSpeed     PROC    NEAR
 SetRelSpeedInit:
     CALL    GetMotorSpeed           ; Current Speed now in AX
     CMP     sign, POS               ; Is this positive speed change?
-    JE      SetRelSpeedPos          ; 
-    ;JNE    SetRelSpeedNeg          ;
+    JE      SetRelSpeedPos          ; Yes
+    ;JNE    SetRelSpeedNeg          ; No
     
 SetRelSpeedNeg:
-    SUB     AX, magnitude           ;
-    JNC     SetRelSpeedWrite        ; Speed is valid
+    SUB     AX, magnitude           ; next speed = current speed - magnitude
+    JNC     SetRelSpeedWrite        ; Speed is valid?
     ;JC      SetRelWentNeg          ; Speed went 'negative' and not valid
 SetRelWentNeg:
     MOV     AX, MIN_ABS_SPEED       ; Just make the robot at lowest speed
     JMP     SetRelSpeedWrite        ;
     
 SetRelSpeedPos:
-    ADD     AX, magnitude           ;
+    ADD     AX, magnitude           ; next speed = current speed + magnitude
     JC      SetRelWentOver          ; Is speed is within 16-bits? 
 	CMP		AX, NO_SPEED_CHANGE		; Is speed at reserved NO_SPEED_CHANGE val?
-	JNE		SetRelSpeedWrite		;
+	JNE		SetRelSpeedWrite		; Speed is valid
     ;JE      SetRelWentOver         ; Speed is valid 16-bit num, but went 
 									; to the val of NO_SPEED_CHANGE, which is 
 									; reserved
     
-SetRelWentOver:
+SetRelWentOver:                    
     MOV     AX, MAX_ABS_SPEED       ; Just make the robot at max speed
-    ;JMP     SetRelSpeedWrite        ;
+    ;JMP     SetRelSpeedWrite        
     
-SetRelSpeedWrite:
+SetRelSpeedWrite:                   ; Speed is valid, so store it
     MOV     BX, NO_ANGLE_CHANGE     ; Just speed change, not angle
     CALL    SetMotorSpeed           ; Set new speed
     
@@ -538,26 +609,37 @@ SetRelSpeed ENDP
 ;Procedure:			SetDir
 ;
 ;
-;Description:      	Call SetMotorSpeed with the current direction and signed magnitude
-;                   combined. NO speed is changed
+;Description:      	Sets the signed angle direction of the robot without changing speed.
+;                   Since magnitude is now in degrees, this function transforms
+;                   the magnitude into it's equivalent degrees in [-360,+360].
+;                   This approach violates the HW8tests, but passes equivalent
+;                   angle vals.
+;
+;Operation:         * DeltaAngle = MOD((sign*magnitude), FULL_ANGLE)
+;                   * NewAngle = GetMotorSpeed + DeltaAngle
+;                   * SetMotorSpeed(NO_SPEED_CHANGE, NewAngle)
 ;                
 ;Arguments:        	None.
 ;Return Values:    	none.
 ;Shared Variables: 	magnitude (READ)
-;Local Variables:	None.
+;                   sign (READ)
+;Local Variables:	AX  - delta angle
+;                   BX  - NO_SPEED_CHANGE
+;                   DX  - current angle
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
-;Registers Used:	None.
-;Stack Depth:		none.
+;Registers Used:	AX, BX, DX
+;Stack Depth:		3 words
 ;Known Bugs:		None.
 ;Data Structures:	None.
 ;Error Handling:   	None
-;Algorithms:       	None.
+;Algorithms:       	DeltaAngle = MOD((sign*magnitude), FULL_ANGLE)
 ;Limitations:  		None.
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
 ;                   12-04-2013: Initial assembly - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 SetDir      PROC    NEAR
 
@@ -574,7 +656,8 @@ SetDir      PROC    NEAR
     
     CALL    GetMotorDirection       ; Grab current angle [-360,360] in AX
     
-    ADD     AX, DX                  ; Combine to get overall new angle (fits in signed 16-bit)
+    ADD     AX, DX                  ; Combine to get overall new angle (fits in signed 16-bit for sure)
+                                    ; [-360*2,+360*2]
   
  SetDirSend:
     MOV     BX, NO_SPEED_CHANGE     ; We just want angle changed, not speed
@@ -593,25 +676,35 @@ SetDir  ENDP
 
 ;Procedure:			RotAbsTurrAng
 ;
-;Description:      	Call SetTurretAngle with the abs magnitude
+;Description:      	Sets the signed angle of the robot turret.
+;                   Since magnitude is now in degrees, this function transforms
+;                   the magnitude into it's equivalent degrees in [-360,+360].
+;                   This approach violates the HW8tests, but passes equivalent
+;                   angle vals.
+;
+;Operation:         * NewAngle = MOD((sign*magnitude), FULL_ANGLE)
+;                   * SetTurretAngle(NewAngle)
 ;                
 ;Arguments:        	None.
 ;Return Values:    	none.
 ;Shared Variables: 	magnitude (READ)
-;Local Variables:	None.
+;                   sign (READ)
+;Local Variables:	AX  - NewAngle angle
+;                   DX  - NewAngle angle
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
-;Registers Used:	None.
-;Stack Depth:		none.
+;Registers Used:	AX, DX
+;Stack Depth:		3 words
 ;Known Bugs:		None.
 ;Data Structures:	None.
 ;Error Handling:   	None
-;Algorithms:       	None.
+;Algorithms:       	NewAngle = MOD((sign*magnitude), FULL_ANGLE)
 ;Limitations:  		None.
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
-;                   12-05-2013: Initial assembly - Anjian Wu
+;                   12-04-2013: Initial assembly - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 RotAbsTurrAng       PROC    NEAR
     
@@ -643,27 +736,35 @@ RotAbsTurrAng   ENDP
 
 ;Procedure:			RotRelTurrAng
 ;
-;Description:      	Call SetRelTurretAngle with the signed magnitude. Since
-;                   we have SetRelTurretAngle, we don't need to use 
-;                   GetTurrentAngle.
+;Description:      	Sets the relative change signed angle of the robot turret.
+;                   Since magnitude is now in degrees, this function transforms
+;                   the magnitude into it's equivalent degrees in [-360,+360].
+;                   This approach violates the HW8tests, but passes equivalent
+;                   angle vals.
+;
+;Operation:         * Deltangle = MOD((sign*magnitude), FULL_ANGLE)
+;                   * SetRelTurretAngle(Deltangle)
 ;                
 ;Arguments:        	None.
 ;Return Values:    	none.
 ;Shared Variables: 	magnitude (READ)
-;Local Variables:	None.
+;                   sign (READ)
+;Local Variables:	AX  - delta angle
+;                   DX  - current angle
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
-;Registers Used:	None.
-;Stack Depth:		none.
+;Registers Used:	AX, DX
+;Stack Depth:		3 words
 ;Known Bugs:		None.
 ;Data Structures:	None.
 ;Error Handling:   	None
-;Algorithms:       	None.
+;Algorithms:       	Deltangle = MOD((sign*magnitude), FULL_ANGLE)
 ;Limitations:  		None.
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
-;                   12-05-2013: Initial assembly - Anjian Wu
+;                   12-04-2013: Initial assembly - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 RotRelTurrAng   PROC    NEAR
     PUSH    AX                      ; Save Used Regs
@@ -685,27 +786,41 @@ RotRelTurrAng   ENDP
 
 ;Procedure:			SetTurrEleAng
 ;
-;Description:      	Call SetTurretElevation with the signed magnitude and
-;                   current elevation combined.
+;Description:      	Sets the signed angle elevation of the robot turret.
+;                   Since magnitude is now in degrees, this function transforms
+;                   the magnitude into it's equivalent degrees in [-360,+360].
+;                   This approach violates the HW8tests, but passes equivalent
+;                   angle vals.
+;   
+;                   Also ensures that the NewAngle is within [MIN_ELEVATION,MAX_ELEVATION]
+;
+;Operation:         * NewAngle = MOD((sign*magnitude), FULL_ANGLE)
+;                   * IF NewAngle is > MAX_ELEVATION or < MIN_ELEVATION
+;                       then NewAngle = MAX_ELEVATION, MIN_ELEVATION respectively
+;                   * SetTurretAngle(NewAngle)
 ;                
 ;Arguments:        	None.
 ;Return Values:    	none.
 ;Shared Variables: 	magnitude (READ)
-;Local Variables:	None.
+;                   sign (READ)
+;Local Variables:	AX  - delta angle
+;                   DX  - current angle
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
-;Registers Used:	None.
-;Stack Depth:		none.
+;Registers Used:	AX, DX
+;Stack Depth:		3 words
 ;Known Bugs:		None.
 ;Data Structures:	None.
-;Error Handling:   	If the NEW overall angle is beyond [-60, +60], the DO NOT
-;                   change the elevation, and return with ErrorFlag set.
-;Algorithms:       	None.
+;Error Handling:   	IF NewAngle is > MAX_ELEVATION or < MIN_ELEVATION
+;                   then NewAngle = MAX_ELEVATION, MIN_ELEVATION respectively
+;
+;Algorithms:       	Deltangle = MOD((sign*magnitude), FULL_ANGLE)
 ;Limitations:  		None.
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
-;                   12-05-2013: Initial assembly - Anjian Wu
+;                   12-04-2013: Initial assembly - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 SetTurrEleAng       PROC    NEAR
     PUSH    AX                          ; Save Used Regs
@@ -741,11 +856,13 @@ SetTurrEleAngDONE:
     RET
 SetTurrEleAng   ENDP
 
-;Procedure:			LaserControl
+;Procedure:			LaserON
 ;
-;Description:      	Call SetLaser based on whether we are in ST_LAZON or not.
+;Description:      	Turns the laser ON
+;
+;Operation:         * SetLaser(TRUE)
 ;                
-;Arguments:        	AL  - True or False
+;Arguments:         None.
 ;Return Values:    	None.
 ;Shared Variables: 	None.
 ;Local Variables:	None.
@@ -761,26 +878,18 @@ SetTurrEleAng   ENDP
 ;Limitations:  		None.
 ;Author:			Anjian Wu
 ;History:			12-02-2013: Pseudo code - Anjian Wu
+;                   12-04-2013: Initial assembly - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
-LaserControl    PROC    NEAR
+LaserON    PROC    NEAR
 
 	PUSH  	AX
 	PUSH	BX
 	
-	CMP		FSM_state, ST_LAZON	;
-	JE		LaserControlON
-	;JNE	LaserControlOff
-	
-LaserControlOff:
-	MOV		AX, FALSE		;
-	JMP		LaserControlDONE;
-	
 LaserControlON:
 	MOV		AX, TRUE		;
-	;JMP		LaserControlDONE;
-	
-	
-LaserControlDONE:	
+
+LaserOnDONE:	
     CALL    SetLaser        ; So just pass in AX
 	
 	POP		BX
@@ -788,13 +897,53 @@ LaserControlDONE:
 	
     RET                     ;
 
-LaserControl    ENDP
+LaserON    ENDP
 
-
-
-; StateTable
+;Procedure:			LaserOFF
 ;
-; Description:      This is the state transition table for the state machine.
+;Description:      	Turns the laser OFF
+;
+;Operation:         * SetLaser(FALSE)  
+;Arguments:         None.
+;Return Values:    	None.
+;Shared Variables: 	None.
+;Local Variables:	None.
+;Global Variables:	None.			
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		none.
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None.
+;Algorithms:       	None.
+;Limitations:  		None.
+;Author:			Anjian Wu
+;History:			12-02-2013: Pseudo code - Anjian Wu
+;                   12-04-2013: Initial assembly - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
+;------------------------------------------------------------------------------
+LaserOFF    PROC    NEAR
+
+	PUSH  	AX
+	PUSH	BX
+	
+LaserControlOff:
+	MOV		AX, FALSE		;
+
+LaserOffDONE:	
+    CALL    SetLaser        ; So just pass in AX
+	
+	POP		BX
+	POP		AX
+	
+    RET                     ;
+
+LaserOFF    ENDP
+
+; RobotFSMTable
+;
+; Description:      This is the state transition table for the robot side.
 ;                   Each entry consists of the next state and actions for that
 ;                   transition.  The rows are associated with the current
 ;                   state and the columns with the input type.
@@ -817,7 +966,7 @@ TRANSITION_ENTRY      ENDS
 )
 
 
-StateTable	LABEL	TRANSITION_ENTRY
+RobotFSMTable	LABEL	TRANSITION_ENTRY
 
 	;Current State = ST_INITIAL: Waiting for command    
 	                                    ;Input Token Type
@@ -828,184 +977,184 @@ StateTable	LABEL	TRANSITION_ENTRY
 	%TRANSITION(ST_STEA_INIT, no_op)	;TOKEN_E - Set Turr Ele
 	%TRANSITION(ST_LAZON, no_op)	    ;TOKEN_F - Laser On
 	%TRANSITION(ST_LAZOFF, no_op)       ;TOKEN_O - Laser Off
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_NUM - A digit
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_POS - '+'
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_NEG - '-'
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_NUM - A digit
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_POS - '+'
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_NEG - '-'
 	%TRANSITION(ST_INITIAL, no_op)		;TOKEN_IGNORE
 	%TRANSITION(ST_INITIAL, no_op)		;TOKEN_END - Return
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER	
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
 	
 ;-----------------------------Setting Absolute Speed----------------------------------	
 	;Current State = ST_SAS_INIT: Waiting for digit to srat      
 	                                    ;Input Token Type
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S 
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_V
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D 
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_T 
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E 
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_O
-	
-	%TRANSITION(ST_SAS, Concat_Num)      ;TOKEN_NUM - A digit - thus concatenate it
-	
-	%TRANSITION(ST_SAS_SIGN, no_op)		    ;TOKEN_POS - '+' Accepted, but effectively ignored
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_NEG - '-'
-	%TRANSITION(ST_SAS_INIT, no_op)	    ;TOKEN_IGNORE - Keep Waiting for start of digit
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_END - Return
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER	
-	
-	;Current State = ST_SAS_SIGN: Waiting for digit to srat      
-	                                    ;Input Token Type
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S 
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_V
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D 
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_T 
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E 
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_O
-	
-	%TRANSITION(ST_SAS, Concat_Num)      ;TOKEN_NUM - A digit - thus concatenate it
-	
-	%TRANSITION(ST_INITIAL, SetError)		    ;TOKEN_POS - '+' Accepted, but effectively ignored
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_NEG - '-'
-	%TRANSITION(ST_SAS_SIGN, no_op)	    ;TOKEN_IGNORE - Keep Waiting for start of digit
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_END - Return
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER	
-
-	;Current State = ST_SAS: Keep grabbing digit until return   
-	                                    ;Input Token Type
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S - Set Speed
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_V - Set Rel Speed
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D - Set Dir
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_T - Rot Turr Angl
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E - Set Turr Ele
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F - Laser On
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_O - Laser Off
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_S 
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_V
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_D 
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_T 
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_E 
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_F
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_O
 	
 	%TRANSITION(ST_SAS, Concat_Num)     ;TOKEN_NUM - A digit - thus concatenate it
 	
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_POS - '+'
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_NEG - '-'
-	%TRANSITION(ST_SAS, no_op)	    ;TOKEN_IGNORE - Keep Waiting for start of digit
+	%TRANSITION(ST_SAS_SIGN, no_op)		;TOKEN_POS - '+' Accepted, but effectively ignored
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_NEG - '-'
+	%TRANSITION(ST_SAS_INIT, no_op)	    ;TOKEN_IGNORE - Keep Waiting for start of digit
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_END - Return
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
+	
+	;Current State = ST_SAS_SIGN: Waiting for digit to srat      
+	                                    ;Input Token Type
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_S 
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_V
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_D 
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_T 
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_E 
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_F
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_O
+	
+	%TRANSITION(ST_SAS, Concat_Num)     ;TOKEN_NUM - A digit - thus concatenate it
+	
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_POS - '+' Accepted, but effectively ignored
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_NEG - '-'
+	%TRANSITION(ST_SAS_SIGN, no_op)	    ;TOKEN_IGNORE - Keep Waiting for start of digit
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_END - Return
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
+
+	;Current State = ST_SAS: Keep grabbing digit until return   
+	                                    ;Input Token Type
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_S - Set Speed
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_V - Set Rel Speed
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_D - Set Dir
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_T - Rot Turr Angl
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_E - Set Turr Ele
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_F - Laser On
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_O - Laser Off
+	
+	%TRANSITION(ST_SAS, Concat_Num)     ;TOKEN_NUM - A digit - thus concatenate it
+	
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_POS - '+'
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_NEG - '-'
+	%TRANSITION(ST_SAS, no_op)	        ;TOKEN_IGNORE - Keep Waiting for start of digit
 	%TRANSITION(ST_INITIAL, SetSpeed)	;TOKEN_END - Return
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER
 	
 ;-----------------------------Setting Relative Speed----------------------------------	
 
 	;Current State = ST_SRS_INIT: Waiting for DIGIT or Sign           
 	                                    ;Input Token Type
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S 
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_V 
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D 
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_T
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_O
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_S 
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_V 
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_D 
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_T
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_E
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_F
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_O
 	
 	%TRANSITION(ST_SRS, Concat_Num)     ;TOKEN_NUM: A digit - thus concatenate it
 	
-	%TRANSITION(ST_SRS_SIGN, SetSign)        ;TOKEN_POS - '+' Wait for sign
-	%TRANSITION(ST_SRS_SIGN, SetSign)        ;TOKEN_NEG - '-' Wait for sign
+	%TRANSITION(ST_SRS_SIGN, SetSign)   ;TOKEN_POS - '+' Wait for sign
+	%TRANSITION(ST_SRS_SIGN, SetSign)   ;TOKEN_NEG - '-' Wait for sign
 	%TRANSITION(ST_SRS_INIT, no_op)	    ;TOKEN_IGNORE 
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_END
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER	
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_END
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
 
 	;Current State = ST_SRS_SIGN: Waiting for DIGIT or Sign           
 	                                    ;Input Token Type
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S 
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_V 
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D 
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_T
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_O
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_S 
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_V 
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_D 
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_T
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_E
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_F
+	%TRANSITION(ST_INITIAL, SetError)    ;TOKEN_O
 	
 	%TRANSITION(ST_SRS, Concat_Num)     ;TOKEN_NUM: A digit - thus concatenate it
 	
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_POS - '+' Wait for sign
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_NEG - '-' Wait for sign
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_POS - '+' Wait for sign
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_NEG - '-' Wait for sign
 	%TRANSITION(ST_SRS_SIGN, no_op)	    ;TOKEN_IGNORE 
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_END
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER	
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_END
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
 		;Current State = ST_SRS : Digit started, thus keep grabbing until return       
 	                                    ;Input Token Type
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S - Set Speed
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_V - Set Rel Speed
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D - Set Dir
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_T - Rot Turr Angl
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E - Set Turr Ele
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F - Laser On
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_O - Laser Off
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_S - Set Speed
+	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_V - Set Rel Speed
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_D - Set Dir
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_T - Rot Turr Angl
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_E - Set Turr Ele
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_F - Laser On
+	%TRANSITION(ST_INITIAL, SetError)    ;TOKEN_O - Laser Off
 	
-	%TRANSITION(ST_SRS, Concat_Num) ;TOKEN_NUM - A digit - thus concatenate it
+	%TRANSITION(ST_SRS, Concat_Num)     ;TOKEN_NUM - A digit - thus concatenate it
 	
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_POS - '+'
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_NEG - '-'
-	%TRANSITION(ST_SRS, no_op)	    ;TOKEN_IGNORE - Keep Waiting for start of digit
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_POS - '+'
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_NEG - '-'
+	%TRANSITION(ST_SRS, no_op)	        ;TOKEN_IGNORE - Keep Waiting for start of digit
 	%TRANSITION(ST_INITIAL, SetRelSpeed);TOKEN_END - Return
-	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER
 
 
 ;-----------------------------Setting Direction Speed----------------------------------	
 
 	;Current State = ST_DIR_INIT: Waiting for DIGIT or Sign           
-	                                    ;Input Token Type
+	                                        ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S 
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_V 
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_V 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_T
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_O
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_O
 	
-	%TRANSITION(ST_DIR, Concat_Num)      ;TOKEN_NUM: A digit - thus concatenate it
+	%TRANSITION(ST_DIR, Concat_Num)         ;TOKEN_NUM: A digit - thus concatenate it
 	
-	%TRANSITION(ST_DIR_SIGN, SetSign)   ;TOKEN_POS - '+' Wait for sign
-	%TRANSITION(ST_DIR_SIGN, SetSign)   ;TOKEN_NEG - '-' Wait for sign
-	%TRANSITION(ST_DIR_INIT, no_op)	    ;TOKEN_IGNORE 
+	%TRANSITION(ST_DIR_SIGN, SetSign)       ;TOKEN_POS - '+' Wait for sign
+	%TRANSITION(ST_DIR_SIGN, SetSign)       ;TOKEN_NEG - '-' Wait for sign
+	%TRANSITION(ST_DIR_INIT, no_op)	        ;TOKEN_IGNORE 
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_END
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER	
 
 	;Current State = ST_DIR_SIGN: Waiting for DIGIT or Sign           
-	                                    ;Input Token Type
+	                                        ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S 
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_V 
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_V 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_T
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_O
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_O
 	
-	%TRANSITION(ST_DIR, Concat_Num)      ;TOKEN_NUM: A digit - thus concatenate it
+	%TRANSITION(ST_DIR, Concat_Num)         ;TOKEN_NUM: A digit - thus concatenate it
 	
-	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_POS - '+' Wait for sign
-	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_NEG - '-' Wait for sign
-	%TRANSITION(ST_DIR_SIGN, no_op)	    ;TOKEN_IGNORE 
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_POS - '+' Wait for sign
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_NEG - '-' Wait for sign
+	%TRANSITION(ST_DIR_SIGN, no_op)	        ;TOKEN_IGNORE 
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_END
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER	
 	
 		;Current State = ST_DIR : Digit started, thus keep grabbing until return       
-	                                    ;Input Token Type
+	                                        ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_V
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_V
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_T 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F 
-	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_O
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_O
 	
-	%TRANSITION(ST_DIR, Concat_Num)     ;TOKEN_NUM - A digit - thus concatenate it
-	
+	%TRANSITION(ST_DIR, Concat_Num)         ;TOKEN_NUM - A digit - thus concatenate it
+	    
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_POS - '+'
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_NEG - '-'
-	%TRANSITION(ST_DIR, no_op)	        ;TOKEN_IGNORE - Keep Waiting for start of digit
-	%TRANSITION(ST_INITIAL, SetDir)      ;TOKEN_END - Return
+	%TRANSITION(ST_DIR, no_op)	            ;TOKEN_IGNORE - Keep Waiting for start of digit
+	%TRANSITION(ST_INITIAL, SetDir)          ;TOKEN_END - Return
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER
 
 ;-----------------------------Rotating Turrent Angle----------------------------------	
 
 	;Current State = ST_RTR_INIT: Waiting for DIGIT or Sign           
-	                                    ;Input Token Type
+	                                        ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S 
 	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_V 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D 
@@ -1013,15 +1162,15 @@ StateTable	LABEL	TRANSITION_ENTRY
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F
 	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_O
-	%TRANSITION(ST_RTA_ABS, Concat_Num) ;TOKEN_NUM: A digit - thus concatenate it	
-	%TRANSITION(ST_RTR_SIGN, SetSign)    ;TOKEN_POS - '+' Wait for sign
-	%TRANSITION(ST_RTR_SIGN, SetSign)    ;TOKEN_NEG - '-' Wait for sign
-	%TRANSITION(ST_RTR_INIT, no_op)	    ;TOKEN_IGNORE 
+	%TRANSITION(ST_RTA_ABS, Concat_Num)     ;TOKEN_NUM: A digit - thus concatenate it	
+	%TRANSITION(ST_RTR_SIGN, SetSign)       ;TOKEN_POS - '+' Wait for sign
+	%TRANSITION(ST_RTR_SIGN, SetSign)       ;TOKEN_NEG - '-' Wait for sign
+	%TRANSITION(ST_RTR_INIT, no_op)	        ;TOKEN_IGNORE 
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_END
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER	
 
 	;Current State = ST_RTR_SIGN: Waiting for DIGIT or Sign           
-	                                    ;Input Token Type
+	                                        ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S 
 	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_V 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D 
@@ -1029,53 +1178,53 @@ StateTable	LABEL	TRANSITION_ENTRY
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F
 	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_O
-	%TRANSITION(ST_RTA_REL, Concat_Num) ;TOKEN_NUM: A digit - thus concatenate it	
-	%TRANSITION(ST_INITIAL, SetError)    ;TOKEN_POS - '+' Wait for sign
-	%TRANSITION(ST_INITIAL, SetError)    ;TOKEN_NEG - '-' Wait for sign
-	%TRANSITION(ST_RTR_SIGN, no_op)	    ;TOKEN_IGNORE 
+	%TRANSITION(ST_RTA_REL, Concat_Num)     ;TOKEN_NUM: A digit - thus concatenate it	
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_POS - '+' Wait for sign
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_NEG - '-' Wait for sign
+	%TRANSITION(ST_RTR_SIGN, no_op)	        ;TOKEN_IGNORE 
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_END
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER	
 	
     ;Current State = ST_RTA_ABS : Digit started, thus keep grabbing until return       
-	                                    ;Input Token Type
+	                                        ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S
-	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_V
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_V
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_T 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F 
-	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_O
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_O
 	
 	%TRANSITION(ST_RTA_ABS, Concat_Num)      ;TOKEN_NUM - A digit - thus concatenate it
 	
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_POS - '+'
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_NEG - '-'
-	%TRANSITION(ST_RTA_ABS, no_op)	    ;TOKEN_IGNORE - Keep Waiting for start of digit
-	%TRANSITION(ST_INITIAL, RotAbsTurrAng);TOKEN_END - Return
+	%TRANSITION(ST_RTA_ABS, no_op)	        ;TOKEN_IGNORE - Keep Waiting for start of digit
+	%TRANSITION(ST_INITIAL, RotAbsTurrAng)  ;TOKEN_END - Return
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER
 	
     ;Current State = ST_RTA_REL : Digit started, thus keep grabbing until return       
-	                                    ;Input Token Type
+	                                        ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S
-	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_V
-	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_V
+	%TRANSITION(ST_INITIAL, SetError)	     ;TOKEN_D
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_T 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F 
-	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_O
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_O
 	
 	%TRANSITION(ST_RTA_REL, Concat_Num)      ;TOKEN_NUM - A digit - thus concatenate it
 	
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_POS - '+'
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_NEG - '-'
-	%TRANSITION(ST_RTA_REL, no_op)	    ;TOKEN_IGNORE - Keep Waiting for start of digit
-	%TRANSITION(ST_INITIAL, RotRelTurrAng);TOKEN_END - Return
+	%TRANSITION(ST_RTA_REL, no_op)	        ;TOKEN_IGNORE - Keep Waiting for start of digit
+	%TRANSITION(ST_INITIAL, RotRelTurrAng)  ;TOKEN_END - Return
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER
 	
 ;-----------------------------Elevation of Turret----------------------------------	
 
 	;Current State = ST_STEA_INIT: Waiting for DIGIT or Sign           
-	                                    ;Input Token Type
+	                                        ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S 
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_V 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D 
@@ -1083,15 +1232,15 @@ StateTable	LABEL	TRANSITION_ENTRY
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_O
-	%TRANSITION(ST_STEA, Concat_Num)      ;TOKEN_NUM: A digit - thus concatenate it	
-	%TRANSITION(ST_STEA_SIGN, SetSign)   ;TOKEN_POS - '+' Wait for sign
-	%TRANSITION(ST_STEA_SIGN, SetSign)   ;TOKEN_NEG - '-' Wait for sign
-	%TRANSITION(ST_STEA_INIT, no_op)	;TOKEN_IGNORE 
+	%TRANSITION(ST_STEA, Concat_Num)        ;TOKEN_NUM: A digit - thus concatenate it	
+	%TRANSITION(ST_STEA_SIGN, SetSign)       ;TOKEN_POS - '+' Wait for sign
+	%TRANSITION(ST_STEA_SIGN, SetSign)      ;TOKEN_NEG - '-' Wait for sign
+	%TRANSITION(ST_STEA_INIT, no_op)	    ;TOKEN_IGNORE 
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_END
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER	
 	
 	;Current State = ST_STEA_SIGN: Waiting for DIGIT or Sign           
-	                                    ;Input Token Type
+	                                         ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S 
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_V 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D 
@@ -1099,15 +1248,15 @@ StateTable	LABEL	TRANSITION_ENTRY
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_E
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_O
-	%TRANSITION(ST_STEA, Concat_Num)      ;TOKEN_NUM: A digit - thus concatenate it	
-	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_POS - '+' Wait for sign
-	%TRANSITION(ST_INITIAL, SetError)   ;TOKEN_NEG - '-' Wait for sign
-	%TRANSITION(ST_STEA_INIT, no_op)	;TOKEN_IGNORE 
+	%TRANSITION(ST_STEA, Concat_Num)        ;TOKEN_NUM: A digit - thus concatenate it	
+	%TRANSITION(ST_INITIAL, SetError)        ;TOKEN_POS - '+' Wait for sign
+	%TRANSITION(ST_INITIAL, SetError)       ;TOKEN_NEG - '-' Wait for sign
+	%TRANSITION(ST_STEA_INIT, no_op)	    ;TOKEN_IGNORE 
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_END
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER	
 	
 		;Current State = ST_STEA : Digit started, thus keep grabbing until return       
-	                                    ;Input Token Type
+	                                        ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_V
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D
@@ -1116,18 +1265,18 @@ StateTable	LABEL	TRANSITION_ENTRY
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_F 
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_O
 	
-	%TRANSITION(ST_STEA, Concat_Num)      ;TOKEN_NUM - A digit - thus concatenate it
+	%TRANSITION(ST_STEA, Concat_Num)        ;TOKEN_NUM - A digit - thus concatenate it
 	
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_POS - '+'
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_NEG - '-'
-	%TRANSITION(ST_STEA, no_op)	    ;TOKEN_IGNORE - Keep Waiting for start of digit
+	%TRANSITION(ST_STEA, no_op)	            ;TOKEN_IGNORE - Keep Waiting for start of digit
 	%TRANSITION(ST_INITIAL, SetTurrEleAng)   ;TOKEN_END - Return
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER
 	
 ;-----------------------------Fire Laser----------------------------------	
 
 	;Current State = ST_LAZON: Waiting for return       
-	                                    ;Input Token Type
+	                                        ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S 
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_V 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D 
@@ -1138,15 +1287,15 @@ StateTable	LABEL	TRANSITION_ENTRY
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_NUM
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_POS
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_NEG 
-	%TRANSITION(ST_LAZON, no_op)	    ;TOKEN_IGNORE 
-	%TRANSITION(ST_INITIAL, LaserControl)		;TOKEN_END
+	%TRANSITION(ST_LAZON, no_op)	        ;TOKEN_IGNORE 
+	%TRANSITION(ST_INITIAL, LaserON)		;TOKEN_END
 	%TRANSITION(ST_INITIAL, SetError)		;TOKEN_OTHER	
 
 	
 ;-----------------------------Laser OFF----------------------------------	
 
 	;Current State = ST_LAZOFF: Waiting for return       
-	                                    ;Input Token Type
+	                                        ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_S 
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_V 
 	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_D 
@@ -1157,9 +1306,9 @@ StateTable	LABEL	TRANSITION_ENTRY
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_NUM
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_POS
 	%TRANSITION(ST_INITIAL, SetError)      ;TOKEN_NEG 
-	%TRANSITION(ST_LAZOFF, no_op)	    ;TOKEN_IGNORE 
-	%TRANSITION(ST_INITIAL, LaserControl)		;TOKEN_END
-	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
+	%TRANSITION(ST_LAZOFF, no_op)	        ;TOKEN_IGNORE 
+	%TRANSITION(ST_INITIAL, LaserOFF)		;TOKEN_END
+	%TRANSITION(ST_INITIAL, SetError)	    ;TOKEN_OTHER	
 	
 	
 
@@ -1330,7 +1479,7 @@ CODE    ENDS
 
 DATA    SEGMENT PUBLIC  'DATA'
 
-Errorflag      DW      ?               ; Holds error type
+Errorflag      DW      ?                ; Holds error type
 magnitude       DW      ?               ; Shared magnitude (can be angle, speed), unsigned 
 										; 15-bit val
 sign            DB      ?               ; Can be POS or NEG
