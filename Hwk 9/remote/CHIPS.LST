@@ -1,0 +1,188 @@
+8086/87/88/186 MACRO ASSEMBLER    CHIPS                                                    00:30:05  12/12/;3  PAGE    1
+
+
+DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE CHIPS
+OBJECT MODULE PLACED IN CHIPS.OBJ
+ASSEMBLER INVOKED BY:  C:\UTIL\ASM86.EXE CHIPS.ASM M1 DB EP
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                             1             NAME    chips
+                             2 +1  $INCLUDE(chips.inc); Include files
+                      =1     3     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1     4     ;                                                                               ;
+                      =1     5     ;                                  Chips.INC                                    ;
+                      =1     6     ;                           Chip Select Constants                           ;
+                      =1     7     ;                                 Include File                              ;
+                      =1     8     ;                                                                           ;
+                      =1     9     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    10     
+                      =1    11     ; This file contains the definitions for chip select values
+                      =1    12     ;
+                      =1    13     ; Revision History:
+                      =1    14     ;    11/23/2013                 Created - Anjian Wu
+                      =1    15     
+                      =1    16     
+                      =1    17     
+                      =1    18     ; Chip Select Register Values
+  0003                =1    19     PACSval         EQU     00003H          ;PCS base at 0, 3 wait states
+                      =1    20                                             ;0000000000------  starts at address 0
+                      =1    21                                             ;----------000---  reserved
+                      =1    22                                             ;-------------0--  wait for RDY inputs
+                      =1    23                                             ;--------------11  3 wait states
+  0183                =1    24     MPCSval         EQU     00183H          ;PCS in I/O space, use PCS5/6, 3 wait states
+                      =1    25                                             ;0---------000---  reserved
+                      =1    26                                             ;-0000001--------  MCS is 8KB
+                      =1    27                                             ;--------1-------  output PCS5/PCS6
+                      =1    28                                             ;---------0------  PCS in I/O space
+                      =1    29                                             ;-------------0--  wait for RDY inputs
+                      =1    30                                             ;--------------11  3 wait states
+                      =1    31                                             
+  FFA4                =1    32     PACSreg         EQU     0FFA4H          ;address of PACS register
+  FFA8                =1    33     MPCSreg         EQU     0FFA8H          ;address of MPCS register
+                            34 +1  $INCLUDE(general.inc)
+                      =1    35     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    36     ;                                                                               ;
+                      =1    37     ;                                  General.INC                                  ;
+                      =1    38     ;                               General Constants                           ;
+                      =1    39     ;                                 Include File                              ;
+                      =1    40     ;                                                                           ;
+                      =1    41     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    42     
+                      =1    43     ; This file contains general operations
+                      =1    44     ;
+                      =1    45     ; Revision History:
+                      =1    46     ;    11/02/2013                 Created - Anjian Wu
+                      =1    47     ;    11/23/2013                 Added WORD_LOOKUP_ADJUST - Anjian Wu
+                      =1    48     ;    12/05/2014         Added FMS_ERROR key, ZERO, changed other keys to 
+                      =1    49     ;                       ASCII based - Anjian
+                      =1    50     
+8086/87/88/186 MACRO ASSEMBLER    CHIPS                                                    00:30:05  12/12/;3  PAGE    2
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1    51     
+                      =1    52     ; General Constants
+                      =1    53     
+  0000                =1    54     ASCII_NULL      EQU     0           ;
+  0001                =1    55     bit_size        EQU     1           ;
+  0004                =1    56     nibble_size     EQU     4           ;
+  0008                =1    57     BYTE_size       EQU     8           ;
+  0010                =1    58     WORD_size       EQU     16          ;
+  0000                =1    59     ArrayEmpty      EQU     0               ; Empty is set at 0 index
+                      =1    60     
+  0001                =1    61     TRUE            EQU     1           ;
+  0000                =1    62     FALSE           EQU     0           ;
+                      =1    63     
+  0000                =1    64     RESET           EQU     0           ; General Value for Resetting something
+                      =1    65     
+  0000                =1    66     CLEAR           EQU     0           ;
+                      =1    67     
+  0000                =1    68     ZERO            EQU     0           ;
+                      =1    69     
+  000A                =1    70     DIGIT           EQU     10          ; A digit in base 10 
+                      =1    71     
+  0001                =1    72     WORD_LOOKUP_ADJUST  EQU    1           ; Two bytes in one word -> SHL by 1
+                      =1    73     
+                      =1    74     ; General Definitions for Main Loops
+                      =1    75     
+  0001                =1    76     FIRST_RESERVED_VEC      EQU     1           ;reserve vectors 1-3
+  0003                =1    77     LAST_RESERVED_VEC       EQU     3       ;
+  0100                =1    78     NUM_IRQ_VECTORS     EQU 256     ;number of interrupt vectors
+                      =1    79     
+                      =1    80     ; MainLoop Key Codes
+                      =1    81     
+  0000                =1    82     KEY_EVENT_KEY       EQU     0   ; Event code indicating key pressed
+  0001                =1    83     SER_ERR_KEY         EQU     1   ; Event code indicating serial error
+  0002                =1    84     RX_ENQUEUED_KEY     EQU     2   ; Event code indicating new rx value gotten
+  0003                =1    85     MODEM_KEY           EQU     3   ; Event code indicating modem event
+  0004                =1    86     FSM_ERROR           EQU     4   ; Error key showing FSM error
+                      =1    87     
+                      =1    88     ; General Addresses
+                      =1    89     
+  FF22                =1    90     INTCtrlReg          EQU     0FF22H  ;EOI interrupt controller       
+                            91     
+                            92     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            93     ;                                                                            ;
+                            94     ;                                 Chip.asm                                   ;
+                            95     ;                                EE/CS  51                                   ;
+                            96     ;                                 Anjian Wu                                  ;
+                            97     ;                               TA: Pipe-mazo                                ;
+                            98     ;                                                                            ;
+                            99     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           100     ;                                 What's in here?
+                           101     ;
+                           102     ;   InitUserInterfaceCS  -   Initialize the Peripheral Chip Selects on the 80188
+                           103     ;                            for Keypad and Display.
+                           104     ;
+                           105     ;                               Created -> 11-22-2013 - Anjian Wu
+8086/87/88/186 MACRO ASSEMBLER    CHIPS                                                    00:30:05  12/12/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           106     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           107     
+                           108     ; InitUserInterfaceCS
+                           109     ;
+                           110     ; Description:       Initialize the Peripheral Chip Selects on the 80188.
+                           111     ;
+                           112     ; Operation:         Write the initial values to the PACS and MPCS registers.
+                           113     ;
+                           114     ; Arguments:         None.
+                           115     ; Return Value:      None.
+                           116     ;
+                           117     ; Local Variables:   None.
+                           118     ; Shared Variables:  None.
+                           119     ; Global Variables:  None.
+                           120     ;
+                           121     ; Input:             None.
+                           122     ; Output:            None.
+                           123     ;
+                           124     ; Error Handling:    None.
+                           125     ;
+                           126     ; Algorithms:        None.
+                           127     ; Data Structures:   None.
+                           128     ;
+                           129     ; Registers Changed: AX, DX
+                           130     ; Stack Depth:       0 words
+                           131     ;
+                           132     ; Last Modified:     Working -> 11-22-2013 - Anjian Wu
+                           133     CGROUP  GROUP   CODE
+                           134     
+----                       135     CODE    SEGMENT PUBLIC 'CODE'
+                           136     
+                           137     
+                           138             ASSUME  CS:CGROUP
+                           139     
+                           140     
+0000                       141     InitUserInterfaceCS  PROC    NEAR; Do what we did for HWK1 part 5 :)
+                           142                         PUBLIC InitUserInterfaceCS
+                           143     
+                           144     
+0000 BAA4FF                145             MOV     DX, PACSreg     ;setup to write to PACS register
+0003 B80300                146             MOV     AX, PACSval
+0006 EE                    147             OUT     DX, AL          ;write PACSval to PACS
+                           148     
+0007 BAA8FF                149             MOV     DX, MPCSreg     ;setup to write to MPCS register
+000A B88301                150             MOV     AX, MPCSval
+000D EE                    151             OUT     DX, AL          ;write MPCSval to MPCS
+                           152     
+                           153     
+000E C3                    154             RET                     ;done so return
+                           155     
+                           156     
+                           157     InitUserInterfaceCS  ENDP
+                           158     
+----                       159     CODE    ENDS
+                           160     
+8086/87/88/186 MACRO ASSEMBLER    CHIPS                                                    00:30:05  12/12/;3  PAGE    4
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           161     END
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND

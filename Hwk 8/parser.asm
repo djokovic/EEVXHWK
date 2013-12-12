@@ -39,7 +39,8 @@ $INCLUDE(motors.inc);
 ;                                   Data Segment
 ;
 ;   sign                -   Stores the sign of the num being processed
-;   magnitude           -   Stores the universal magnitude (can be speed, angle,etc.)
+;   magnitude           -   Stores the universal magnitude (can be speed, angle
+;                           ,etc.)
 ;   errorflag           -   Stores errors
 ;   FSM_state           -   Stores the current state
 ;
@@ -159,7 +160,7 @@ ParseComputeTrans:		        ;figure out what transition to do
 ParseDoActions:				    ;do the actions (don't affect regs)
 
 	MOV		AL, CH			    ;Pass Token Val (not always used by ACTION)
-	CALL	CS:StateTable[BX].ACTION	;do the actions
+	CALL	CS:RobotFSMTable[BX].ACTION	;do the actions
 
 ParseCheckError:
     CMP     Errorflag, TRUE     ; Was there an error from the FSM action?
@@ -184,7 +185,7 @@ ParseRecordError:
     
 ParseNextTransition:			;now go to next state
 
-	MOV		CL, CS:StateTable[BX].NEXTSTATE
+	MOV		CL, CS:RobotFSMTable[BX].NEXTSTATE
     MOV     FSM_state, CL   ; We need this nextstate stored for next time.
     
 	CMP		FSM_state, ST_INITIAL	; Did the state machine restart?

@@ -1,5 +1,8 @@
-NAME        Remote
+NAME        event
 
+$INCLUDE(queue.inc);
+$INCLUDE(vectors.inc);
+$INCLUDE(timer.inc);
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                                                            ;
@@ -24,9 +27,10 @@ NAME        Remote
 ;       			Pseudo code ->  12-06-2013 - Anjian Wu
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CGROUP  GROUP   CODE
-DGROUP GROUP    DATA
+DGROUP  GROUP   DATA
 
-CODE SEGMENT PUBLIC 'CODE'
+CODE    SEGMENT PUBLIC 'CODE'
+
 
         ASSUME  CS:CGROUP, DS:DGROUP
         
@@ -59,12 +63,15 @@ CODE SEGMENT PUBLIC 'CODE'
 ;       			Initial Version ->  12-05-2013 - Anjian Wu
 ;----------------------------------------------------------------------------------------		
 		
-DequeueEvent()
-{
-    
-    Return Dequeue(EventQueue, char);
-}
+DequeueEvent    PROC    NEAR
+                PUBLIC  DequeueEvent
 
+
+    LEA     SI, EventQueue              ;
+    CALL    Dequeue                     ;
+    RET
+    
+DequeueEvent    ENDP
 ; Name:             EnqueueEvent
 ; Description:      Enqueues the passed char into EventQueue
 ;
@@ -85,17 +92,14 @@ DequeueEvent()
 ; Revision History:
 ;       			Initial Version ->  12-05-2013 - Anjian Wu
 ;----------------------------------------------------------------------------------------	
-EnqueueEvent(char)
-{
+EnqueueEvent    PROC    NEAR
+                PUBLIC  EnqueueEvent
 
-
-    Enqueue(EventQueue, char);
+    LEA     SI, EventQueue              ;
+    CALL    Enqueue                     ;
+    RET
     
-    Return
-    
-    
-}
-
+EnqueueEvent    ENDP
 ;Procedure:			EventAvailable
 ;
 ;Description:      	Checks if EventQueue is empty
@@ -117,13 +121,14 @@ EnqueueEvent(char)
 ;Author:			Anjian Wu
 ;History:			12-06-2013: Pseudo code - Anjian Wu
 ;------------------------------------------------------------------------------
-EventAvailable()
-{
+EventAvailable      PROC    NEAR
+                    PUBLIC  EventAvailable
+
+    LEA     SI, EventQueue              ;
+    CALL    QueueEmpty                  ;
+    RET
     
-    RETURN  QueueEmpty(EventQueue);
-    
-    
-}
+EventAvailable  ENDP
 
 ;Procedure:			EventFull
 ;
@@ -146,11 +151,14 @@ EventAvailable()
 ;Author:			Anjian Wu
 ;History:			12-06-2013: Pseudo code - Anjian Wu
 ;------------------------------------------------------------------------------
-EventFull()
-{
-    Return QueueFull(EventQueue);
-
-}
+EventFull   PROC    NEAR
+            PUBLIC  EventFull
+                    
+    LEA     SI, EventQueue              ;
+    CALL    QueueFull                   ;
+    RET
+    
+EventFull   ENDP
 
 
 ;Procedure:			EnqueueEventInit
@@ -176,11 +184,19 @@ EventFull()
 ;Author:			Anjian Wu
 ;History:			12-06-2013: Pseudo code - Anjian Wu
 ;------------------------------------------------------------------------------
-EnqueueEventInit()
-{
-    QueueInit(EventQueue, WORD, MAX_Q_LENGTH);
-}
 
+EnqueueEventInit    PROC NEAR
+                    PUBLIC  EnqueueEventInit
+
+    LEA     SI, EventQueue              ;
+    MOV     BL, WORD_QUEUE              ;
+    MOV     AX, MAX_Q_LENG - 1          ;
+    CALL    QueueInit                   ;
+
+    RET
+EnqueueEventInit    ENDP
+
+CODE    ENDS
 
 DATA    SEGMENT PUBLIC  'DATA'
 
@@ -188,3 +204,6 @@ EventQueue          QUEUESTRUC <>           ; Holds the EventQueue
 
 
 DATA    ENDS
+
+
+        END 

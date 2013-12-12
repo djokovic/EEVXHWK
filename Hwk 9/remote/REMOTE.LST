@@ -1,0 +1,2701 @@
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE    1
+
+
+DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE REMOTE
+OBJECT MODULE PLACED IN REMOTE.OBJ
+ASSEMBLER INVOKED BY:  C:\UTIL\ASM86.EXE REMOTE.ASM M1 DB EP
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                             1     NAME        Remote
+                             2     
+                             3 +1  $INCLUDE(remote.inc);
+                      =1     4     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1     5     ;                                                                               ;
+                      =1     6     ;                                  Remote.INC                                   ;
+                      =1     7     ;                               Remote Constants                            ;
+                      =1     8     ;                                 Include File                              ;
+                      =1     9     ;                                                                           ;
+                      =1    10     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    11     
+                      =1    12     ; This file contains robot constants
+                      =1    13     ;
+                      =1    14     ; Revision History:
+                      =1    15     ;    11/10/2013                 Created - Anjian Wu
+                      =1    16     ;    12/11/2013                 Added PRESCALE - Anjian Wu
+                      =1    17     
+                      =1    18     ; General Constants
+                      =1    19     
+  03E8                =1    20     PRESCALE            EQU     1000    ; How many Millisec per change in display
+                      =1    21                                         ; status?
+  0000                =1    22     ACTION_LABEL       EQU     0       ;
+  0002                =1    23     SPEED_LABEL        EQU     2       ;
+  0004                =1    24     ANGLE_LABEL        EQU     4       ;
+  0006                =1    25     ERROR_LABEL        EQU     6       ;
+                      =1    26     
+                      =1    27     ; Key Commands  
+                      =1    28     
+                      =1    29     
+  0007                =1    30     CMD_LENGTH          EQU     7       ; Standard FIXED CMD length
+                      =1    31     
+                      =1    32     ; Displaying Constants
+                      =1    33     
+  0008                =1    34     numOfStatus         EQU     8       ;
+                      =1    35     
+                      =1    36     
+                      =1    37     ;FSM States Definitions
+                      =1    38     
+  0000                =1    39     ST_INITIAL          EQU     0   ;Start state
+  0001                =1    40     ST_SPEED        EQU     1   ;Set Abs Speed: wait for digit or '+'
+  0002                =1    41     ST_DIR          EQU     2   ;Set Abs Speed: wait for digit
+                      =1    42     
+                      =1    43     
+                      =1    44     ;Token offsets
+  0000                =1    45     TOKEN_S         EQU     0; - Set Speed
+  0001                =1    46     TOKEN_D         EQU     1;- Set Dir
+  0002                =1    47     TOKEN_NUM       EQU     2;- A digit
+  0003                =1    48     TOKEN_END       EQU     3; - Return
+  0004                =1    49     TOKEN_OTHER     EQU     4; Bad char
+                      =1    50     
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE    2
+
+
+LOC  OBJ                  LINE     SOURCE
+
+  0005                =1    51     NUM_TOKEN_TYPES EQU     TOKEN_OTHER + 1; TOKEN_OTHER is always the last Token
+                      =1    52     
+                      =1    53     ; TOken Masks
+                      =1    54     
+  007F                =1    55     TOKEN_MASK      EQU     01111111B       ;mask high bit of token
+                            56 +1  $INCLUDE(general.inc); Include files
+                      =1    57     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    58     ;                                                                               ;
+                      =1    59     ;                                  General.INC                                  ;
+                      =1    60     ;                               General Constants                           ;
+                      =1    61     ;                                 Include File                              ;
+                      =1    62     ;                                                                           ;
+                      =1    63     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    64     
+                      =1    65     ; This file contains general operations
+                      =1    66     ;
+                      =1    67     ; Revision History:
+                      =1    68     ;    11/02/2013                 Created - Anjian Wu
+                      =1    69     ;    11/23/2013                 Added WORD_LOOKUP_ADJUST - Anjian Wu
+                      =1    70     ;    12/05/2014         Added FMS_ERROR key, ZERO, changed other keys to 
+                      =1    71     ;                       ASCII based - Anjian
+                      =1    72     
+                      =1    73     
+                      =1    74     ; General Constants
+                      =1    75     
+  0000                =1    76     ASCII_NULL      EQU     0           ;
+  0001                =1    77     bit_size        EQU     1           ;
+  0004                =1    78     nibble_size     EQU     4           ;
+  0008                =1    79     BYTE_size       EQU     8           ;
+  0010                =1    80     WORD_size       EQU     16          ;
+  0000                =1    81     ArrayEmpty      EQU     0               ; Empty is set at 0 index
+                      =1    82     
+  0001                =1    83     TRUE            EQU     1           ;
+  0000                =1    84     FALSE           EQU     0           ;
+                      =1    85     
+  0000                =1    86     RESET           EQU     0           ; General Value for Resetting something
+                      =1    87     
+  0000                =1    88     CLEAR           EQU     0           ;
+                      =1    89     
+  0000                =1    90     ZERO            EQU     0           ;
+                      =1    91     
+  000A                =1    92     DIGIT           EQU     10          ; A digit in base 10 
+                      =1    93     
+  0001                =1    94     WORD_LOOKUP_ADJUST  EQU    1           ; Two bytes in one word -> SHL by 1
+                      =1    95     
+                      =1    96     ; General Definitions for Main Loops
+                      =1    97     
+  0001                =1    98     FIRST_RESERVED_VEC      EQU     1           ;reserve vectors 1-3
+  0003                =1    99     LAST_RESERVED_VEC       EQU     3       ;
+  0100                =1   100     NUM_IRQ_VECTORS     EQU 256     ;number of interrupt vectors
+                      =1   101     
+                      =1   102     ; MainLoop Key Codes
+                      =1   103     
+  0000                =1   104     KEY_EVENT_KEY       EQU     0   ; Event code indicating key pressed
+  0001                =1   105     SER_ERR_KEY         EQU     1   ; Event code indicating serial error
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+  0002                =1   106     RX_ENQUEUED_KEY     EQU     2   ; Event code indicating new rx value gotten
+  0003                =1   107     MODEM_KEY           EQU     3   ; Event code indicating modem event
+  0004                =1   108     FSM_ERROR           EQU     4   ; Error key showing FSM error
+                      =1   109     
+                      =1   110     ; General Addresses
+                      =1   111     
+  FF22                =1   112     INTCtrlReg          EQU     0FF22H  ;EOI interrupt controller       
+                           113 +1  $INCLUDE(display.inc);
+                      =1   114     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   115     ;                                                                               ;
+                      =1   116     ;                                  Display.INC                                  ;
+                      =1   117     ;                               Display Constants                           ;
+                      =1   118     ;                                 Include File                              ;
+                      =1   119     ;                                                                           ;
+                      =1   120     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   121     
+                      =1   122     ; This file contains the definitions for the display functions
+                      =1   123     ;
+                      =1   124     ; Revision History:
+                      =1   125     ;    11/02/2013                 Created - Anjian Wu
+                      =1   126     
+                      =1   127     
+                      =1   128     
+                      =1   129     ; General Definitions
+                      =1   130     
+  0008                =1   131     Display_SIZE    EQU     8               ; Size of chars that can fit in display
+  0000                =1   132     SEGMENT_NULL    EQU     0               ; Byte value for Sseg pattern of ASCII_NULL
+  0001                =1   133     SegPTRAdjust    EQU     1               ; Since we want WORD, we need to adjust 
+                      =1   134      
+                      =1   135     
+                      =1   136     ; Display Addresses
+                      =1   137     
+  0000                =1   138     LEDDisplay      EQU     0               ; Display is hardware mapped to 0 - 7H
+  0008                =1   139     LEDDisplay2     EQU     8               ; 14- seg also hardware mapped to 8h - 0DH
+                      =1   140     
+                      =1   141     
+----                  =1   142     DISPLAYSTRUC     STRUC                      ;structure containing all display buffers
+0000                  =1   143         buffer              DB          Display_SIZE        DUP     (?) ;pointer to the f
+                                   unction to get switch 
+----                  =1   144     DISPLAYSTRUC      ENDS
+                      =1   145     
+                      =1   146     
+                      =1   147     
+                           148 +1  $INCLUDE(chips.inc);
+                      =1   149     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   150     ;                                                                               ;
+                      =1   151     ;                                  Chips.INC                                    ;
+                      =1   152     ;                           Chip Select Constants                           ;
+                      =1   153     ;                                 Include File                              ;
+                      =1   154     ;                                                                           ;
+                      =1   155     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   156     
+                      =1   157     ; This file contains the definitions for chip select values
+                      =1   158     ;
+                      =1   159     ; Revision History:
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE    4
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   160     ;    11/23/2013                 Created - Anjian Wu
+                      =1   161     
+                      =1   162     
+                      =1   163     
+                      =1   164     ; Chip Select Register Values
+  0003                =1   165     PACSval         EQU     00003H          ;PCS base at 0, 3 wait states
+                      =1   166                                             ;0000000000------  starts at address 0
+                      =1   167                                             ;----------000---  reserved
+                      =1   168                                             ;-------------0--  wait for RDY inputs
+                      =1   169                                             ;--------------11  3 wait states
+  0183                =1   170     MPCSval         EQU     00183H          ;PCS in I/O space, use PCS5/6, 3 wait states
+                      =1   171                                             ;0---------000---  reserved
+                      =1   172                                             ;-0000001--------  MCS is 8KB
+                      =1   173                                             ;--------1-------  output PCS5/PCS6
+                      =1   174                                             ;---------0------  PCS in I/O space
+                      =1   175                                             ;-------------0--  wait for RDY inputs
+                      =1   176                                             ;--------------11  3 wait states
+                      =1   177                                             
+  FFA4                =1   178     PACSreg         EQU     0FFA4H          ;address of PACS register
+  FFA8                =1   179     MPCSreg         EQU     0FFA8H          ;address of MPCS register
+                           180 +1  $INCLUDE(macros.inc);
+                      =1   181 +1  $NOLIST
+                           346 +1  $INCLUDE(queue.inc);
+                      =1   347     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   348     ;                                                                               ;
+                      =1   349     ;                                  Queues.INC                                   ;
+                      =1   350     ;                           Queue Conversion Constants                          ;
+                      =1   351     ;                                 Include File                              ;
+                      =1   352     ;                                                                           ;
+                      =1   353     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   354     
+                      =1   355     ; This file contains the definitions for the queue functions
+                      =1   356     ;
+                      =1   357     ; Revision History:
+                      =1   358     ;    10/29/2013                 Created - Anjian Wu
+                      =1   359     ;    11/01/2013   Debugged,Documented, and working - Anjian Wu
+                      =1   360     ;
+                      =1   361     ;Structure for Queue allocation, information, and storage
+                      =1   362     
+                      =1   363     
+                      =1   364     ; General Definitions
+                      =1   365     
+                      =1   366     
+  0000                =1   367     BYTE_QUEUE      EQU     0             ; QueueInit Key for Byte queue.
+  0001                =1   368     WORD_QUEUE      EQU     1             ; QueueInit Key for Word queue.
+                      =1   369     
+  0001                =1   370     ByteQ           EQU     1             ; Byte norm factor for indexing
+  0002                =1   371     WordQ           EQU     2             ; Word norm factor for indexing
+  0400                =1   372     ARRAY_SIZE      EQU     1024          ; Size of queue array (fits 512-1 words, 
+                      =1   373                                           ;or 1023 bytes)
+                      =1   374     
+  0200                =1   375     MAX_Q_LENG          EQU     512          ;Maxlength allowed for byte or word queue
+                      =1   376     
+----                  =1   377     QUEUESTRUC      STRUC                   ;structure containing all queue info
+0000                  =1   378         head            DW      ?           ;counter for debouncing the switch
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE    5
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0002                  =1   379         tail            DW      ?           ;time until change repeat rates
+0004                  =1   380         qsize           DW      ?           ;rate at which to repeat the switch
+0006                  =1   381         leng            DW      ?           ;rate at which to repeat the switch
+0008                  =1   382         array               DB          ARRAY_SIZE  DUP     (?) ;pointer to the function 
+                                   to get switch status
+----                  =1   383     QUEUESTRUC      ENDS
+                      =1   384     
+                      =1   385     ;Structure for storing Queue return values or args
+                      =1   386     
+----                  =1   387     QUEUEVARS      STRUC                ;structure containing all queue info
+0000                  =1   388         dequeued    DW      ?               ;counter for debouncing the switch
+----                  =1   389     QUEUEVARS      ENDS
+                      =1   390     
+                      =1   391     
+                      =1   392     
+                           393 +1  $INCLUDE(vectors.inc);
+                      =1   394     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   395     ;                                                                               ;
+                      =1   396     ;                                  Vector.INC                                   ;
+                      =1   397     ;                              IVector Constants                            ;
+                      =1   398     ;                                 Include File                              ;
+                      =1   399     ;                                                                           ;
+                      =1   400     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   401     
+                      =1   402     ; This file contains the definitions for timers and their interupts
+                      =1   403     ;
+                      =1   404     ; Revision History:
+                      =1   405     ;    11/23/2013                 Created - Anjian Wu
+                      =1   406     ;    12/10/2013         Added Timer 2 info - Anjian Wu
+                      =1   407     
+                      =1   408                                             ; IVector Definitions
+                      =1   409     
+                      =1   410     ; Interrupt Vectors and their control values
+  0008                =1   411     Tmr0Vec         EQU     8               ;interrupt vector for Timer 0
+  0012                =1   412     Tmr1Vec         EQU     18              ;interrupt vector for Timer 1
+  0013                =1   413     Tmr2Vec         EQU     19              ;interrupt vector for Timer 2
+                      =1   414     
+  FF32                =1   415     INTCtrlrCtrl    EQU     0FF32H          ;address of interrupt controller for timer
+  FF22                =1   416     INTCtrlrEOI     EQU     0FF22H          ;address of interrupt controller EOI register
+                      =1   417     
+  0001                =1   418     INTCtrlrCVal    EQU     00001H          ;set priority for timers to 1 and enable
+                      =1   419                                             ;000000000000----  reserved
+                      =1   420                                             ;------------0---  enable timer interrupt
+                      =1   421                                             ;-------------001  timer priority
+                           422 +1  $INCLUDE(timer.inc);
+                      =1   423     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   424     ;                                                                               ;
+                      =1   425     ;                                  Timer.INC                                    ;
+                      =1   426     ;                              Timer Constants                              ;
+                      =1   427     ;                                 Include File                              ;
+                      =1   428     ;                                                                           ;
+                      =1   429     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   430     
+                      =1   431     ; This file contains the definitions for timers and their interupts
+                      =1   432     ;
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE    6
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   433     ; Revision History:
+                      =1   434     ;    11/23/2013                 Created - Anjian Wu
+                      =1   435     ;    12/10/2013         Added Timer2 vals - Anjian Wu
+                      =1   436     
+                      =1   437     
+                      =1   438                                             ; Timer Definitions
+                      =1   439     
+                      =1   440     ; Addresses
+  FF56                =1   441     Tmr0Ctrl        EQU     0FF56H          ;address of Timer 0 Control Register
+  FF52                =1   442     Tmr0MaxCntA     EQU     0FF52H          ;address of Timer 0 Max Count A Register
+  FF50                =1   443     Tmr0Count       EQU     0FF50H          ;address of Timer 0 Count Register
+                      =1   444     
+  FF5E                =1   445     Tmr1Ctrl        EQU     0FF5EH          ;address of Timer 1 Control Register
+  FF5A                =1   446     Tmr1MaxCntA     EQU     0FF5AH          ;address of Timer 1 Max Count A Register
+  FF58                =1   447     Tmr1Count       EQU     0FF58H          ;address of Timer 1 Count Register
+                      =1   448     
+                      =1   449     
+  FF66                =1   450     Tmr2Ctrl        EQU     0FF66H          ;address of Timer 2 Control Register
+  FF62                =1   451     Tmr2MaxCnt      EQU     0FF62H          ;address of Timer 2 Max Count A Register
+  FF60                =1   452     Tmr2Count       EQU     0FF60H          ;address of Timer 2 Count Register
+                      =1   453     
+                      =1   454     ; Control Register Values
+  E001                =1   455     Tmr0CtrlVal     EQU     0E001H          ;value to write to Timer 0 Control Register
+                      =1   456                                             ;1---------------  enable timer
+                      =1   457                                             ;-1--------------  write to control
+                      =1   458                                             ;--1-------------  enable interrupts
+                      =1   459                                             ;----000000------  reserved
+                      =1   460                                             ;---0------0-----  read only
+                      =1   461                                             ;-----------0----  Retrigger
+                      =1   462                                             ;------------0---  Prescaler
+                      =1   463                                             ;-------------0--  external clock
+                      =1   464                                             ;--------------0-  single counter mode
+                      =1   465                                             ;---------------1  continuous mode
+                      =1   466                                             
+  E001                =1   467     Tmr1CtrlVal     EQU     0E001H          ;value to write to Timer 1 Control Register
+                      =1   468                                             ;1---------------  enable timer
+                      =1   469                                             ;-1--------------  write to control
+                      =1   470                                             ;--1-------------  enable interrupts
+                      =1   471                                             ;----000000------  reserved
+                      =1   472                                             ;---0------0-----  read only
+                      =1   473                                             ;-----------0----  Retrigger
+                      =1   474                                             ;------------0---  Prescaler
+                      =1   475                                             ;-------------0--  external clock
+                      =1   476                                             ;--------------0-  single counter mode
+                      =1   477                                             ;---------------1  continuous mode
+                      =1   478     
+  E001                =1   479     Tmr2CtrlVal     EQU     0E001H          ;value to write to Timer 2 Control Register
+                      =1   480                                             ;1---------------  enable timer
+                      =1   481                                             ;-1--------------  write to control
+                      =1   482                                             ;--1-------------  enable interrupts
+                      =1   483                                             ;----0000000-----  reserved
+                      =1   484                                             ;-----------0----  MaxCount
+                      =1   485                                             ;------------000-  reserved
+                      =1   486                                             ;---------------1  continuous mode
+                      =1   487     ; Control Register Values
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE    7
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   488                                           
+                      =1   489                                             ; Control Register Values
+  08CA                =1   490     CTS_PER_MILSEC  EQU     2250            ; 18MHZ/(8 * 1KHz) ~ 2250 counts per MS
+                      =1   491     
+  07D0                =1   492     PRESCALE_2SEC   EQU     2000            ; 2 seconds = CTS_PER_MILSEC * 2000
+                      =1   493     
+  0008                =1   494     TimerEOI        EQU     00008H          ;Timer EOI command (same for all timers)
+  8000                =1   495     NonSpecEOI      EQU     08000H          ;Non-specific EOI command
+                      =1   496     
+                      =1   497     
+  0258                =1   498     COUNT_FOR_30HZ  EQU     600             ; 18,000,000 HZ/(8 * 30 Hz * PWM_WIDTH_MAX) 
+                      =1   499                                             ; ~ 600 counts for 30 HZ of PWM
+                      =1   500                                             
+  00B1                =1   501     COUNT_FOR_100HZ EQU     177             ; 18,000,000 HZ/(8 * 100 Hz * PWM_WIDTH_MAX) 
+                      =1   502                                             ; ~ 177 counts for 100 HZ of PWM             
+                                                             
+                      =1   503                                             
+                      =1   504                                             ; NOTE THIS IS APPROXIMATE, Clock is actually
+                                    a bit faster
+                      =1   505                                             ; than 18 MHZ
+                      =1   506     
+                      =1   507     
+                           508     
+                           509     
+                           510     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           511     ;                                                                            ;
+                           512     ;                                 HW9 Remote Mainloop Functions              ;
+                           513     ;                                 EE51                                           ;
+                           514     ;                                 Anjian Wu                                  ;
+                           515     ;                                                                            ;
+                           516     ;                                 TA: Pipe-Mazo                              ;
+                           517     ;                                                                            ;
+                           518     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           519     ;                                 What's in here?
+                           520     ;
+                           521     ;                                   Code Segment
+                           522     ;
+                           523     ;   Procedures
+                           524     ;
+                           525     ;   Remote_FSM_LOOP     -   If available, dequeue next WORD in rx_queue
+                           526     ;   ParseRemoteWord     -   Parses four types of Event Handlers
+                           527     ;
+                           528     ;   HandleKey           -   Updates display and tx_queue with command
+                           529     ;   HandleSerErr        -   Displays serial chip error
+                           530     ;   ParseRemoteChar     -   Concatenates the status message as string. Then
+                           531     ;                           will display to user.
+                           532     ;   HandleModem         -   Stub function for now, since no flow control
+                           533     ;
+                           534     ;   RemoteParseInit     -   Initializes all parsing variables and ToggleHandler
+                           535     ;   ToggleHandler       -   Timer handler that actually Calls Display and cycles
+                           536     ;                           between displaying statuses.
+                           537     ;   GetTokenTypeVal     -   Grabs next token type and val
+                           538     ;   RemoteParseReset    -   Resets state machine variables for Remote FSM
+                           539     ;   SetError            -   Indicates RemoteFSM error
+                           540     ;   no_op               -   Just Returns
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE    8
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           541     ;   AddDirChar          -   Concat the Direction Status String from Robot
+                           542     ;   AddSpeedChar        -   Concat the Speed Status String from Robot
+                           543     ;
+                           544     ;   Tables
+                           545     ;   Token Tables        -   Contains all tokens/token vals for Remote FSM
+                           546     ;   Toggle_JMP_Table    -   Jump table inside Toggle handler, muxes what value displa
+                                   y                    
+                           547     ;   Toggle_Label_Table  -   Muxes which value label to display
+                           548     ;   SerErrTable         -   Table of error strings for display
+                           549     ;   KeyDisplayTable     -   Table of cmd strings for display
+                           550     ;   KeyCmdTable         -   Table of strings cmds for Serial to Robot
+                           551     ;
+                           552     ;                              What's was last edit?
+                           553     ;
+                           554     ;                               Pseudo code ->  12-06-2013 - Anjian Wu
+                           555     ;                   Added KeyDisplayError/KeyDisplayInit Table -> 12-10-13 -AW
+                           556     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           557     CGROUP  GROUP   CODE
+                           558     DGROUP  GROUP   STACK, DATA
+                           559     
+----                       560     CODE    SEGMENT PUBLIC 'CODE'
+                           561     
+                           562     
+                           563             ASSUME  CS:CGROUP, DS:DGROUP
+                           564             
+                           565     ;external function declarations
+                           566      
+                           567     ;Init/Setup Functions 
+                           568             EXTRN   InitUserInterfaceCS:NEAR  
+                           569             EXTRN   EnqueueEventInit:NEAR
+                           570             EXTRN   Timer0Init:NEAR  
+                           571             EXTRN   Timer1Init:NEAR  
+                           572             EXTRN   Timer2Init:NEAR  
+                           573             EXTRN   ClrIRQVectors:NEAR  
+                           574             EXTRN   KeyHandlerInit:NEAR  
+                           575             EXTRN   DisplayHandlerInit:NEAR  
+                           576             EXTRN   SerialInit:NEAR       
+                           577             
+                           578     ;Main Loop Fuctions
+                           579             EXTRN   Display:NEAR        
+                           580             EXTRN   DequeueEvent:NEAR    
+                           581             EXTRN   EnqueueEvent:NEAR           
+                           582             EXTRN   EventAvailable:NEAR        
+                           583             EXTRN   SerialPutChar:NEAR             
+                           584              
+                           585     
+                           586                     
+                           587     ; Name:             Remote Main Loop
+                           588     ; Description:      This is the remote main loop
+                           589     ;
+                           590     ;                   *   Set up all initializations
+                           591     ;                   *   Enter remote_fsm_loop
+                           592     ;                   *   LOOP forever checking whether an event is available
+                           593     ;                       , if so dequeue it and pass to ParseRemoteWord
+                           594     ;
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE    9
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           595     ; Input:            None.
+                           596     ; Output:           None.
+                           597     ;
+                           598     ; User Interface:   None.
+                           599     ;
+                           600     ; Error Handling:   None.
+                           601     ;
+                           602     ; Algorithms:       None.
+                           603     ;
+                           604     ; Data Structures:  None.
+                           605     ;
+                           606     ; Known Bugs:       None.
+                           607     ; Limitations:      None.
+                           608     ;
+                           609     ; Revision History:
+                           610     ;                               Initial Version ->  12-05-2013 - Anjian Wu
+                           611     ;------------------------------------------------------------------------------------
+                                   ----               
+0000                       612     START:
+                           613     
+0000                       614     MAIN:
+0000 B8----         R      615             MOV     AX, DGROUP              ;initialize the stack pointer
+0003 8ED0                  616             MOV     SS, AX
+0005 BCE00190       R      617             MOV     SP, OFFSET(DGROUP:TopOfStack)
+                           618     
+0009 B8----         R      619             MOV     AX, DGROUP              ;initialize the data segment
+000C 8ED8                  620             MOV     DS, AX
+                           621             
+000E E80000         E      622             CALL    ClrIRQVectors              ; Clear whole vector table with Illegal Fu
+                                   nction
+0011 E80000         E      623             CALL    InitUserInterfaceCS        ; Initialize All UI hardware (keypad, disp
+                                   lay)
+0014 E80000         E      624             CALL    Timer0Init                 ; Initialize timer 0 interrupt
+0017 E80000         E      625             CALL    Timer1Init                 ; Initialize timer 1 interrupt
+001A E80000         E      626             CALL    Timer2Init                 ; Initialize timer 2 interrupt
+001D E80000         E      627             CALL    KeyHandlerInit             ; Initialize keypad function variables
+0020 E80000         E      628             CALL    SerialInit                 ; Initialize serial function variables
+0023 E80000         E      629             CALL    DisplayHandlerInit                ; Initialize display function varia
+                                   bles
+0026 E80000         E      630             CALL    EnqueueEventInit           ; Initialize the Event queue function vars
+                           631                                                
+0029 E8F101                632             CALL    RemoteParseInit            ;
+                           633             
+002C FB                    634             STI                                ; Start interrupts
+                           635             ;JMP     REMOTE_FSM_LOOP            ;
+                           636     
+                           637         
+002D                       638     REMOTE_FSM_LOOP:
+                           639         
+002D E80000         E      640             CALL    EventAvailable              ; Is there a pending event? 
+0030 7406                  641             JZ      RemoteFSMIdle               ; Event queue is empty, thus stay idle
+                           642             ;JNZ    RemoteFSMEvent              ; There was an event!
+0032                       643     RemoteFSMEvent:
+                           644     
+0032 E80000         E      645             CALL    DequeueEvent                ; Grab that event into AX
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   10
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0035 E80200                646             CALL    ParseRemoteWord             ; Pass to get event parsed
+                           647             
+0038                       648     RemoteFSMIdle:
+                           649         
+0038 EBF3                  650     JMP     REMOTE_FSM_LOOP                     ; Loop forever
+                           651     
+                           652     ; Name:             ParseRemoteWord
+                           653     ; Description:      Uses a call table to select the next function to call to handle
+                           654     ;                   the event type. The event val is passed to this function call.
+                           655     ;
+                           656     ; Input:            None.
+                           657     ; Output:           None.
+                           658     ;
+                           659     ; User Interface:   None.
+                           660     ;
+                           661     ; Error Handling:   None.
+                           662     ;
+                           663     ; Algorithms:       None.
+                           664     ;
+                           665     ; Data Structures:  None.
+                           666     ;
+                           667     ; Known Bugs:       None.
+                           668     ; Limitations:      None.
+                           669     ;
+                           670     ; Revision History:
+                           671     ;                               Initial Version ->  12-05-2013 - Anjian Wu
+                           672     ;------------------------------------------------------------------------------------
+                                   ----       
+003A                       673     ParseRemoteWord     PROC    NEAR
+                           674     
+                           675     ; Arg: AX = [AH = key, AL = value]
+                           676     
+003A 8AD8                  677         MOV     BL, AL                      ; Save event value
+003C 32FF                  678         XOR     BH, BH                      ; Isolate the Event val     
+                           679         
+003E 86E0                  680         XCHG    AH, AL                      ; Swap such that Event Type is LSNibble
+0040 32E4                  681         XOR     AH, AH                      ; Isolate the Event Type      
+                           682     
+0042 D1E0                  683         SHL     AX, WORD_LOOKUP_ADJUST      ; Prepare for WORD table lookup
+0044 93                    684         XCHG    BX, AX                      ; Copy to BX for pointer, and AX now has Even
+                                   t val
+0045 2EFF974B00     R      685         CALL    CS:Remote_Call_Table[BX]    ; Go to that FSM  function, passing Event val
+                                    in AX
+                           686         
+004A C3                    687         RET
+                           688         
+                           689     ParseRemoteWord ENDP
+                           690     
+004B                       691     Remote_Call_Table           LABEL       WORD
+                           692                                         
+004B 5300           R      693             DW              HandleKey               ;KEY_EVENT_KEY - An internal key pres
+                                   s
+004D B401           R      694             DW              HandleSerErr        ;SER_ERR_KEY   - An internal serial CHIP 
+                                   issue
+004F 3503           R      695             DW      ParseRemoteChar     ;RX_ENQUEUED_KEY - External serial char stream
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   11
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0051 1C02           R      696             DW      HandleModem         ;MODEM_KEY - Internal serial chip modem issue
+                           697     
+                           698     
+                           699     ;Procedure:                     HandleKey
+                           700     ;
+                           701     ;Description:           Maps the key pressed into the command string with fixed lengt
+                                   h.
+                           702     ;                   Then that command is stored into the tx_queue. Also displays
+                           703     ;                   the proper message to the user describing the command.
+                           704     ;                
+                           705     ;Arguments:             hexcode.
+                           706     ;Return Values:         None.
+                           707     ;Shared Variables:      None.
+                           708     ;Local Variables:       None.
+                           709     ;Global Variables:      None.                   
+                           710     ;Input:                 None.
+                           711     ;Output:                None.
+                           712     ;Registers Used:        None.
+                           713     ;Stack Depth:           none.
+                           714     ;Known Bugs:            None.
+                           715     ;Data Structures:       None.
+                           716     ;Error Handling:        If tx_queue is FULL, then stop and return.
+                           717     ;Algorithms:            None.
+                           718     ;Limitations:           None.
+                           719     ;Author:                        Anjian Wu
+                           720     ;History:                       12-06-2013: Pseudo code - Anjian Wu
+                           721     ;------------------------------------------------------------------------------
+0053                       722     HandleKey       PROC    NEAR
+                           723     
+                           724     ; Arg: AL = value
+                           725     
+0053 8AC8                  726         MOV     CL, AL          ; Save a copy of AL
+                           727         
+                           728 +1      
+0055 33DB                  729 +1      XOR     BX, BX                  ; Clear counter
+0057 B307                  730 +2          MOV             BL, CMD_LENGTH      ; Let counter be CMD_LENGTH
+0059 F6E3                  731 +1          MUL             BL                      ; Rel pinter = CMD_LENGTH * typeindex
+005B 05920090       R      732 +2      ADD     AX, OFFSET( KeyCmdTable)  ;
+                           733 +1  
+                           734                                 ; Calc abs starting addr of the char string
+                           735                                 ; AX = CMD_LENGTH*AL + OFFSET(KeyCmdTable)
+                           736         
+005F 8BD8                  737         MOV     BX, AX          ; Need the abs addr in BX for XLAT
+                           738                                 
+0061 32C0                  739         XOR     AL, AL          ; Clear counter
+                           740         
+                           741     ;-----------------------Loop enqueue the char string-----------------------------
+0063                       742     HandleKeyEnqueue:
+0063 3C07                  743         CMP     AL, CMD_LENGTH          ; Go from AL = 0 to CMD_LENGTH - 1
+0065 7D0D                  744         JGE     HandleKeyEnqueueDone    ; Yes, so exit loop
+                           745         
+0067 50                    746         PUSH    AX                      ; Save counter
+0068 2ED7                  747         XLAT        CS:KeyCmdTable                  ; Get next char (at CS:BX[AL] -> AL b
+                                   y design)      
+006A E80000         E      748         CALL    SerialPutChar           ; Is TX_queue Full?
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   12
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           749         
+006D 58                    750         POP     AX
+                           751     
+006E 7215                  752         JC      HandleKeyError          ; Yes it is, tell user.
+                           753                                         ; Cannot send this char, exit this function
+                           754                                         ; immediately. Any partially sent string is unlik
+                                   ely
+                           755                                         ; to be valid string, thus ROBOT side will likely
+                                    throw
+                           756                                         ; a string error as well.
+                           757         ;JNZ    HandleKeyEnqueueOk      ; It is ok to enqueue.
+                           758         
+0070                       759     HandleKeyEnqueueOk:
+                           760         
+0070 FEC0                  761         INC     AL                      ; Increment Counter
+                           762         
+0072 EBEF                  763         JMP     HandleKeyEnqueue
+                           764     ;-----------------------Now update display for USER-----------------------------
+0074                       765     HandleKeyEnqueueDone:
+0074 33C0                  766         XOR     AX, AX          ; 
+0076 8AC1                  767         MOV     AL, CL          ; Restore the copy of event value
+                           768 +1      
+0078 33DB                  769 +1      XOR     BX, BX                  ; Clear counter
+007A B309                  770 +2          MOV             BL, Display_SIZE+1          ; Let counter be CMD_LENGTH
+007C F6E3                  771 +1          MUL             BL                      ; Rel pinter = CMD_LENGTH * typeindex
+007E 05090190       R      772 +2      ADD     AX, OFFSET( KeyDisplayTables)  ;
+                           773 +1  
+                           774                                 ; Calc abs starting addr of the char string
+                           775                                 ; AX = (Display_SIZE+1)*AL + OFFSET(KeyDisplayTable)
+0082 EB0490                776         JMP     HandleKeyDone
+                           777         
+0085                       778     HandleKeyError:
+0085 B8AB01         R      779         MOV     AX, OFFSET(KeyDisplayError) ; Send out the Error TX display
+                           780         ;JMP     HandleKeyDone
+0088                       781     HandleKeyDone:
+                           782     
+0088 A31400         R      783         MOV     Action_Buff_PTR, AX ;   
+008B C7061B000000   R      784         MOV     ToggleCTR, ACTION_LABEL;
+                           785         
+0091 C3                    786         RET     
+                           787         
+                           788     HandleKey   ENDP
+                           789     
+0092                       790     KeyCmdTable         LABEL       BYTE
+                           791     ;                   The way KEYS are mapped physically is...
+                           792     ;                   __________________________
+                           793     ;                  | [0]  |  [1]  | [2] | [3] |  
+                           794     ;                  |__________________________|
+                           795     ;                  | [4]  |  [5]  | [6] | [7] |
+                           796     ;  Keypad ------>  |__________________________|
+                           797     ;                  | [8]  |  [9]  | [10]| [11]|    
+                           798     ;                  |__________________________|
+                           799     ;                  | [12] |  [13] | [14]| [15]|  
+                           800     ;                  |_____ |_______|_____|_____|   
+                           801                                  
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   13
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0092 54                    802             DB              'T',        '+',   '0015',     13 ;Key 0
+0093 2B
+0094 30303135
+0098 0D
+0099 54                    803             DB              'T',        ' ',   '0000',     13 ;Key 1
+009A 20
+009B 30303030
+009F 0D
+00A0 54                    804             DB      'T',        '-',   '0015',     13 ;Key 2
+00A1 2D
+00A2 30303135
+00A6 0D
+00A7 20                    805             DB      ' ',        ' ',   '    ',     13 ;Key 3
+00A8 20
+00A9 20202020
+00AD 0D
+00AE 20                    806             DB      ' ',        ' ',   '    ',     13 ;Key 4
+00AF 20
+00B0 20202020
+00B4 0D
+00B5 4F                    807             DB      'O',        ' ',   '    ',     13 ;Key 5
+00B6 20
+00B7 20202020
+00BB 0D
+00BC 53                    808             DB      'S',        ' ',   '0000',     13 ;Key 6
+00BD 20
+00BE 30303030
+00C2 0D
+00C3 46                    809             DB      'F',        ' ',   '    ',     13 ;Key 7
+00C4 20
+00C5 20202020
+00C9 0D
+00CA 20                    810             DB      ' ',        ' ',   '    ',     13 ;Key 8
+00CB 20
+00CC 20202020
+00D0 0D
+00D1 44                    811             DB      'D',        '+',   '0015',     13 ;Key 9
+00D2 2B
+00D3 30303135
+00D7 0D
+00D8 56                    812             DB      'V',        '+',   '4369',     13 ;Key 10
+00D9 2B
+00DA 34333639
+00DE 0D
+00DF 44                    813             DB      'D',        '-',   '0015',     13 ;Key 11
+00E0 2D
+00E1 30303135
+00E5 0D
+00E6 20                    814             DB      ' ',        ' ',   '    ',     13 ;Key 12
+00E7 20
+00E8 20202020
+00EC 0D
+00ED 44                    815             DB      'D',        '-',   '0090',     13 ;Key 13
+00EE 2D
+00EF 30303930
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   14
+
+
+LOC  OBJ                  LINE     SOURCE
+
+00F3 0D
+00F4 56                    816             DB      'V',        '-',   '4369',     13 ;Key 14 
+00F5 2D
+00F6 34333639
+00FA 0D
+00FB 44                    817             DB      'D',        '+',   '0090',     13 ;Key 15
+00FC 2B
+00FD 30303930
+0101 0D
+0102 20                    818             DB      ' ',        ' ',   '    ',     13 ;Key Not assigned
+0103 20
+0104 20202020
+0108 0D
+                           819             
+                           820     
+0109                       821     KeyDisplayTables            LABEL       BYTE
+                           822     ;                   The way KEYS are mapped physically is...
+                           823     ;                   __________________________
+                           824     ;                  | [0]  |  [1]  | [2] | [3] |  
+                           825     ;                  |__________________________|
+                           826     ;                  | [4]  |  [5]  | [6] | [7] |
+                           827     ;  Keypad ------>  |__________________________|
+                           828     ;                  | [8]  |  [9]  | [10]| [11]|    
+                           829     ;                  |__________________________|
+                           830     ;                  | [12] |  [13] | [14]| [15]|  
+                           831     ;                  |_____ |_______|_____|_____|     
+                           832     ; The addition of KeyDisplayInit and KeyDisplayError Tables
+                           833     ; to ease coding.
+                           834                               
+0109 5420414E472B20        835             DB              'T ANG+  ', ASCII_NULL      ;Key 0
+     20
+0111 00
+0112 54205245534554        836             DB              'T RESET ', ASCII_NULL      ;Key 1
+     20
+011A 00
+011B 5420414E472D20        837             DB              'T ANG-  ', ASCII_NULL      ;Key 2
+     20
+0123 00
+0124 4E6F4E6F4E6F4E        838             DB              'NoNoNoNo', ASCII_NULL      ;Key 3      
+     6F
+012C 00
+012D 4E6F4E6F4E6F4E        839             DB              'NoNoNoNo', ASCII_NULL      ;Key 4      
+     6F
+0135 00
+0136 4C415A52204F46        840             DB              'LAZR OFF', ASCII_NULL      ;Key 5
+     46
+013E 00
+013F 532054204F2050        841             DB              'S T O P ', ASCII_NULL      ;Key 6
+     20
+0147 00
+0148 4C415A52204F4E        842             DB              'LAZR ON ', ASCII_NULL      ;Key 7
+     20
+0150 00
+0151 4E6F4E6F4E6F4E        843             DB              'NoNoNoNo', ASCII_NULL      ;Key 8      
+     6F
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   15
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0159 00
+015A 444952202B3135        844             DB              'DIR +15 ', ASCII_NULL      ;Key 9
+     20
+0162 00
+0163 53504545442B20        845             DB              'SPEED+  ', ASCII_NULL      ;Key 10
+     20
+016B 00
+016C 444952202D3135        846             DB              'DIR -15 ', ASCII_NULL      ;Key 11
+     20
+0174 00
+0175 4E6F4E6F4E6F4E        847             DB              'NoNoNoNo', ASCII_NULL      ;Key 12     
+     6F
+017D 00
+017E 444952202D3930        848             DB              'DIR -90 ', ASCII_NULL      ;Key 13
+     20
+0186 00
+0187 53504545442D20        849             DB              'SPEED-  ', ASCII_NULL      ;Key 14
+     20
+018F 00
+0190 444952202B3930        850             DB              'DIR +90 ', ASCII_NULL      ;Key 15
+     20
+0198 00
+0199 5370656369616C        851         DB      'Special!', ASCII_NULL      ;NOT KEY
+     21
+01A1 00
+                           852         
+01A2                       853     KeyDisplayInit     LABEL        BYTE
+01A2 50726573734B65        854         DB      'PressKey', ASCII_NULL      ;Initial Message
+     79
+01AA 00
+01AB                       855     KeyDisplayError     LABEL       BYTE
+01AB 54582046554C4C        856         DB      'TX FULL ', ASCII_NULL      ;TX queue is Full Error
+     20
+01B3 00
+                           857     
+                           858     ;Procedure:                     HandleSerErr
+                           859     ;
+                           860     ;Description:           Determines which Serial error occurred at the chip,
+                           861     ;                   and informs the user to the issue.
+                           862     ;                
+                           863     ;Arguments:             None.
+                           864     ;Return Values:         none.
+                           865     ;Shared Variables:      None.
+                           866     ;Local Variables:       None.
+                           867     ;Global Variables:      None.                   
+                           868     ;Input:                 None.
+                           869     ;Output:                None.
+                           870     ;Registers Used:        None.
+                           871     ;Stack Depth:           none.
+                           872     ;Known Bugs:            None.
+                           873     ;Data Structures:       None.
+                           874     ;Error Handling:        None.
+                           875     ;Algorithms:            None.
+                           876     ;Limitations:           None.
+                           877     ;Author:                        Anjian Wu
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   16
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           878     ;History:                       12-06-2013: Pseudo code - Anjian Wu
+                           879     ;------------------------------------------------------------------------------
+01B4                       880     HandleSerErr    PROC    NEAR
+                           881     
+                           882     
+                           883 +1      
+01B4 33DB                  884 +1      XOR     BX, BX                  ; Clear counter
+01B6 B309                  885 +2          MOV             BL, Display_SIZE+1          ; Let counter be CMD_LENGTH
+01B8 F6E3                  886 +1          MUL             BL                      ; Rel pinter = CMD_LENGTH * typeindex
+01BA 05C20190       R      887 +2      ADD     AX, OFFSET( SerErrTable)  ;
+                           888 +1  
+                           889                                 ; Calc abs starting addr of the char string
+                           890                                 ; AX = Display_SIZE*AL + OFFSET(SerErrTable)
+                           891                                 
+01BE A31600         R      892         MOV     Error_Buff_PTR, AX ;   
+                           893     
+01C1 C3                    894         RET
+                           895         
+                           896     HandleSerErr    ENDP
+                           897     
+01C2                       898     SerErrTable     LABEL       BYTE
+                           899     
+01C2 4E4F204552524F        900         DB     'NO ERROR', ASCII_NULL   ;
+     52
+01CA 00
+01CB 4F56455252554E        901         DB     'OVERRUN ', ASCII_NULL   ; Overrun serial error
+     20
+01D3 00
+01D4 20202020202020        902         DB     '        ', ASCII_NULL   ;
+     20
+01DC 00
+01DD 50415249545920        903         DB     'PARITY  ', ASCII_NULL   ; Parity serial error
+     20
+01E5 00
+01E6 20202020202020        904         DB     '        ', ASCII_NULL   ;
+     20
+01EE 00
+01EF 4652414D452020        905         DB     'FRAME   ', ASCII_NULL   ; Frame serial error
+     20
+01F7 00
+01F8 20202020202020        906         DB     '        ', ASCII_NULL   ;
+     20
+0200 00
+0201 20202020202020        907         DB     '        ', ASCII_NULL   ;
+     20
+0209 00
+020A 20202020202020        908         DB     '        ', ASCII_NULL   ;
+     20
+0212 00
+0213 425245414B2020        909         DB     'BREAK   ', ASCII_NULL   ; Break int
+     20
+021B 00
+                           910     
+                           911     
+                           912     ;Procedure:                     HandleModem
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   17
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           913     ;
+                           914     ;Description:           Stub function for now.
+                           915     ;                
+                           916     ;Arguments:             None.
+                           917     ;Return Values:         none.
+                           918     ;Shared Variables:      None
+                           919     ;Local Variables:       None.
+                           920     ;Global Variables:      None.                   
+                           921     ;Input:                 None.
+                           922     ;Output:                None.
+                           923     ;Registers Used:        None.
+                           924     ;Stack Depth:           none.
+                           925     ;Known Bugs:            None.
+                           926     ;Data Structures:       None.
+                           927     ;Error Handling:        None.
+                           928     ;Algorithms:            None.
+                           929     ;Limitations:           None.
+                           930     ;Author:                        Anjian Wu
+                           931     ;History:                       12-06-2013: Pseudo code - Anjian Wu
+                           932     ;------------------------------------------------------------------------------
+021C                       933     HandleModem    PROC    NEAR
+                           934     
+021C C3                    935         RET
+                           936         
+                           937     HandleModem    ENDP
+                           938     
+                           939     ;Function:                      RemoteParseInit
+                           940     ;Description:           Resets all Parser variables to initial state, zero magnitude,
+                                    and pos sign     
+                           941     ;Operation:         * Set sign as POS, set FSM_state as ST_INITIAL, and set magnitude
+                                    as zero         
+                           942     ;Arguments:             None.
+                           943     ;Return Values:         none.
+                           944     ;Shared Variables:      none.
+                           945     ;Local Variables:       None.
+                           946     ;Global Variables:      None.                   
+                           947     ;Input:                 None.
+                           948     ;Output:                None.
+                           949     ;Registers Used:        none.
+                           950     ;Stack Depth:           none.
+                           951     ;Known Bugs:            None.
+                           952     ;Data Structures:       None.
+                           953     ;Error Handling:        None
+                           954     ;Algorithms:            None.
+                           955     ;Limitations:           None.
+                           956     ;Author:                        Anjian Wu
+                           957     ;Author:                        Anjian Wu
+                           958     ;History:                       12-02-2013: Pseudo code - Anjian Wu
+                           959     ;                   12-08-2013: Documentation - Anjian Wu
+                           960     ;------------------------------------------------------------------------------
+021D                       961     RemoteParseInit  PROC    NEAR
+                           962                 
+021D C60609000090   R      963         MOV     Dir_PTR, zero               ; Initialize Direction Buff
+0223 C60613000090   R      964         MOV     Spd_PTR, zero               ; Initialize Speed Buff
+0229 C7061B000000   R      965         MOV     ToggleCTR, zero             ; Start with first Status to toggle
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   18
+
+
+LOC  OBJ                  LINE     SOURCE
+
+022F C7061D000000   R      966         MOV     TogglePreScaler, zero
+                           967         
+0235 C7061400A201   R      968         MOV     Action_Buff_PTR, OFFSET(KeyDisplayInit) ; Display NO actions yet
+023B C7061600C201   R      969         MOV     Error_Buff_PTR, OFFSET(SerErrTable)     ; Display NO error yet
+0241 C6061A000090   R      970         MOV     FSM_state, ST_INITIAL                   ;
+                           971         
+                           972 +1      
+0247 8BF0                  973 +2      MOV     SI, AX          ; Prepare for display at SI
+0249 8CC8                  974 +2      MOV     AX, CS          ;
+024B 8EC0                  975 +2      MOV     ES, AX          ; String is in code segment
+                           976 +1                             ;
+024D 8B361400       R      977         MOV     SI, Action_Buff_PTR                     ;
+0251 E80000         E      978         CALL    Display                                 ;
+                           979         
+0254 33DB                  980         XOR     BX, BX                      ; Clear Counter
+                           981             
+0256                       982     RemoteParseInitBufClear:
+                           983     
+0256 83FB08                984         CMP     BX, Display_SIZE             ; For each motor PWM counter
+0259 7D0F                  985         JGE     RemoteParseInitBufClearDone ; If each done, then leave loop
+                           986         
+025B C68700000090   R      987         MOV     Dir_Buffer[BX], ASCII_NULL  ; Tell user we are going straight
+0261 C6870A000090   R      988         MOV     Spd_Buffer[BX], ASCII_NULL  ; Tell user we are not moving
+                           989     
+0267 43                    990         INC     BX                          ; Increment buffer/counter index
+0268 EBEC                  991         JMP     RemoteParseInitBufClear     ; Loop until all entries are cleared
+                           992         
+026A                       993     RemoteParseInitBufClearDone:
+                           994     
+026A 33C0                  995         XOR     AX, AX          ;clear ES (interrupt vectors are in segment 0)
+026C 8EC0                  996         MOV     ES, AX
+                           997                                 ;store the vector
+026E 26C70620007D02 R      998         MOV     ES: WORD PTR (4 * Tmr0Vec), OFFSET(ToggleHandler)   ; Install ToggleHandl
+                                   er
+0275 26C7062200---- R      999         MOV     ES: WORD PTR (4 * Tmr0Vec + 2), SEG(ToggleHandler)
+                          1000         
+                          1001     
+027C C3                   1002             RET
+                          1003             
+                          1004     RemoteParseInit  ENDP  
+                          1005     
+                          1006     ;Function:                      ToggleHandler
+                          1007     ;Description:           Resets all Parser variables to initial state, zero magnitude,
+                                    and pos sign     
+                          1008     ;Operation:         * Set sign as POS, set FSM_state as ST_INITIAL, and set magnitude
+                                    as zero         
+                          1009     ;Arguments:             None.
+                          1010     ;Return Values:         none.
+                          1011     ;Shared Variables:      none.
+                          1012     ;Local Variables:       None.
+                          1013     ;Global Variables:      None.                   
+                          1014     ;Input:                 None.
+                          1015     ;Output:                None.
+                          1016     ;Registers Used:        none.
+                          1017     ;Stack Depth:           none.
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   19
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1018     ;Known Bugs:            None.
+                          1019     ;Data Structures:       None.
+                          1020     ;Error Handling:        None
+                          1021     ;Algorithms:            None.
+                          1022     ;Limitations:           None.
+                          1023     ;Author:                        Anjian Wu
+                          1024     ;Author:                        Anjian Wu
+                          1025     ;History:                       12-02-2013: Pseudo code - Anjian Wu
+                          1026     ;                   12-08-2013: Documentation - Anjian Wu
+                          1027     ;                   12-11-2013: Fixed bug with prescaler and args passing to display 
+                                   - Anjian Wu
+                          1028     ;------------------------------------------------------------------------------
+027D                      1029     ToggleHandler   PROC    NEAR
+                          1030         
+027D 60                   1031         PUSHA                               ; Save all Regs
+027E                      1032     TogglePrescale:
+027E FF061D00       R     1033         INC     TogglePreScaler            ;
+0282 813E1D00E803   R     1034         CMP     TogglePreScaler, PRESCALE  ;
+0288 7C6E                 1035         JL      ToggleDone                  ; Not yet
+                          1036         ;JGE     TogglePrescalePass          ;
+028A                      1037     TogglePrescalePass:    
+028A C7061D000000   R     1038         MOV     TogglePreScaler, zero      ;
+                          1039     
+0290 833E1B0008     R     1040         CMP     ToggleCTR, numOfStatus      ;
+0295 7C06                 1041         JL      ToggleMux
+                          1042         ;JGE    ToggleMuxReset
+0297                      1043     ToggleMuxReset:
+0297 C7061B000000   R     1044         MOV     ToggleCTR, zero             ;
+                          1045         ;JMP    ToggleMux                   ;
+029D                      1046     ToggleMux:
+029D 8B1E1B00       R     1047         MOV     BX, ToggleCTR               ;
+02A1 D1E3                 1048         SHL     BX, 1                       ;
+02A3 2EFFA72503     R     1049         JMP     CS:Toggle_JMP_Table[BX]     ;
+                          1050         
+02A8                      1051     T_Action_Val:    
+02A8 A11400         R     1052         MOV     AX, Action_Buff_PTR
+                          1053 +1      
+02AB 8BF0                 1054 +2      MOV     SI, AX          ; Prepare for display at SI
+02AD 8CC8                 1055 +2      MOV     AX, CS          ;
+02AF 8EC0                 1056 +2      MOV     ES, AX          ; String is in code segment
+                          1057 +1                  ;
+02B1 EB3E90               1058         JMP     ToggleSet
+                          1059         
+02B4                      1060     T_Speed_Val:    ;3
+02B4 8D060A00       R     1061         LEA     AX, Spd_Buffer
+                          1062 +1      
+02B8 8BF0                 1063 +2      MOV     SI, AX          ; Prepare for display at SI
+02BA 8CD8                 1064 +2      MOV     AX, DS          ;
+02BC 8EC0                 1065 +2      MOV     ES, AX          ; String is in code segment
+                          1066 +1                  ;
+02BE EB3190               1067         JMP     ToggleSet
+                          1068         
+02C1                      1069     T_Angle_Val:        ;5
+02C1 8D060000       R     1070         LEA     AX, Dir_Buffer
+                          1071 +1      
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   20
+
+
+LOC  OBJ                  LINE     SOURCE
+
+02C5 8BF0                 1072 +2      MOV     SI, AX          ; Prepare for display at SI
+02C7 8CD8                 1073 +2      MOV     AX, DS          ;
+02C9 8EC0                 1074 +2      MOV     ES, AX          ; String is in code segment
+                          1075 +1                  ;
+02CB EB2490               1076         JMP     ToggleSet
+                          1077         
+02CE                      1078     T_Error_Val:        ;7
+02CE A11600         R     1079         MOV     AX, Error_Buff_PTR
+                          1080 +1      
+02D1 8BF0                 1081 +2      MOV     SI, AX          ; Prepare for display at SI
+02D3 8CC8                 1082 +2      MOV     AX, CS          ;
+02D5 8EC0                 1083 +2      MOV     ES, AX          ; String is in code segment
+                          1084 +1                  ;
+02D7 EB1890               1085         JMP     ToggleSet
+                          1086         
+02DA                      1087     T_Label:
+02DA A11B00         R     1088         MOV     AX, ToggleCTR                ;
+02DD D1E8                 1089         SHR     AX, bit_size                ; All 'labels' are EVEN indexed, thus we can
+                          1090                                             ; map the JMP table offset to the string offs
+                                   et
+                          1091                                             ; with just a simple SHR 1.
+                          1092 +1      
+02DF 33DB                 1093 +1      XOR     BX, BX                  ; Clear counter
+02E1 B309                 1094 +2          MOV             BL, Display_SIZE+1          ; Let counter be CMD_LENGTH
+02E3 F6E3                 1095 +1          MUL             BL                      ; Rel pinter = CMD_LENGTH * typeindex
+02E5 05010390       R     1096 +2      ADD     AX, OFFSET( Toggle_Label_Table)  ;
+                          1097 +1  ; Calc ABS address into AX
+                          1098         
+02E9 8BF0                 1099         MOV     SI, AX                      ; Need abs address in SI
+                          1100         
+                          1101 +1      
+02EB 8BF0                 1102 +2      MOV     SI, AX          ; Prepare for display at SI
+02ED 8CC8                 1103 +2      MOV     AX, CS          ;
+02EF 8EC0                 1104 +2      MOV     ES, AX          ; String is in code segment
+                          1105 +1                 ; String in CS
+                          1106         ;JMP     ToggleSet
+                          1107         
+02F1                      1108     ToggleSet:
+02F1 E80000         E     1109         CALL    Display                     ; Pass ES:SI to be displayed
+                          1110         
+02F4 FF061B00       R     1111         INC     ToggleCTR                   ;
+                          1112         
+02F8                      1113     ToggleDone:; Send out EOI as usual
+                          1114     
+02F8 BA22FF               1115         MOV     DX, INTCtrlrEOI             ;All timers share same EOI
+02FB B80800               1116         MOV     AX, TimerEOI
+02FE EE                   1117         OUT     DX, AL                      ; Send out Timer EOI
+                          1118         
+                          1119         
+02FF 61                   1120         POPA                                ; Restore all Regs
+                          1121         
+0300 CF                   1122         IRET
+                          1123         
+                          1124     ToggleHandler   ENDP
+                          1125     
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   21
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1126     
+0301                      1127     Toggle_Label_Table          LABEL       BYTE
+                          1128     
+                          1129                               
+0301 416374696F6E3A       1130             DB              'Action:?', ASCII_NULL      ;0
+     3F
+0309 00
+030A 53706565643A20       1131             DB              'Speed: ?', ASCII_NULL      ;1
+     3F
+0312 00
+0313 416E676C653A20       1132             DB              'Angle: ?', ASCII_NULL      ;2
+     3F
+031B 00
+031C 4572726F72733A       1133             DB              'Errors:?', ASCII_NULL      ;3
+     3F
+0324 00
+                          1134     
+                          1135     
+0325                      1136     Toggle_JMP_Table            LABEL       WORD
+                          1137                                         
+0325 DA02           R     1138             DW              T_Label             ;0 - Action Label
+0327 A802           R     1139             DW              T_Action_Val    ;1
+0329 DA02           R     1140             DW              T_Label             ;2 - Speed Label
+032B B402           R     1141             DW              T_Speed_Val     ;3
+032D DA02           R     1142             DW              T_Label             ;4 - Angle Label
+032F C102           R     1143             DW              T_Angle_Val         ;5
+0331 DA02           R     1144             DW              T_Label             ;6 - Error Label
+0333 CE02           R     1145             DW              T_Error_Val         ;7
+                          1146         
+                          1147         
+                          1148     ;Procedure:                     ParseRemoteChar
+                          1149     ;
+                          1150     ;Description:           Used pass char in AX to grab NEXT token val and type, and use
+                                   s
+                          1151     ;                   that to calc the proper pointer to the function to be called
+                          1152     ;                   by the state machine. The token TYPE is used to find the abs
+                          1153     ;                   action function offset and the token TYPE is always passed as
+                          1154     ;                   (AL) into the action function. The action function, however, may
+                          1155     ;                   or may not use the passed token val. The next FSM state is also
+                          1156     ;                   saved in a shared variable FSM_state for the next time.
+                          1157     ;
+                          1158     ;                   If the state machine returns to ST_INITIAL then it also resets 
+                          1159     ;                   the parser variables. If there is an error detected after the act
+                                   ion
+                          1160     ;                   function is call, then the function will also reset the parser 
+                          1161     ;                   variables.
+                          1162     ;                   
+                          1163     ;                   This function always returns error status in AX. See 'Error Handl
+                                   ing'.
+                          1164     ;
+                          1165     ;Operation:         * Clear Errorflag, grab next token val and key using GetTokenType
+                                   Val.
+                          1166     ;                   * offset = (NUM_TOKEN_TYPES * FSM_State + token type)* SIZE TRANS
+                                   ITION_ENTRY
+                          1167     ;                   * Call Function (Action) using offset, passing token val in AL
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   22
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1168     ;                   * If Errorflag is true, store FSM_state and FSM_ERROR bytes into 
+                                   AX for return
+                          1169     ;                       * Call ParseReset
+                          1170     ;                   * Else, grab nextstate using offset, store the next state into FS
+                                   M_state
+                          1171     ;                       * If next state is ST_INITIAL, then Call ParseReset
+                          1172     ;                   * Return Errorflag in AX 
+                          1173     ;
+                          1174     ;Arguments:             AL   -> The next char to be parsed
+                          1175     ;
+                          1176     ;Return Values:         AX - > The errorflag
+                          1177     ;
+                          1178     ;Shared Variables:      Errorflag (WRITE/READ)
+                          1179     ;                   FSM_state (READ/WRITE)
+                          1180     ;
+                          1181     ;Local Variables:       AL      -   token val, char
+                          1182     ;                   AH      -   token type
+                          1183     ;                   AX      -   error, char
+                          1184     ;                   BX      -   table offset
+                          1185     ;                   DH      -   save token type
+                          1186     ;                   CH      -   save token val
+                          1187     ;                   
+                          1188     ;                   
+                          1189     ;Global Variables:      None.                                   
+                          1190     ;Input:                 none.
+                          1191     ;Output:                none.
+                          1192     ;Registers Used:        AX, BX, CH, DH
+                          1193     ;Stack Depth:           3 words
+                          1194     ;Known Bugs:            None.
+                          1195     ;Data Structures:       None.
+                          1196     ;Error Handling:        Errors come in two ways:
+                          1197     ;                   FSM TYPE 1. Symbol/Char error -> NEXTSTATE already is ST_INITIAL
+                          1198     ;                   FSM TYPE 2. Value error  -> NEXTSTATE may or may not be ST_INITIA
+                                   L
+                          1199     ;                   These errors are treated the same in that the return value AX
+                          1200     ;                   will contain the FSM_State in AL and the FSM_ERROR key in AH. The
+                                    FSM
+                          1201     ;                   will also RESET immediately if error is seen.
+                          1202     ;
+                          1203     ;Algorithms:        Call Table FSM look up. Table offset = NUM_TOKEN_TYPES * FSM_Stat
+                                   e + token type
+                          1204     ;Limitations:           None.
+                          1205     ;Author:                        Anjian Wu
+                          1206     ;History:                       12-02-2013: Pseudo code - Anjian Wu
+                          1207     ;                                       12-04-2013: Modified from Glen's floatptd.asm
+                                    - Anjian Wu 
+                          1208     ;                   12-08-2013: Working - Anjian Wu
+                          1209     ;                   12-10-2013: Adapted for Remote - Anjian Wu
+                          1210     ;------------------------------------------------------------------------------
+                          1211     
+0335                      1212     ParseRemoteChar         PROC    NEAR
+                          1213     
+0335                      1214     ParseSerialInit:
+                          1215     
+0335 52                   1216         PUSH        DX       ; Save all Regs
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   23
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0336 53                   1217             PUSH    BX
+0337 51                   1218             PUSH    CX              
+                          1219             
+0338 C70618000000   R     1220         MOV Errorflag, FALSE            ;Assume no errors
+                          1221             
+033E                      1222     ParseGrabTokens:        
+033E E84600               1223             CALL    GetTokenTypeVal         ; Grab next token key and val
+0341 8AF4                 1224             MOV             DH, AH                      ; Save token type
+0343 8AE8                 1225             MOV             CH, AL                      ; Save token val
+                          1226             
+0345                      1227     ParseComputeTrans:                      ;figure out what transition to do
+0345 B005                 1228             MOV             AL, NUM_TOKEN_TYPES     ;find row in the table
+0347 F6261A00       R     1229             MUL             FSM_State           ;Get to current FSM state
+034B 02C6                 1230             ADD             AL, DH                  ;Calc abs transition inside that stat
+                                   e
+034D 80D400               1231             ADC             AH, zero                     ;propagate low byte carry into h
+                                   igh byte
+                          1232     
+0350 6BD80390             1233             IMUL    BX, AX, SIZE TRANSITION_ENTRY   ;now convert to table offset
+                          1234     
+0354                      1235     ParseDoActions:                             ;do the actions (don't affect regs)
+                          1236     
+0354 8AC5                 1237             MOV             AL, CH                      ;Pass Token Val (not always used 
+                                   by ACTION)
+0356 2EFF97E603     R     1238             CALL    CS:RemoteFSMTable[BX].ACTION    ;do the actions
+                          1239     
+035B                      1240     ParseCheckError:
+035B 833E180001     R     1241         CMP     Errorflag, TRUE     ; Was there an error from the FSM action?
+                          1242                                     ; Errors can come in two ways
+                          1243                                     ; FSM TYPE 1. Symbol/Char error -> NEXTSTATE already 
+                                   is ST_INITIAL
+                          1244                                     ; FSM TYPE 2. Value error  -> NEXTSTATE may or may no
+                                   t be ST_INITIAL
+0360 750B                 1245         JNE     ParseNextTransition ; Nope, so grab the next one
+                          1246         ;JE     ParseRecordError    ; There was an error
+                          1247         
+0362                      1248     ParseRecordError:
+0362 A01A00         R     1249         MOV     AL, FSM_State       ; Store the current state before it is updated 
+                          1250                                     ; since it where there that error was found
+0365 B404                 1251         MOV     AH, FSM_ERROR       ; Indicate that this was an FSM error (This
+                          1252                                     ; differentiates a value of FALSE vs. error in FSM_St
+                                   ate = 0)
+                          1253                                     
+0367 A31800         R     1254         MOV     Errorflag, AX       ; Store that state as an error-type
+036A EB1190               1255         JMP     ParseNeedReset      ; We just got error, thus immediately exit this cmd p
+                                   ath
+                          1256                                     ; and go back to ST_INITIAL to wait for VALID next cm
+                                   d.
+                          1257                                     ; * Notice this IS redundant for FSM TYPE 1 errors si
+                                   nce nxt state
+                          1258                                     ;   is already ST_INITIAL, however
+                          1259                                     ;   we treat all errors the same to simplify code.
+                          1260         
+036D                      1261     ParseNextTransition:                    ;now go to next state
+                          1262     
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   24
+
+
+LOC  OBJ                  LINE     SOURCE
+
+036D 2E8A8FE503     R     1263             MOV             CL, CS:RemoteFSMTable[BX].NEXTSTATE
+0372 880E1A00       R     1264         MOV     FSM_state, CL   ; We need this nextstate stored for next time.
+                          1265         
+0376 803E1A0000     R     1266             CMP             FSM_state, ST_INITIAL   ; Did the state machine restart?
+037B 7503                 1267             JNE             ParseDone           ; If not then just continue.
+                          1268             ;JE             ParseNeedReset  ; Else we need to reset some parser variables
+037D                      1269     ParseNeedReset:
+037D E81A00               1270             CALL    RemoteParseReset; Reset parser variables (FSM_STATE, magnitude, sign)
+                          1271         ;JMP    ParseDone       ;
+0380                      1272     ParseDone:
+0380 A11800         R     1273         MOV     AX, Errorflag       ; Restore the error (if any) back into AX for return
+                          1274                                     ; AH - whether or not error happened, AL - FSM_state 
+                                   (if error)
+                          1275         
+0383 59                   1276             POP  CX
+0384 5B                   1277             POP      BX
+0385 5A                   1278             POP  DX                     ; Restore used regs
+                          1279             
+                          1280         
+0386 C3                   1281         RET
+                          1282         
+                          1283     ParseRemoteChar ENDP
+                          1284     
+                          1285     ; GetTokenTypeVal
+                          1286     ;
+                          1287     ; Description:      This procedure returns the token class and token value for
+                          1288     ;                   the passed character.  The character is truncated to
+                          1289     ;                   7-bits because the table only has 127 ASCII chars inside.
+                          1290     ;
+                          1291     ; Operation:        Looks up the passed character in two tables, one for token
+                          1292     ;                   types or classes, the other for token values.
+                          1293     ;
+                          1294     ; Arguments:        AL - character to look up.
+                          1295     ; Return Value:     AL - token value for the character.
+                          1296     ;                   AH - token type or class for the character.
+                          1297     ;
+                          1298     ; Local Variables:  BX - table pointer, points at lookup tables.
+                          1299     ; Shared Variables: None.
+                          1300     ; Global Variables: None.
+                          1301     ;
+                          1302     ; Input:            None.
+                          1303     ; Output:           None.
+                          1304     ;
+                          1305     ; Error Handling:   None.
+                          1306     ;
+                          1307     ; Algorithms:       Table lookup.
+                          1308     ; Data Structures:  Two tables, one containing token values and the other
+                          1309     ;                   containing token types.
+                          1310     ;
+                          1311     ; Registers Used:   AX, BX.
+                          1312     ; Stack Depth:      0 words.
+                          1313     ;
+                          1314     ; Author:           Anjian Wu
+                          1315     ; Last Modified:    12-02-2013: Adapted from Glen's floatptd.asm - Anjian Wu :)
+                          1316     ;                   12-08-2013: Add documentation to show understanding - Anjian Wu
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   25
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1317     
+                          1318     
+0387                      1319     GetTokenTypeVal PROC    NEAR
+                          1320     
+                          1321     
+0387                      1322     InitGetFPToken:                         ;setup for lookups
+0387 247F                 1323             AND     AL, TOKEN_MASK          ;strip unused bits (high bit) ONLY 127 CHARS 
+                                   IN TABLE
+0389 8AE0                 1324             MOV     AH, AL                      ;and preserve value in AH
+                          1325     
+                          1326     ; TokenTypeTable and TokenValueTable's values are paired/mapped one to one
+                          1327     
+038B                      1328     TokenTypeLookup:                        ;get the token type
+038B BB120490       R     1329         MOV     BX, OFFSET(TokenTypeTable)  ;BX points at table
+038F 2ED7                 1330             XLAT    CS:TokenTypeTable               ;have token type in AL
+0391 86E0                 1331             XCHG    AH, AL                              ;token type in AH, character in A
+                                   L
+                          1332     
+0393                      1333     TokenValueLookup:                                    ;get the token value
+0393 BB920490       R     1334         MOV     BX, OFFSET(TokenValueTable)  ;BX points at table
+0397 2ED7                 1335             XLAT    CS:TokenValueTable               ;have token value in AL
+                          1336     
+                          1337     
+0399                      1338     EndGetFPToken:                               ;done looking up type and value
+0399 C3                   1339             RET
+                          1340     
+                          1341     
+                          1342     GetTokenTypeVal ENDP
+                          1343     
+                          1344     
+                          1345     ;Function:                      RemoteParseReset
+                          1346     ;Description:           Resets all Parser variables to initial state, zero magnitude,
+                                    and pos sign     
+                          1347     ;Operation:         * Set sign as POS, set FSM_state as ST_INITIAL, and set magnitude
+                                    as zero         
+                          1348     ;Arguments:             None.
+                          1349     ;Return Values:         none.
+                          1350     ;Shared Variables:      none.
+                          1351     ;Local Variables:       None.
+                          1352     ;Global Variables:      None.                   
+                          1353     ;Input:                 None.
+                          1354     ;Output:                None.
+                          1355     ;Registers Used:        none.
+                          1356     ;Stack Depth:           none.
+                          1357     ;Known Bugs:            None.
+                          1358     ;Data Structures:       None.
+                          1359     ;Error Handling:        None
+                          1360     ;Algorithms:            None.
+                          1361     ;Limitations:           None.
+                          1362     ;Author:                        Anjian Wu
+                          1363     ;Author:                        Anjian Wu
+                          1364     ;History:                       12-10-2013: Created - Anjian Wu
+                          1365     ;------------------------------------------------------------------------------
+039A                      1366     RemoteParseReset  PROC    NEAR
+                          1367                 
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   26
+
+
+LOC  OBJ                  LINE     SOURCE
+
+039A C60609000090   R     1368         MOV     Dir_PTR, zero               ; Set default val as positive
+03A0 C60613000090   R     1369         MOV     Spd_PTR, zero               ; Set Default FSM machine state
+03A6 C6061A000090   R     1370         MOV     FSM_state, ST_INITIAL       ;
+03AC C3                   1371             RET
+                          1372             
+                          1373     RemoteParseReset  ENDP                   
+                          1374     
+                          1375     ;Procedure:                     SetError
+                          1376     ;
+                          1377     ;Description:           An error has occurred, so set the error flag true.
+                          1378     ;
+                          1379     ;Operation:         * Errorflag = TRUE
+                          1380     ;        
+                          1381     ;Arguments:             None.
+                          1382     ;Return Values:         none.
+                          1383     ;Shared Variables:      Errorflag(write)
+                          1384     ;Local Variables:       None.
+                          1385     ;Global Variables:      None.                   
+                          1386     ;Input:                 None.
+                          1387     ;Output:                None.
+                          1388     ;Registers Used:        AH, AL
+                          1389     ;Stack Depth:           none.
+                          1390     ;Known Bugs:            None.
+                          1391     ;Data Structures:       None.
+                          1392     ;Error Handling:        None
+                          1393     ;Algorithms:            None.
+                          1394     ;Limitations:           None.
+                          1395     ;Author:                        Anjian Wu
+                          1396     ;History:                       12-02-2013: Pseudo code - Anjian Wu
+                          1397     ;                   12-08-2013: Documentation - Anjian Wu
+                          1398     ;------------------------------------------------------------------------------
+03AD                      1399     SetError        PROC    NEAR
+                          1400     
+03AD C70618000100   R     1401         MOV     Errorflag, TRUE     ; An error has occurred
+                          1402     
+03B3 C3                   1403         RET
+                          1404         
+                          1405     SetError ENDP
+                          1406     
+                          1407     ;Procedure:                     no_op
+                          1408     ;
+                          1409     ;Description:           Just return (stub function)
+                          1410     ;        
+                          1411     ;Arguments:             None.
+                          1412     ;Return Values:         none.
+                          1413     ;Shared Variables:      none.
+                          1414     ;Local Variables:       None.
+                          1415     ;Global Variables:      None.                   
+                          1416     ;Input:                 None.
+                          1417     ;Output:                None.
+                          1418     ;Registers Used:        None.
+                          1419     ;Stack Depth:           none.
+                          1420     ;Known Bugs:            None.
+                          1421     ;Data Structures:       None.
+                          1422     ;Error Handling:        None
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   27
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1423     ;Algorithms:            None.
+                          1424     ;Limitations:           None.
+                          1425     ;Author:                        Anjian Wu
+                          1426     ;History:                       12-02-2013: Pseudo code - Anjian Wu
+                          1427     ;                   12-08-2013: Documentation - Anjian Wu
+                          1428     ;------------------------------------------------------------------------------
+03B4                      1429     no_op        PROC    NEAR
+                          1430     
+03B4 C3                   1431         RET
+                          1432         
+                          1433     no_op   ENDP
+                          1434     
+                          1435     ;Procedure:                     AddDirChar
+                          1436     ;
+                          1437     ;Description:           Turns the laser ON
+                          1438     ;
+                          1439     ;Operation:         * SetLaser(TRUE)
+                          1440     ;                
+                          1441     ;Arguments:         None.
+                          1442     ;Return Values:         None.
+                          1443     ;Shared Variables:      None.
+                          1444     ;Local Variables:       None.
+                          1445     ;Global Variables:      None.                   
+                          1446     ;Input:                 None.
+                          1447     ;Output:                None.
+                          1448     ;Registers Used:        None.
+                          1449     ;Stack Depth:           none.
+                          1450     ;Known Bugs:            None.
+                          1451     ;Data Structures:       None.
+                          1452     ;Error Handling:        None.
+                          1453     ;Algorithms:            None.
+                          1454     ;Limitations:           None.
+                          1455     ;Author:                        Anjian Wu
+                          1456     ;History:                       12-02-2013: Pseudo code - Anjian Wu
+                          1457     ;                   12-04-2013: Initial assembly - Anjian Wu
+                          1458     ;                   12-08-2013: Documentation - Anjian Wu
+                          1459     ;------------------------------------------------------------------------------
+03B5                      1460     AddDirChar    PROC    NEAR
+                          1461     
+03B5 53                   1462         PUSH    BX
+                          1463     
+03B6 803E090008     R     1464         CMP     Dir_Ptr, Display_SIZE    ;
+                          1465         
+03BB 7F0E                 1466         JG      AddDirCharDone          ;
+                          1467         
+03BD 32FF                 1468         XOR     BH, BH                  ;
+03BF 8A1E0900       R     1469         MOV     BL, Dir_PTR             ;
+                          1470      
+03C3 88870000       R     1471         MOV     Dir_Buffer[BX], AL     ;
+                          1472         
+03C7 FE060900       R     1473         INC     Dir_PTR                 ;
+                          1474         
+03CB                      1475     AddDirCharDone:
+03CB 5B                   1476         POP     BX                      ;
+                          1477     
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   28
+
+
+LOC  OBJ                  LINE     SOURCE
+
+03CC C3                   1478         RET                     ;
+                          1479     
+                          1480     AddDirChar    ENDP
+                          1481     
+                          1482     ;Procedure:                     AddSpeedChar
+                          1483     ;
+                          1484     ;Description:           Turns the laser OFF
+                          1485     ;
+                          1486     ;Operation:         * SetLaser(FALSE)  
+                          1487     ;Arguments:         None.
+                          1488     ;Return Values:         None.
+                          1489     ;Shared Variables:      None.
+                          1490     ;Local Variables:       None.
+                          1491     ;Global Variables:      None.                   
+                          1492     ;Input:                 None.
+                          1493     ;Output:                None.
+                          1494     ;Registers Used:        None.
+                          1495     ;Stack Depth:           none.
+                          1496     ;Known Bugs:            None.
+                          1497     ;Data Structures:       None.
+                          1498     ;Error Handling:        None.
+                          1499     ;Algorithms:            None.
+                          1500     ;Limitations:           None.
+                          1501     ;Author:                        Anjian Wu
+                          1502     ;History:                       12-02-2013: Pseudo code - Anjian Wu
+                          1503     ;                   12-04-2013: Initial assembly - Anjian Wu
+                          1504     ;                   12-08-2013: Documentation - Anjian Wu
+                          1505     ;------------------------------------------------------------------------------
+03CD                      1506     AddSpeedChar    PROC    NEAR
+                          1507     
+03CD 53                   1508         PUSH    BX
+                          1509     
+03CE 803E130008     R     1510         CMP     Spd_Ptr, Display_SIZE    ;
+                          1511         
+03D3 7FF6                 1512         JG      AddDirCharDone          ;
+                          1513         
+03D5 32FF                 1514         XOR     BH, BH                  ;
+03D7 8A1E1300       R     1515         MOV     BL, Spd_Ptr             ;
+                          1516      
+03DB 88870A00       R     1517         MOV     Spd_Buffer[BX], AL     ;
+                          1518         
+03DF FE061300       R     1519         INC     Spd_Ptr                 ;
+                          1520         
+03E3                      1521     AddSpeedCharDone:
+                          1522     
+03E3 5B                   1523         POP     BX
+                          1524         
+03E4 C3                   1525         RET                     ;
+                          1526     
+                          1527     AddSpeedChar    ENDP
+                          1528     
+                          1529     ; RemoteFSMTable
+                          1530     ;
+                          1531     ; Description:      This is the state transition table for the robot side.
+                          1532     ;                   Each entry consists of the next state and actions for that
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   29
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1533     ;                   transition.  The rows are associated with the current
+                          1534     ;                   state and the columns with the input type.
+                          1535     ;
+                          1536     ; Author:           Anjian Wu
+                          1537     ; Last Modified:    12-10-2013: Initial Version - Anjian Wu
+                          1538     
+                          1539     
+----                      1540     TRANSITION_ENTRY        STRUC           ;structure used to define table
+0000                      1541         NEXTSTATE   DB      ?               ;the next state for the transition
+0001                      1542         ACTION      DW      ?               ;action for the transition
+----                      1543     TRANSITION_ENTRY      ENDS
+                          1544     
+                          1545     
+                          1546     ;define a macro to make table a little more readable
+                          1547     ;macro just does an offset of the action routine entries to build the STRUC
+                          1548     
+                          1549     
+                          1550     
+03E5                      1551     RemoteFSMTable  LABEL   TRANSITION_ENTRY
+                          1552     
+                          1553             ;Current State = ST_INITIAL: Waiting for status    
+                          1554                                                 ;Input Token Type
+                          1555 +1          
+03E5 01             R     1556 +2      TRANSITION_ENTRY< ST_SPEED, OFFSET( no_op) >
+03E6 B403
+                          1557 +1              ;TOKEN_S - Set Speed
+                          1558 +1          
+03E8 02             R     1559 +2      TRANSITION_ENTRY< ST_DIR, OFFSET( no_op) >
+03E9 B403
+                          1560 +1                  ;TOKEN_D - Set Dir
+                          1561 +1          
+03EB 00             R     1562 +2      TRANSITION_ENTRY< ST_INITIAL, OFFSET( SetError) >
+03EC AD03
+                          1563 +1          ;TOKEN_NUM - A digit or ASCII_NULL
+                          1564 +1          
+03EE 00             R     1565 +2      TRANSITION_ENTRY< ST_INITIAL, OFFSET( SetError) >
+03EF AD03
+                          1566 +1          ;TOKEN_END - C Return
+                          1567 +1          
+03F1 00             R     1568 +2      TRANSITION_ENTRY< ST_INITIAL, OFFSET( SetError) >
+03F2 AD03
+                          1569 +1          ;TOKEN_OTHER    
+                          1570             
+                          1571             ;Current State = ST_SPEED: Grab speed chars   
+                          1572                                                 ;Input Token Type
+                          1573 +1          
+03F4 00             R     1574 +2      TRANSITION_ENTRY< ST_INITIAL, OFFSET( SetError) >
+03F5 AD03
+                          1575 +1          ;TOKEN_S - Set Speed
+                          1576 +1          
+03F7 00             R     1577 +2      TRANSITION_ENTRY< ST_INITIAL, OFFSET( SetError) >
+03F8 AD03
+                          1578 +1          ;TOKEN_D - Set Dir
+                          1579 +1          
+03FA 01             R     1580 +2      TRANSITION_ENTRY< ST_SPEED, OFFSET( AddSpeedChar) >
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   30
+
+
+LOC  OBJ                  LINE     SOURCE
+
+03FB CD03
+                          1581 +1   ;TOKEN_NUM - A digit
+                          1582 +1          
+03FD 00             R     1583 +2      TRANSITION_ENTRY< ST_INITIAL, OFFSET( no_op) >
+03FE B403
+                          1584 +1              ;TOKEN_END - C Return
+                          1585 +1          
+0400 00             R     1586 +2      TRANSITION_ENTRY< ST_INITIAL, OFFSET( SetError) >
+0401 AD03
+                          1587 +1          ;TOKEN_OTHER    
+                          1588             
+                          1589             ;Current State = ST_DIR: Grab speed chars   
+                          1590                                                 ;Input Token Type
+                          1591 +1          
+0403 00             R     1592 +2      TRANSITION_ENTRY< ST_INITIAL, OFFSET( SetError) >
+0404 AD03
+                          1593 +1          ;TOKEN_S - Set Speed
+                          1594 +1          
+0406 00             R     1595 +2      TRANSITION_ENTRY< ST_INITIAL, OFFSET( SetError) >
+0407 AD03
+                          1596 +1          ;TOKEN_D - Set Dir
+                          1597 +1          
+0409 02             R     1598 +2      TRANSITION_ENTRY< ST_DIR, OFFSET( AddDirChar) >
+040A B503
+                          1599 +1              ;TOKEN_NUM - A digit or ASCII_NULL
+                          1600 +1          
+040C 00             R     1601 +2      TRANSITION_ENTRY< ST_INITIAL, OFFSET( no_op) >
+040D B403
+                          1602 +1                  ;TOKEN_END - C Return
+                          1603 +1          
+040F 00             R     1604 +2      TRANSITION_ENTRY< ST_INITIAL, OFFSET( SetError) >
+0410 AD03
+                          1605 +1          ;TOKEN_OTHER    
+                          1606     
+                          1607             
+                          1608     ; Token Tables
+                          1609     ;
+                          1610     ; Description:      This creates the tables of token types and token values.
+                          1611     ;                   Each entry corresponds to the token type and the token
+                          1612     ;                   value for a character.  Macros are used to actually build
+                          1613     ;                   two separate tables - TokenTypeTable for token types and
+                          1614     ;                   TokenValueTable for token values.
+                          1615     ;
+                          1616     ; Author:           Anjian Wu
+                          1617     ; Last Modified:    12-02-2013
+                          1618     ; Last Modified:    12-05-2013: Just made Laser tokens return True/False - Anjian Wu
+                          1619     
+                          1620     
+                          1621     ; token type table - uses first byte of macro table entry
+                          1622     
+                          1623     
+0412                      1624     TokenTypeTable  LABEL   BYTE
+                          1625 +1          
+                          1626 +2          
+0412 02                   1627 +3          DB      TOKEN_NUM
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   31
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1628 +2          ;<null>  (end of string)
+                          1629 +2          
+0413 04                   1630 +3          DB      TOKEN_OTHER
+                          1631 +2                  ;SOH
+                          1632 +2          
+0414 04                   1633 +3          DB      TOKEN_OTHER
+                          1634 +2                  ;STX
+                          1635 +2          
+0415 04                   1636 +3          DB      TOKEN_OTHER
+                          1637 +2                  ;ETX
+                          1638 +2          
+0416 04                   1639 +3          DB      TOKEN_OTHER
+                          1640 +2                  ;EOT
+                          1641 +2          
+0417 04                   1642 +3          DB      TOKEN_OTHER
+                          1643 +2                  ;ENQ
+                          1644 +2          
+0418 04                   1645 +3          DB      TOKEN_OTHER
+                          1646 +2                  ;ACK
+                          1647 +2          
+0419 04                   1648 +3          DB      TOKEN_OTHER
+                          1649 +2                  ;BEL
+                          1650 +2          
+041A 04                   1651 +3          DB      TOKEN_OTHER
+                          1652 +2                  ;backspace
+                          1653 +2          
+041B 04                   1654 +3          DB      TOKEN_OTHER
+                          1655 +2       ;TAB
+                          1656 +2          
+041C 04                   1657 +3          DB      TOKEN_OTHER
+                          1658 +2          ;new line
+                          1659 +2          
+041D 04                   1660 +3          DB      TOKEN_OTHER
+                          1661 +2          ;vertical tab
+                          1662 +2          
+041E 04                   1663 +3          DB      TOKEN_OTHER
+                          1664 +2          ;form feed
+                          1665 +2          
+041F 03                   1666 +3          DB      TOKEN_END
+                          1667 +2              ;carriage return
+                          1668 +2          
+0420 04                   1669 +3          DB      TOKEN_OTHER
+                          1670 +2          ;SO
+                          1671 +2          
+0421 04                   1672 +3          DB      TOKEN_OTHER
+                          1673 +2          ;SI
+                          1674 +2          
+0422 04                   1675 +3          DB      TOKEN_OTHER
+                          1676 +2          ;DLE
+                          1677 +2          
+0423 04                   1678 +3          DB      TOKEN_OTHER
+                          1679 +2          ;DC1
+                          1680 +2          
+0424 04                   1681 +3          DB      TOKEN_OTHER
+                          1682 +2          ;DC2
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   32
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1683 +2          
+0425 04                   1684 +3          DB      TOKEN_OTHER
+                          1685 +2          ;DC3
+                          1686 +2          
+0426 04                   1687 +3          DB      TOKEN_OTHER
+                          1688 +2          ;DC4
+                          1689 +2          
+0427 04                   1690 +3          DB      TOKEN_OTHER
+                          1691 +2          ;NAK
+                          1692 +2          
+0428 04                   1693 +3          DB      TOKEN_OTHER
+                          1694 +2          ;SYN
+                          1695 +2          
+0429 04                   1696 +3          DB      TOKEN_OTHER
+                          1697 +2          ;ETB
+                          1698 +2          
+042A 04                   1699 +3          DB      TOKEN_OTHER
+                          1700 +2          ;CAN
+                          1701 +2          
+042B 04                   1702 +3          DB      TOKEN_OTHER
+                          1703 +2          ;EM
+                          1704 +2          
+042C 04                   1705 +3          DB      TOKEN_OTHER
+                          1706 +2          ;SUB
+                          1707 +2          
+042D 04                   1708 +3          DB      TOKEN_OTHER
+                          1709 +2          ;escape
+                          1710 +2          
+042E 04                   1711 +3          DB      TOKEN_OTHER
+                          1712 +2          ;FS
+                          1713 +2          
+042F 04                   1714 +3          DB      TOKEN_OTHER
+                          1715 +2          ;GS
+                          1716 +2          
+0430 04                   1717 +3          DB      TOKEN_OTHER
+                          1718 +2          ;AS
+                          1719 +2          
+0431 04                   1720 +3          DB      TOKEN_OTHER
+                          1721 +2          ;US
+                          1722 +2          
+0432 04                   1723 +3          DB      TOKEN_OTHER
+                          1724 +2          ;space
+                          1725 +2          
+0433 04                   1726 +3          DB      TOKEN_OTHER
+                          1727 +2          ;!
+                          1728 +2          
+0434 04                   1729 +3          DB      TOKEN_OTHER
+                          1730 +2          ;"
+                          1731 +2          
+0435 04                   1732 +3          DB      TOKEN_OTHER
+                          1733 +2          ;#
+                          1734 +2          
+0436 04                   1735 +3          DB      TOKEN_OTHER
+                          1736 +2          ;$
+                          1737 +2          
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   33
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0437 04                   1738 +3          DB      TOKEN_OTHER
+                          1739 +2          ;percent
+                          1740 +2          
+0438 04                   1741 +3          DB      TOKEN_OTHER
+                          1742 +2          ;&
+                          1743 +2          
+0439 04                   1744 +3          DB      TOKEN_OTHER
+                          1745 +2          ;'
+                          1746 +2          
+043A 04                   1747 +3          DB      TOKEN_OTHER
+                          1748 +2          ;open paren
+                          1749 +2          
+043B 04                   1750 +3          DB      TOKEN_OTHER
+                          1751 +2          ;close paren
+                          1752 +2          
+043C 04                   1753 +3          DB      TOKEN_OTHER
+                          1754 +2          ;*
+                          1755 +2          
+043D 04                   1756 +3          DB      TOKEN_OTHER
+                          1757 +2                  ;+  (positive sign)
+                          1758 +2          
+043E 04                   1759 +3          DB      TOKEN_OTHER
+                          1760 +2          ;,
+                          1761 +2          
+043F 04                   1762 +3          DB      TOKEN_OTHER
+                          1763 +2                  ;-  (negative sign)
+                          1764 +2          
+0440 04                   1765 +3          DB      TOKEN_OTHER
+                          1766 +2                  ;.  (decimal point)
+                          1767 +2          
+0441 04                   1768 +3          DB      TOKEN_OTHER
+                          1769 +2          ;/
+                          1770 +2          
+0442 02                   1771 +3          DB      TOKEN_NUM
+                          1772 +2              ;0  (digit)
+                          1773 +2          
+0443 02                   1774 +3          DB      TOKEN_NUM
+                          1775 +2                  ;1  (digit)
+                          1776 +2          
+0444 02                   1777 +3          DB      TOKEN_NUM
+                          1778 +2                  ;2  (digit)
+                          1779 +2          
+0445 02                   1780 +3          DB      TOKEN_NUM
+                          1781 +2                  ;3  (digit)
+                          1782 +2          
+0446 02                   1783 +3          DB      TOKEN_NUM
+                          1784 +2                  ;4  (digit)
+                          1785 +2          
+0447 02                   1786 +3          DB      TOKEN_NUM
+                          1787 +2                  ;5  (digit)
+                          1788 +2          
+0448 02                   1789 +3          DB      TOKEN_NUM
+                          1790 +2                  ;6  (digit)
+                          1791 +2          
+0449 02                   1792 +3          DB      TOKEN_NUM
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   34
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1793 +2                  ;7  (digit)
+                          1794 +2          
+044A 02                   1795 +3          DB      TOKEN_NUM
+                          1796 +2                  ;8  (digit)
+                          1797 +2          
+044B 02                   1798 +3          DB      TOKEN_NUM
+                          1799 +2                  ;9  (digit)
+                          1800 +2          
+044C 04                   1801 +3          DB      TOKEN_OTHER
+                          1802 +2          ;:
+                          1803 +2          
+044D 04                   1804 +3          DB      TOKEN_OTHER
+                          1805 +2          ;;
+                          1806 +2          
+044E 04                   1807 +3          DB      TOKEN_OTHER
+                          1808 +2          ;<
+                          1809 +2          
+044F 04                   1810 +3          DB      TOKEN_OTHER
+                          1811 +2          ;=
+                          1812 +2          
+0450 04                   1813 +3          DB      TOKEN_OTHER
+                          1814 +2          ;>
+                          1815 +2          
+0451 04                   1816 +3          DB      TOKEN_OTHER
+                          1817 +2          ;?
+                          1818 +2          
+0452 04                   1819 +3          DB      TOKEN_OTHER
+                          1820 +2          ;@
+                          1821 +2          
+0453 04                   1822 +3          DB      TOKEN_OTHER
+                          1823 +2          ;A
+                          1824 +2          
+0454 04                   1825 +3          DB      TOKEN_OTHER
+                          1826 +2          ;B
+                          1827 +2          
+0455 04                   1828 +3          DB      TOKEN_OTHER
+                          1829 +2          ;C
+                          1830 +2          
+0456 01                   1831 +3          DB      TOKEN_D     
+                          1832 +2          ;D
+                          1833 +2          
+0457 04                   1834 +3          DB      TOKEN_OTHER     
+                          1835 +2    ;E 
+                          1836 +2          
+0458 04                   1837 +3          DB      TOKEN_OTHER     
+                          1838 +2          ;F
+                          1839 +2          
+0459 04                   1840 +3          DB      TOKEN_OTHER
+                          1841 +2          ;G
+                          1842 +2          
+045A 04                   1843 +3          DB      TOKEN_OTHER
+                          1844 +2          ;H
+                          1845 +2          
+045B 04                   1846 +3          DB      TOKEN_OTHER
+                          1847 +2          ;I
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   35
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1848 +2          
+045C 04                   1849 +3          DB      TOKEN_OTHER
+                          1850 +2          ;J
+                          1851 +2          
+045D 04                   1852 +3          DB      TOKEN_OTHER
+                          1853 +2          ;K
+                          1854 +2          
+045E 04                   1855 +3          DB      TOKEN_OTHER
+                          1856 +2          ;L
+                          1857 +2          
+045F 04                   1858 +3          DB      TOKEN_OTHER
+                          1859 +2          ;M
+                          1860 +2          
+0460 04                   1861 +3          DB      TOKEN_OTHER
+                          1862 +2          ;N
+                          1863 +2          
+0461 04                   1864 +3          DB      TOKEN_OTHER 
+                          1865 +2          ;O
+                          1866 +2          
+0462 04                   1867 +3          DB      TOKEN_OTHER
+                          1868 +2          ;P
+                          1869 +2          
+0463 04                   1870 +3          DB      TOKEN_OTHER
+                          1871 +2          ;Q
+                          1872 +2          
+0464 04                   1873 +3          DB      TOKEN_OTHER
+                          1874 +2          ;R
+                          1875 +2          
+0465 00                   1876 +3          DB      TOKEN_S     
+                          1877 +2          ;S
+                          1878 +2          
+0466 04                   1879 +3          DB      TOKEN_OTHER
+                          1880 +2          ;T
+                          1881 +2          
+0467 04                   1882 +3          DB      TOKEN_OTHER
+                          1883 +2          ;U
+                          1884 +2          
+0468 04                   1885 +3          DB      TOKEN_OTHER
+                          1886 +2              ;V
+                          1887 +2          
+0469 04                   1888 +3          DB      TOKEN_OTHER
+                          1889 +2          ;W
+                          1890 +2          
+046A 04                   1891 +3          DB      TOKEN_OTHER
+                          1892 +2          ;X
+                          1893 +2          
+046B 04                   1894 +3          DB      TOKEN_OTHER
+                          1895 +2          ;Y
+                          1896 +2          
+046C 04                   1897 +3          DB      TOKEN_OTHER
+                          1898 +2          ;Z
+                          1899 +2          
+046D 04                   1900 +3          DB      TOKEN_OTHER
+                          1901 +2          ;[
+                          1902 +2          
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   36
+
+
+LOC  OBJ                  LINE     SOURCE
+
+046E 04                   1903 +3          DB      TOKEN_OTHER
+                          1904 +2          ;\
+                          1905 +2          
+046F 04                   1906 +3          DB      TOKEN_OTHER
+                          1907 +2          ;]
+                          1908 +2          
+0470 04                   1909 +3          DB      TOKEN_OTHER
+                          1910 +2          ;^
+                          1911 +2          
+0471 04                   1912 +3          DB      TOKEN_OTHER
+                          1913 +2          ;_
+                          1914 +2          
+0472 04                   1915 +3          DB      TOKEN_OTHER
+                          1916 +2          ;`
+                          1917 +2          
+0473 04                   1918 +3          DB      TOKEN_OTHER
+                          1919 +2          ;a
+                          1920 +2          
+0474 04                   1921 +3          DB      TOKEN_OTHER
+                          1922 +2          ;b
+                          1923 +2          
+0475 04                   1924 +3          DB      TOKEN_OTHER
+                          1925 +2          ;c
+                          1926 +2          
+0476 01                   1927 +3          DB      TOKEN_D     
+                          1928 +2          ;d
+                          1929 +2          
+0477 04                   1930 +3          DB      TOKEN_OTHER     
+                          1931 +2          ;e  
+                          1932 +2          
+0478 04                   1933 +3          DB      TOKEN_OTHER     
+                          1934 +2          ;f
+                          1935 +2          
+0479 04                   1936 +3          DB      TOKEN_OTHER 
+                          1937 +2          ;g
+                          1938 +2          
+047A 04                   1939 +3          DB      TOKEN_OTHER 
+                          1940 +2          ;h
+                          1941 +2          
+047B 04                   1942 +3          DB      TOKEN_OTHER 
+                          1943 +2          ;i
+                          1944 +2          
+047C 04                   1945 +3          DB      TOKEN_OTHER 
+                          1946 +2          ;j
+                          1947 +2          
+047D 04                   1948 +3          DB      TOKEN_OTHER 
+                          1949 +2          ;k
+                          1950 +2          
+047E 04                   1951 +3          DB      TOKEN_OTHER 
+                          1952 +2          ;l
+                          1953 +2          
+047F 04                   1954 +3          DB      TOKEN_OTHER 
+                          1955 +2          ;m
+                          1956 +2          
+0480 04                   1957 +3          DB      TOKEN_OTHER 
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   37
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1958 +2          ;n
+                          1959 +2          
+0481 04                   1960 +3          DB      TOKEN_OTHER     
+                          1961 +2          ;o
+                          1962 +2          
+0482 04                   1963 +3          DB      TOKEN_OTHER 
+                          1964 +2          ;p
+                          1965 +2          
+0483 04                   1966 +3          DB      TOKEN_OTHER 
+                          1967 +2          ;q
+                          1968 +2          
+0484 04                   1969 +3          DB      TOKEN_OTHER 
+                          1970 +2          ;r
+                          1971 +2          
+0485 00                   1972 +3          DB      TOKEN_S     
+                          1973 +2          ;s
+                          1974 +2          
+0486 04                   1975 +3          DB      TOKEN_OTHER 
+                          1976 +2          ;t
+                          1977 +2          
+0487 04                   1978 +3          DB      TOKEN_OTHER 
+                          1979 +2          ;u
+                          1980 +2          
+0488 04                   1981 +3          DB      TOKEN_OTHER     
+                          1982 +2          ;v
+                          1983 +2          
+0489 04                   1984 +3          DB      TOKEN_OTHER 
+                          1985 +2          ;w
+                          1986 +2          
+048A 04                   1987 +3          DB      TOKEN_OTHER 
+                          1988 +2          ;x
+                          1989 +2          
+048B 04                   1990 +3          DB      TOKEN_OTHER 
+                          1991 +2          ;y
+                          1992 +2          
+048C 04                   1993 +3          DB      TOKEN_OTHER 
+                          1994 +2          ;z
+                          1995 +2          
+048D 04                   1996 +3          DB      TOKEN_OTHER 
+                          1997 +2          ;{
+                          1998 +2          
+048E 04                   1999 +3          DB      TOKEN_OTHER 
+                          2000 +2          ;|
+                          2001 +2          
+048F 04                   2002 +3          DB      TOKEN_OTHER 
+                          2003 +2          ;}
+                          2004 +2          
+0490 04                   2005 +3          DB      TOKEN_OTHER 
+                          2006 +2          ;~
+                          2007 +2          
+0491 04                   2008 +3          DB      TOKEN_OTHER 
+                          2009 +2          ;rubout
+                          2010 +1  
+                          2011     
+                          2012     
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   38
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          2013     ; token value table - uses second byte of macro table entry
+                          2014     
+                          2015     
+0492                      2016     TokenValueTable LABEL       BYTE
+                          2017 +1          
+                          2018 +2          
+0492 00                   2019 +3          DB       0
+                          2020 +2          ;<null>  (end of string)
+                          2021 +2          
+0493 01                   2022 +3          DB       1
+                          2023 +2                  ;SOH
+                          2024 +2          
+0494 02                   2025 +3          DB       2
+                          2026 +2                  ;STX
+                          2027 +2          
+0495 03                   2028 +3          DB       3
+                          2029 +2                  ;ETX
+                          2030 +2          
+0496 04                   2031 +3          DB       4
+                          2032 +2                  ;EOT
+                          2033 +2          
+0497 05                   2034 +3          DB       5
+                          2035 +2                  ;ENQ
+                          2036 +2          
+0498 06                   2037 +3          DB       6
+                          2038 +2                  ;ACK
+                          2039 +2          
+0499 07                   2040 +3          DB       7
+                          2041 +2                  ;BEL
+                          2042 +2          
+049A 08                   2043 +3          DB       8
+                          2044 +2                  ;backspace
+                          2045 +2          
+049B 09                   2046 +3          DB       9
+                          2047 +2       ;TAB
+                          2048 +2          
+049C 0A                   2049 +3          DB       10
+                          2050 +2          ;new line
+                          2051 +2          
+049D 0B                   2052 +3          DB       11
+                          2053 +2          ;vertical tab
+                          2054 +2          
+049E 0C                   2055 +3          DB       12
+                          2056 +2          ;form feed
+                          2057 +2          
+049F 0D                   2058 +3          DB       13
+                          2059 +2              ;carriage return
+                          2060 +2          
+04A0 0E                   2061 +3          DB       14
+                          2062 +2          ;SO
+                          2063 +2          
+04A1 0F                   2064 +3          DB       15
+                          2065 +2          ;SI
+                          2066 +2          
+04A2 10                   2067 +3          DB       16
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   39
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          2068 +2          ;DLE
+                          2069 +2          
+04A3 11                   2070 +3          DB       17
+                          2071 +2          ;DC1
+                          2072 +2          
+04A4 12                   2073 +3          DB       18
+                          2074 +2          ;DC2
+                          2075 +2          
+04A5 13                   2076 +3          DB       19
+                          2077 +2          ;DC3
+                          2078 +2          
+04A6 14                   2079 +3          DB       20
+                          2080 +2          ;DC4
+                          2081 +2          
+04A7 15                   2082 +3          DB       21
+                          2083 +2          ;NAK
+                          2084 +2          
+04A8 16                   2085 +3          DB       22
+                          2086 +2          ;SYN
+                          2087 +2          
+04A9 17                   2088 +3          DB       23
+                          2089 +2          ;ETB
+                          2090 +2          
+04AA 18                   2091 +3          DB       24
+                          2092 +2          ;CAN
+                          2093 +2          
+04AB 19                   2094 +3          DB       25
+                          2095 +2          ;EM
+                          2096 +2          
+04AC 1A                   2097 +3          DB       26
+                          2098 +2          ;SUB
+                          2099 +2          
+04AD 1B                   2100 +3          DB       27
+                          2101 +2          ;escape
+                          2102 +2          
+04AE 1C                   2103 +3          DB       28
+                          2104 +2          ;FS
+                          2105 +2          
+04AF 1D                   2106 +3          DB       29
+                          2107 +2          ;GS
+                          2108 +2          
+04B0 1E                   2109 +3          DB       30
+                          2110 +2          ;AS
+                          2111 +2          
+04B1 1F                   2112 +3          DB       31
+                          2113 +2          ;US
+                          2114 +2          
+04B2 20                   2115 +3          DB       ' '
+                          2116 +2          ;space
+                          2117 +2          
+04B3 21                   2118 +3          DB       '!'
+                          2119 +2          ;!
+                          2120 +2          
+04B4 22                   2121 +3          DB       '"'
+                          2122 +2          ;"
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   40
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          2123 +2          
+04B5 23                   2124 +3          DB       '#'
+                          2125 +2          ;#
+                          2126 +2          
+04B6 24                   2127 +3          DB       '$'
+                          2128 +2          ;$
+                          2129 +2          
+04B7 25                   2130 +3          DB       37
+                          2131 +2          ;percent
+                          2132 +2          
+04B8 26                   2133 +3          DB       '&'
+                          2134 +2          ;&
+                          2135 +2          
+04B9 27                   2136 +3          DB       39
+                          2137 +2          ;'
+                          2138 +2          
+04BA 28                   2139 +3          DB       40
+                          2140 +2          ;open paren
+                          2141 +2          
+04BB 29                   2142 +3          DB       41
+                          2143 +2          ;close paren
+                          2144 +2          
+04BC 2A                   2145 +3          DB       '*'
+                          2146 +2          ;*
+                          2147 +2          
+04BD 01                   2148 +3          DB       1
+                          2149 +2                  ;+  (positive sign)
+                          2150 +2          
+04BE 2C                   2151 +3          DB       44
+                          2152 +2          ;,
+                          2153 +2          
+04BF FF                   2154 +3          DB       -1
+                          2155 +2                  ;-  (negative sign)
+                          2156 +2          
+04C0 00                   2157 +3          DB       0
+                          2158 +2                  ;.  (decimal point)
+                          2159 +2          
+04C1 2F                   2160 +3          DB       '/'
+                          2161 +2          ;/
+                          2162 +2          
+04C2 30                   2163 +3          DB       '0'
+                          2164 +2              ;0  (digit)
+                          2165 +2          
+04C3 31                   2166 +3          DB       '1'
+                          2167 +2                  ;1  (digit)
+                          2168 +2          
+04C4 32                   2169 +3          DB       '2'
+                          2170 +2                  ;2  (digit)
+                          2171 +2          
+04C5 33                   2172 +3          DB       '3'
+                          2173 +2                  ;3  (digit)
+                          2174 +2          
+04C6 34                   2175 +3          DB       '4'
+                          2176 +2                  ;4  (digit)
+                          2177 +2          
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   41
+
+
+LOC  OBJ                  LINE     SOURCE
+
+04C7 35                   2178 +3          DB       '5'
+                          2179 +2                  ;5  (digit)
+                          2180 +2          
+04C8 36                   2181 +3          DB       '6'
+                          2182 +2                  ;6  (digit)
+                          2183 +2          
+04C9 37                   2184 +3          DB       '7'
+                          2185 +2                  ;7  (digit)
+                          2186 +2          
+04CA 38                   2187 +3          DB       '8'
+                          2188 +2                  ;8  (digit)
+                          2189 +2          
+04CB 39                   2190 +3          DB       '9'
+                          2191 +2                  ;9  (digit)
+                          2192 +2          
+04CC 3A                   2193 +3          DB       ':'
+                          2194 +2          ;:
+                          2195 +2          
+04CD 3B                   2196 +3          DB       ';'
+                          2197 +2          ;;
+                          2198 +2          
+04CE 3C                   2199 +3          DB       '<'
+                          2200 +2          ;<
+                          2201 +2          
+04CF 3D                   2202 +3          DB       '='
+                          2203 +2          ;=
+                          2204 +2          
+04D0 3E                   2205 +3          DB       '>'
+                          2206 +2          ;>
+                          2207 +2          
+04D1 3F                   2208 +3          DB       '?'
+                          2209 +2          ;?
+                          2210 +2          
+04D2 40                   2211 +3          DB       '@'
+                          2212 +2          ;@
+                          2213 +2          
+04D3 41                   2214 +3          DB       'A'
+                          2215 +2          ;A
+                          2216 +2          
+04D4 42                   2217 +3          DB       'B'
+                          2218 +2          ;B
+                          2219 +2          
+04D5 43                   2220 +3          DB       'C'
+                          2221 +2          ;C
+                          2222 +2          
+04D6 44                   2223 +3          DB       'D'
+                          2224 +2          ;D
+                          2225 +2          
+04D7 45                   2226 +3          DB       'E'
+                          2227 +2    ;E 
+                          2228 +2          
+04D8 01                   2229 +3          DB       TRUE
+                          2230 +2          ;F
+                          2231 +2          
+04D9 47                   2232 +3          DB       'G'
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   42
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          2233 +2          ;G
+                          2234 +2          
+04DA 48                   2235 +3          DB       'H'
+                          2236 +2          ;H
+                          2237 +2          
+04DB 49                   2238 +3          DB       'I'
+                          2239 +2          ;I
+                          2240 +2          
+04DC 4A                   2241 +3          DB       'J'
+                          2242 +2          ;J
+                          2243 +2          
+04DD 4B                   2244 +3          DB       'K'
+                          2245 +2          ;K
+                          2246 +2          
+04DE 4C                   2247 +3          DB       'L'
+                          2248 +2          ;L
+                          2249 +2          
+04DF 4D                   2250 +3          DB       'M'
+                          2251 +2          ;M
+                          2252 +2          
+04E0 4E                   2253 +3          DB       'N'
+                          2254 +2          ;N
+                          2255 +2          
+04E1 00                   2256 +3          DB       FALSE
+                          2257 +2          ;O
+                          2258 +2          
+04E2 50                   2259 +3          DB       'P'
+                          2260 +2          ;P
+                          2261 +2          
+04E3 51                   2262 +3          DB       'Q'
+                          2263 +2          ;Q
+                          2264 +2          
+04E4 52                   2265 +3          DB       'R'
+                          2266 +2          ;R
+                          2267 +2          
+04E5 53                   2268 +3          DB       'S'
+                          2269 +2          ;S
+                          2270 +2          
+04E6 54                   2271 +3          DB       'T'
+                          2272 +2          ;T
+                          2273 +2          
+04E7 55                   2274 +3          DB       'U'
+                          2275 +2          ;U
+                          2276 +2          
+04E8 56                   2277 +3          DB       'V'
+                          2278 +2              ;V
+                          2279 +2          
+04E9 57                   2280 +3          DB       'W'
+                          2281 +2          ;W
+                          2282 +2          
+04EA 58                   2283 +3          DB       'X'
+                          2284 +2          ;X
+                          2285 +2          
+04EB 59                   2286 +3          DB       'Y'
+                          2287 +2          ;Y
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   43
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          2288 +2          
+04EC 5A                   2289 +3          DB       'Z'
+                          2290 +2          ;Z
+                          2291 +2          
+04ED 5B                   2292 +3          DB       '['
+                          2293 +2          ;[
+                          2294 +2          
+04EE 5C                   2295 +3          DB       '\'
+                          2296 +2          ;\
+                          2297 +2          
+04EF 5D                   2298 +3          DB       ']'
+                          2299 +2          ;]
+                          2300 +2          
+04F0 5E                   2301 +3          DB       '^'
+                          2302 +2          ;^
+                          2303 +2          
+04F1 5F                   2304 +3          DB       '_'
+                          2305 +2          ;_
+                          2306 +2          
+04F2 60                   2307 +3          DB       '`'
+                          2308 +2          ;`
+                          2309 +2          
+04F3 61                   2310 +3          DB       'a'
+                          2311 +2          ;a
+                          2312 +2          
+04F4 62                   2313 +3          DB       'b'
+                          2314 +2          ;b
+                          2315 +2          
+04F5 63                   2316 +3          DB       'c'
+                          2317 +2          ;c
+                          2318 +2          
+04F6 64                   2319 +3          DB       'd'
+                          2320 +2          ;d
+                          2321 +2          
+04F7 65                   2322 +3          DB       'e'
+                          2323 +2          ;e  
+                          2324 +2          
+04F8 01                   2325 +3          DB       TRUE
+                          2326 +2          ;f
+                          2327 +2          
+04F9 67                   2328 +3          DB       'g'
+                          2329 +2          ;g
+                          2330 +2          
+04FA 68                   2331 +3          DB       'h'
+                          2332 +2          ;h
+                          2333 +2          
+04FB 69                   2334 +3          DB       'i'
+                          2335 +2          ;i
+                          2336 +2          
+04FC 6A                   2337 +3          DB       'j'
+                          2338 +2          ;j
+                          2339 +2          
+04FD 6B                   2340 +3          DB       'k'
+                          2341 +2          ;k
+                          2342 +2          
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   44
+
+
+LOC  OBJ                  LINE     SOURCE
+
+04FE 6C                   2343 +3          DB       'l'
+                          2344 +2          ;l
+                          2345 +2          
+04FF 6D                   2346 +3          DB       'm'
+                          2347 +2          ;m
+                          2348 +2          
+0500 6E                   2349 +3          DB       'n'
+                          2350 +2          ;n
+                          2351 +2          
+0501 00                   2352 +3          DB       FALSE
+                          2353 +2          ;o
+                          2354 +2          
+0502 70                   2355 +3          DB       'p'
+                          2356 +2          ;p
+                          2357 +2          
+0503 71                   2358 +3          DB       'q'
+                          2359 +2          ;q
+                          2360 +2          
+0504 72                   2361 +3          DB       'r'
+                          2362 +2          ;r
+                          2363 +2          
+0505 73                   2364 +3          DB       's'
+                          2365 +2          ;s
+                          2366 +2          
+0506 74                   2367 +3          DB       't'
+                          2368 +2          ;t
+                          2369 +2          
+0507 75                   2370 +3          DB       'u'
+                          2371 +2          ;u
+                          2372 +2          
+0508 76                   2373 +3          DB       'v'
+                          2374 +2          ;v
+                          2375 +2          
+0509 77                   2376 +3          DB       'w'
+                          2377 +2          ;w
+                          2378 +2          
+050A 78                   2379 +3          DB       'x'
+                          2380 +2          ;x
+                          2381 +2          
+050B 79                   2382 +3          DB       'y'
+                          2383 +2          ;y
+                          2384 +2          
+050C 7A                   2385 +3          DB       'z'
+                          2386 +2          ;z
+                          2387 +2          
+050D 7B                   2388 +3          DB       '{'
+                          2389 +2          ;{
+                          2390 +2          
+050E 7C                   2391 +3          DB       '|'
+                          2392 +2          ;|
+                          2393 +2          
+050F 7D                   2394 +3          DB       '}'
+                          2395 +2          ;}
+                          2396 +2          
+0510 7E                   2397 +3          DB       '~'
+8086/87/88/186 MACRO ASSEMBLER    REMOTE                                                   00:30:07  12/12/;3  PAGE   45
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          2398 +2          ;~
+                          2399 +2          
+0511 7F                   2400 +3          DB       127
+                          2401 +2          ;rubout
+                          2402 +1          
+                          2403             
+                          2404     
+                          2405     
+----                      2406     CODE    ENDS
+                          2407         
+                          2408     ;the data segment
+                          2409     
+----                      2410     DATA    SEGMENT PUBLIC  'DATA'
+                          2411     
+0000 (9                   2412     Dir_Buffer      DB  Display_SIZE+1      DUP     (?)   ;
+     ??
+     )
+0009 ??                   2413     Dir_PTR         DB  ?                         ;
+                          2414     
+000A (9                   2415     Spd_Buffer      DB  Display_SIZE+1      DUP     (?)   ; 
+     ??
+     )
+0013 ??                   2416     Spd_PTR         DB  ?                         ;
+                          2417     
+0014 ????                 2418     Action_Buff_PTR DW  ?                         ;
+                          2419     
+0016 ????                 2420     Error_Buff_PTR  DW  ?                         ;
+                          2421     
+0018 ????                 2422     Errorflag       DW      ?                     ; Holds error type
+                          2423     
+001A ??                   2424     FSM_state       DB      ?                     ; Holds the current state of FSM
+                          2425     
+001B ????                 2426     ToggleCTR       DW      ?                     ;
+                          2427     
+001D ????                 2428     TogglePreScaler DW      ?                     ;
+                          2429     
+                          2430     
+----                      2431     DATA    ENDS
+                          2432     
+                          2433     ;the stack
+                          2434     
+----                      2435     STACK   SEGMENT STACK  'STACK'
+                          2436     
+0000 (80                  2437                     DB      80 DUP ('Stack ')       ;240 words
+     537461636B20
+     )
+                          2438     
+01E0                      2439     TopOfStack      LABEL   WORD
+                          2440     
+----                      2441     STACK   ENDS
+                          2442     
+                          2443     
+                          2444     
+                          2445             END     START
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND

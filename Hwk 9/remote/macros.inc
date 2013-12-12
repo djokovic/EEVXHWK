@@ -17,11 +17,15 @@ $NOLIST
 ;               using the table pointed to by BX
 ;   INPORT8_AL (addr) read into AL from addr port
 ;   OUTPORT8_AL(addr) outputs AL into addr port
+;   SignAngleMod_DX
+;   StrTblOffsetCalc_AX
+;   DisplayStrPrep_AX
 ;
 ; Revision History
 ;    11/26/2013  Anjian Wu         initial revision
 ;    12/05/2013  Anjian Wu         Added SignAngleMod_DX
-
+;    12/09/2013  Anjian Wu         Added StrTblOffsetCalc_AX, DisplayCSStrPrep
+;    12/10/2013  Anjian Wu         Added DisplayDSStrPrep
 
 ; local include files
 ;   none
@@ -129,5 +133,78 @@ $NOLIST
     IDIV    BX          	        ; Take the MOD to Full angle -> DX
 )
 
+
+; StrTblOffsetCalc_AX
+;
+; Description:      Takes sign and a magnitude and calcs signed magnitude.
+;                   Also assume this signed value is an ANGLE, and take
+;                   the MOD with FULL_ANGLE degress to calc the equiv angle.
+;
+; Operation:        First calc the SIGNED angle. Then find the
+;                   equivalent signed angle in range [-FULL_ANGLE, +FULL_ANGLE]
+;                   by doing an IDIV and taking the mod
+; Arguments:        sign  - positive or neg
+;                   absangle - absolute angle
+; Returns:          DX - signed modded angle
+; Registers Used:   AL, DX, BX
+; Stack Depth:      0 words
+; Author:           Anjian Wu
+; Last Modified:    12/03/2013
+
+%*DEFINE(StrTblOffsetCalc_AX(STRING_LENGTH, STR_TABLE))   
+(
+    XOR     BX, BX                  ; Clear counter
+	MOV		BL, %STRING_LENGTH	    ; Let counter be CMD_LENGTH
+	MUL		BL                      ; Rel pinter = CMD_LENGTH * typeindex
+    ADD     AX, OFFSET(%STR_TABLE)  ;
+)
+
+; DisplayCSStrPrep
+;
+; Description:      Takes sign and a magnitude and calcs signed magnitude.
+;                   Also assume this signed value is an ANGLE, and take
+;                   the MOD with FULL_ANGLE degress to calc the equiv angle.
+;
+; Operation:        First calc the SIGNED angle. Then find the
+;                   equivalent signed angle in range [-FULL_ANGLE, +FULL_ANGLE]
+;                   by doing an IDIV and taking the mod
+; Arguments:        sign  - positive or neg
+;                   absangle - absolute angle
+; Returns:          DX - signed modded angle
+; Registers Used:   AL, DX, BX
+; Stack Depth:      0 words
+; Author:           Anjian Wu
+; Last Modified:    12/03/2013
+
+%*DEFINE(DisplayCSStrPrep(reg))   
+(
+    MOV     SI, %reg          ; Prepare for display at SI
+    MOV     %reg, CS          ;
+    MOV     ES, %reg          ; String is in code segment
+)
+
+; DisplayDSStrPrep
+;
+; Description:      Takes sign and a magnitude and calcs signed magnitude.
+;                   Also assume this signed value is an ANGLE, and take
+;                   the MOD with FULL_ANGLE degress to calc the equiv angle.
+;
+; Operation:        First calc the SIGNED angle. Then find the
+;                   equivalent signed angle in range [-FULL_ANGLE, +FULL_ANGLE]
+;                   by doing an IDIV and taking the mod
+; Arguments:        sign  - positive or neg
+;                   absangle - absolute angle
+; Returns:          DX - signed modded angle
+; Registers Used:   AL, DX, BX
+; Stack Depth:      0 words
+; Author:           Anjian Wu
+; Last Modified:    12/03/2013
+
+%*DEFINE(DisplayDSStrPrep(reg))   
+(
+    MOV     SI, %reg          ; Prepare for display at SI
+    MOV     %reg, DS          ;
+    MOV     ES, %reg          ; String is in code segment
+)
 
 $LIST
