@@ -5,7 +5,7 @@ set 1 keypad.KeyHandEnqueue
 set 2 remote.ParseRemoteChar
 set 3 remote.AddDirChar
 set 4 remote.AddSpeedChar
-set 5 
+set 5 remote.AddRobotErrorChar
 
 set 7 keypad.KeyHandlerInit
 set 6 remote.ParseRemoteWord

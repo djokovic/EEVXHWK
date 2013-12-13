@@ -1,0 +1,767 @@
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE    1
+
+
+DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE ROBOT
+OBJECT MODULE PLACED IN ROBOT.OBJ
+ASSEMBLER INVOKED BY:  C:\5XTOOLS\ASM86.EXE ROBOT.ASM M1 DB EP
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                             1     NAME        Robot
+                             2     
+                             3 +1  $INCLUDE(robot.inc);
+                      =1     4     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1     5     ;                                                                               ;
+                      =1     6     ;                                  Remote.INC                                   ;
+                      =1     7     ;                               Remote Constants                            ;
+                      =1     8     ;                                 Include File                              ;
+                      =1     9     ;                                                                           ;
+                      =1    10     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    11     
+                      =1    12     ; This file contains robot constants
+                      =1    13     ;
+                      =1    14     ; Revision History:
+                      =1    15     ;    12/12/2013                 Created - Anjian Wu
+                      =1    16     
+                      =1    17     
+                      =1    18     ; General Constants
+                      =1    19     
+  03E8                =1    20     PRESCALE            EQU     1000    ; How many Millisec per change in display
+                      =1    21                                         ; status?
+  0000                =1    22     ACTION_LABEL       EQU     0       ;
+  0002                =1    23     SPEED_LABEL        EQU     2       ;
+  0004                =1    24     ANGLE_LABEL        EQU     4       ;
+  0006                =1    25     ERROR_LABEL        EQU     6       ;
+                            26 +1  $INCLUDE(general.inc); Include files
+                      =1    27     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    28     ;                                                                               ;
+                      =1    29     ;                                  General.INC                                  ;
+                      =1    30     ;                               General Constants                           ;
+                      =1    31     ;                                 Include File                              ;
+                      =1    32     ;                                                                           ;
+                      =1    33     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    34     
+                      =1    35     ; This file contains general operations
+                      =1    36     ;
+                      =1    37     ; Revision History:
+                      =1    38     ;    11/02/2013                 Created - Anjian Wu
+                      =1    39     ;    11/23/2013                 Added WORD_LOOKUP_ADJUST - Anjian Wu
+                      =1    40     ;    12/05/2014         Added FMS_ERROR key, ZERO, changed other keys to 
+                      =1    41     ;                       ASCII based - Anjian
+                      =1    42     ;    12/12/2014         Added CAR_RETURN
+                      =1    43     
+                      =1    44     
+                      =1    45     ; General Constants
+  000D                =1    46     CAR_RETURN      EQU     13          ;
+  0000                =1    47     ASCII_NULL      EQU     0           ;
+  0001                =1    48     bit_size        EQU     1           ;
+  0004                =1    49     nibble_size     EQU     4           ;
+  0008                =1    50     BYTE_size       EQU     8           ;
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE    2
+
+
+LOC  OBJ                  LINE     SOURCE
+
+  0010                =1    51     WORD_size       EQU     16          ;
+  0000                =1    52     ArrayEmpty      EQU     0               ; Empty is set at 0 index
+                      =1    53     
+  0001                =1    54     TRUE            EQU     1           ;
+  0000                =1    55     FALSE           EQU     0           ;
+                      =1    56     
+  0000                =1    57     RESET           EQU     0           ; General Value for Resetting something
+                      =1    58     
+  0000                =1    59     CLEAR           EQU     0           ;
+                      =1    60     
+  0000                =1    61     ZERO            EQU     0           ;
+                      =1    62     
+  000A                =1    63     DIGIT           EQU     10          ; A digit in base 10 
+                      =1    64     
+  0001                =1    65     WORD_LOOKUP_ADJUST  EQU    1           ; Two bytes in one word -> SHL by 1
+                      =1    66     
+                      =1    67     ; General Definitions for Main Loops
+                      =1    68     
+  0001                =1    69     FIRST_RESERVED_VEC      EQU     1           ;reserve vectors 1-3
+  0003                =1    70     LAST_RESERVED_VEC       EQU     3       ;
+  0100                =1    71     NUM_IRQ_VECTORS     EQU 256     ;number of interrupt vectors
+                      =1    72     
+                      =1    73     ; MainLoop Key Codes
+                      =1    74     
+  0000                =1    75     KEY_EVENT_KEY       EQU     0   ; Event code indicating key pressed
+  0001                =1    76     SER_ERR_KEY         EQU     1   ; Event code indicating serial error
+  0002                =1    77     RX_ENQUEUED_KEY     EQU     2   ; Event code indicating new rx value gotten
+  0003                =1    78     MODEM_KEY           EQU     3   ; Event code indicating modem event
+  0004                =1    79     FSM_ERROR           EQU     4   ; Error key showing FSM error
+                      =1    80     
+                      =1    81     ; General Addresses
+                      =1    82     
+  FF22                =1    83     INTCtrlReg          EQU     0FF22H  ;EOI interrupt controller       
+                            84 +1  $INCLUDE(chips.inc);
+                      =1    85     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    86     ;                                                                               ;
+                      =1    87     ;                                  Chips.INC                                    ;
+                      =1    88     ;                           Chip Select Constants                           ;
+                      =1    89     ;                                 Include File                              ;
+                      =1    90     ;                                                                           ;
+                      =1    91     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    92     
+                      =1    93     ; This file contains the definitions for chip select values
+                      =1    94     ;
+                      =1    95     ; Revision History:
+                      =1    96     ;    11/23/2013                 Created - Anjian Wu
+                      =1    97     
+                      =1    98     
+                      =1    99     
+                      =1   100     ; Chip Select Register Values
+  0003                =1   101     PACSval         EQU     00003H          ;PCS base at 0, 3 wait states
+                      =1   102                                             ;0000000000------  starts at address 0
+                      =1   103                                             ;----------000---  reserved
+                      =1   104                                             ;-------------0--  wait for RDY inputs
+                      =1   105                                             ;--------------11  3 wait states
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+  0183                =1   106     MPCSval         EQU     00183H          ;PCS in I/O space, use PCS5/6, 3 wait states
+                      =1   107                                             ;0---------000---  reserved
+                      =1   108                                             ;-0000001--------  MCS is 8KB
+                      =1   109                                             ;--------1-------  output PCS5/PCS6
+                      =1   110                                             ;---------0------  PCS in I/O space
+                      =1   111                                             ;-------------0--  wait for RDY inputs
+                      =1   112                                             ;--------------11  3 wait states
+                      =1   113                                             
+  FFA4                =1   114     PACSreg         EQU     0FFA4H          ;address of PACS register
+  FFA8                =1   115     MPCSreg         EQU     0FFA8H          ;address of MPCS register
+                           116 +1  $INCLUDE(macros.inc);
+                      =1   117 +1  $NOLIST
+                           282 +1  $INCLUDE(queue.inc);
+                      =1   283     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   284     ;                                                                               ;
+                      =1   285     ;                                  Queues.INC                                   ;
+                      =1   286     ;                           Queue Conversion Constants                          ;
+                      =1   287     ;                                 Include File                              ;
+                      =1   288     ;                                                                           ;
+                      =1   289     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   290     
+                      =1   291     ; This file contains the definitions for the queue functions
+                      =1   292     ;
+                      =1   293     ; Revision History:
+                      =1   294     ;    10/29/2013                 Created - Anjian Wu
+                      =1   295     ;    11/01/2013   Debugged,Documented, and working - Anjian Wu
+                      =1   296     ;
+                      =1   297     ;Structure for Queue allocation, information, and storage
+                      =1   298     
+                      =1   299     
+                      =1   300     ; General Definitions
+                      =1   301     
+                      =1   302     
+  0000                =1   303     BYTE_QUEUE      EQU     0             ; QueueInit Key for Byte queue.
+  0001                =1   304     WORD_QUEUE      EQU     1             ; QueueInit Key for Word queue.
+                      =1   305     
+  0001                =1   306     ByteQ           EQU     1             ; Byte norm factor for indexing
+  0002                =1   307     WordQ           EQU     2             ; Word norm factor for indexing
+  0400                =1   308     ARRAY_SIZE      EQU     1024          ; Size of queue array (fits 512-1 words, 
+                      =1   309                                           ;or 1023 bytes)
+                      =1   310     
+  0200                =1   311     MAX_Q_LENG          EQU     512          ;Maxlength allowed for byte or word queue
+                      =1   312     
+----                  =1   313     QUEUESTRUC      STRUC                   ;structure containing all queue info
+0000                  =1   314         head            DW      ?           ;counter for debouncing the switch
+0002                  =1   315         tail            DW      ?           ;time until change repeat rates
+0004                  =1   316         qsize           DW      ?           ;rate at which to repeat the switch
+0006                  =1   317         leng            DW      ?           ;rate at which to repeat the switch
+0008                  =1   318         array               DB          ARRAY_SIZE  DUP     (?) ;pointer to the function 
+                                   to get switch status
+----                  =1   319     QUEUESTRUC      ENDS
+                      =1   320     
+                      =1   321     ;Structure for storing Queue return values or args
+                      =1   322     
+----                  =1   323     QUEUEVARS      STRUC                ;structure containing all queue info
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE    4
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0000                  =1   324         dequeued    DW      ?               ;counter for debouncing the switch
+----                  =1   325     QUEUEVARS      ENDS
+                      =1   326     
+                      =1   327     
+                      =1   328     
+                           329 +1  $INCLUDE(vectors.inc);
+                      =1   330     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   331     ;                                                                               ;
+                      =1   332     ;                                  Vector.INC                                   ;
+                      =1   333     ;                              IVector Constants                            ;
+                      =1   334     ;                                 Include File                              ;
+                      =1   335     ;                                                                           ;
+                      =1   336     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   337     
+                      =1   338     ; This file contains the definitions for timers and their interupts
+                      =1   339     ;
+                      =1   340     ; Revision History:
+                      =1   341     ;    11/23/2013                 Created - Anjian Wu
+                      =1   342     ;    12/10/2013         Added Timer 2 info - Anjian Wu
+                      =1   343     
+                      =1   344                                             ; IVector Definitions
+                      =1   345     
+                      =1   346     ; Interrupt Vectors and their control values
+  0008                =1   347     Tmr0Vec         EQU     8               ;interrupt vector for Timer 0
+  0012                =1   348     Tmr1Vec         EQU     18              ;interrupt vector for Timer 1
+  0013                =1   349     Tmr2Vec         EQU     19              ;interrupt vector for Timer 2
+                      =1   350     
+  FF32                =1   351     INTCtrlrCtrl    EQU     0FF32H          ;address of interrupt controller for timer
+  FF22                =1   352     INTCtrlrEOI     EQU     0FF22H          ;address of interrupt controller EOI register
+                      =1   353     
+  0001                =1   354     INTCtrlrCVal    EQU     00001H          ;set priority for timers to 1 and enable
+                      =1   355                                             ;000000000000----  reserved
+                      =1   356                                             ;------------0---  enable timer interrupt
+                      =1   357                                             ;-------------001  timer priority
+                           358 +1  $INCLUDE(timer.inc);
+                      =1   359     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   360     ;                                                                               ;
+                      =1   361     ;                                  Timer.INC                                    ;
+                      =1   362     ;                              Timer Constants                              ;
+                      =1   363     ;                                 Include File                              ;
+                      =1   364     ;                                                                           ;
+                      =1   365     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   366     
+                      =1   367     ; This file contains the definitions for timers and their interupts
+                      =1   368     ;
+                      =1   369     ; Revision History:
+                      =1   370     ;    11/23/2013                 Created - Anjian Wu
+                      =1   371     ;    12/10/2013         Added Timer2 vals - Anjian Wu
+                      =1   372     
+                      =1   373     
+                      =1   374                                             ; Timer Definitions
+                      =1   375     
+                      =1   376     ; Addresses
+  FF56                =1   377     Tmr0Ctrl        EQU     0FF56H          ;address of Timer 0 Control Register
+  FF52                =1   378     Tmr0MaxCntA     EQU     0FF52H          ;address of Timer 0 Max Count A Register
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE    5
+
+
+LOC  OBJ                  LINE     SOURCE
+
+  FF50                =1   379     Tmr0Count       EQU     0FF50H          ;address of Timer 0 Count Register
+                      =1   380     
+  FF5E                =1   381     Tmr1Ctrl        EQU     0FF5EH          ;address of Timer 1 Control Register
+  FF5A                =1   382     Tmr1MaxCntA     EQU     0FF5AH          ;address of Timer 1 Max Count A Register
+  FF58                =1   383     Tmr1Count       EQU     0FF58H          ;address of Timer 1 Count Register
+                      =1   384     
+                      =1   385     
+  FF66                =1   386     Tmr2Ctrl        EQU     0FF66H          ;address of Timer 2 Control Register
+  FF62                =1   387     Tmr2MaxCnt      EQU     0FF62H          ;address of Timer 2 Max Count A Register
+  FF60                =1   388     Tmr2Count       EQU     0FF60H          ;address of Timer 2 Count Register
+                      =1   389     
+                      =1   390     ; Control Register Values
+  E001                =1   391     Tmr0CtrlVal     EQU     0E001H          ;value to write to Timer 0 Control Register
+                      =1   392                                             ;1---------------  enable timer
+                      =1   393                                             ;-1--------------  write to control
+                      =1   394                                             ;--1-------------  enable interrupts
+                      =1   395                                             ;----000000------  reserved
+                      =1   396                                             ;---0------0-----  read only
+                      =1   397                                             ;-----------0----  Retrigger
+                      =1   398                                             ;------------0---  Prescaler
+                      =1   399                                             ;-------------0--  external clock
+                      =1   400                                             ;--------------0-  single counter mode
+                      =1   401                                             ;---------------1  continuous mode
+                      =1   402                                             
+  E001                =1   403     Tmr1CtrlVal     EQU     0E001H          ;value to write to Timer 1 Control Register
+                      =1   404                                             ;1---------------  enable timer
+                      =1   405                                             ;-1--------------  write to control
+                      =1   406                                             ;--1-------------  enable interrupts
+                      =1   407                                             ;----000000------  reserved
+                      =1   408                                             ;---0------0-----  read only
+                      =1   409                                             ;-----------0----  Retrigger
+                      =1   410                                             ;------------0---  Prescaler
+                      =1   411                                             ;-------------0--  external clock
+                      =1   412                                             ;--------------0-  single counter mode
+                      =1   413                                             ;---------------1  continuous mode
+                      =1   414     
+  E001                =1   415     Tmr2CtrlVal     EQU     0E001H          ;value to write to Timer 2 Control Register
+                      =1   416                                             ;1---------------  enable timer
+                      =1   417                                             ;-1--------------  write to control
+                      =1   418                                             ;--1-------------  enable interrupts
+                      =1   419                                             ;----0000000-----  reserved
+                      =1   420                                             ;-----------0----  MaxCount
+                      =1   421                                             ;------------000-  reserved
+                      =1   422                                             ;---------------1  continuous mode
+                      =1   423     ; Control Register Values
+                      =1   424                                           
+                      =1   425                                             ; Control Register Values
+  08CA                =1   426     CTS_PER_MILSEC  EQU     2250            ; 18MHZ/(8 * 1KHz) ~ 2250 counts per MS
+                      =1   427     
+  07D0                =1   428     PRESCALE_2SEC   EQU     2000            ; 2 seconds = CTS_PER_MILSEC * 2000
+                      =1   429     
+  0008                =1   430     TimerEOI        EQU     00008H          ;Timer EOI command (same for all timers)
+  8000                =1   431     NonSpecEOI      EQU     08000H          ;Non-specific EOI command
+                      =1   432     
+                      =1   433     
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE    6
+
+
+LOC  OBJ                  LINE     SOURCE
+
+  0258                =1   434     COUNT_FOR_30HZ  EQU     600             ; 18,000,000 HZ/(8 * 30 Hz * PWM_WIDTH_MAX) 
+                      =1   435                                             ; ~ 600 counts for 30 HZ of PWM
+                      =1   436                                             
+  00B1                =1   437     COUNT_FOR_100HZ EQU     177             ; 18,000,000 HZ/(8 * 100 Hz * PWM_WIDTH_MAX) 
+                      =1   438                                             ; ~ 177 counts for 100 HZ of PWM             
+                                                             
+                      =1   439                                             
+                      =1   440                                             ; NOTE THIS IS APPROXIMATE, Clock is actually
+                                    a bit faster
+                      =1   441                                             ; than 18 MHZ
+                      =1   442     
+                      =1   443     
+                           444 +1  $INCLUDE(display.inc);
+                      =1   445     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   446     ;                                                                               ;
+                      =1   447     ;                                  Display.INC                                  ;
+                      =1   448     ;                               Display Constants                           ;
+                      =1   449     ;                                 Include File                              ;
+                      =1   450     ;                                                                           ;
+                      =1   451     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   452     
+                      =1   453     ; This file contains the definitions for the display functions
+                      =1   454     ;
+                      =1   455     ; Revision History:
+                      =1   456     ;    11/02/2013                 Created - Anjian Wu
+                      =1   457     
+                      =1   458     
+                      =1   459     
+                      =1   460     ; General Definitions
+                      =1   461     
+  0008                =1   462     Display_SIZE    EQU     8               ; Size of chars that can fit in display
+  0000                =1   463     SEGMENT_NULL    EQU     0               ; Byte value for Sseg pattern of ASCII_NULL
+  0001                =1   464     SegPTRAdjust    EQU     1               ; Since we want WORD, we need to adjust 
+                      =1   465      
+                      =1   466     
+                      =1   467     ; Display Addresses
+                      =1   468     
+  0000                =1   469     LEDDisplay      EQU     0               ; Display is hardware mapped to 0 - 7H
+  0008                =1   470     LEDDisplay2     EQU     8               ; 14- seg also hardware mapped to 8h - 0DH
+                      =1   471     
+                      =1   472     
+----                  =1   473     DISPLAYSTRUC     STRUC                      ;structure containing all display buffers
+0000                  =1   474         buffer              DB          Display_SIZE        DUP     (?) ;pointer to the f
+                                   unction to get switch 
+----                  =1   475     DISPLAYSTRUC      ENDS
+                      =1   476     
+                      =1   477     
+                      =1   478     
+                           479     
+                           480     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           481     ;                                                                            ;
+                           482     ;                                 HW9 Robot Mainloop Functions               ;
+                           483     ;                                 EE51                                           ;
+                           484     ;                                 Anjian Wu                                  ;
+                           485     ;                                                                            ;
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE    7
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           486     ;                                 TA: Pipe-Mazo                              ;
+                           487     ;                                                                            ;
+                           488     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           489     ;                                 What's in here?
+                           490     ;
+                           491     ;                                   Code Segment
+                           492     ;
+                           493     ;   Procedures
+                           494     ;
+                           495     ;   Remote_FSM_LOOP     -   If available, dequeue next WORD in rx_queue
+                           496     ;   ParseRemoteWord     -   Parses four types of Event Handlers
+                           497     ;
+                           498     ;   HandleKey           -   Updates display and tx_queue with command
+                           499     ;   HandleSerErr        -   Displays serial chip error
+                           500     ;   ParseRemoteChar     -   Concatenates the status message as string. Then
+                           501     ;                           will display to user.
+                           502     ;   HandleModem         -   Stub function for now, since no flow control
+                           503     ;
+                           504     ;   RemoteParseInit     -   Initializes all parsing variables and ToggleHandler
+                           505     ;   ToggleHandler       -   Timer handler that actually Calls Display and cycles
+                           506     ;                           between displaying statuses.
+                           507     ;   GetTokenTypeVal     -   Grabs next token type and val
+                           508     ;   RemoteParseReset    -   Resets state machine variables for Remote FSM
+                           509     ;   SetError            -   Indicates RemoteFSM error
+                           510     ;   no_op               -   Just Returns
+                           511     ;   AddDirChar          -   Concat the Direction Status String from Robot
+                           512     ;   AddSpeedChar        -   Concat the Speed Status String from Robot
+                           513     ;
+                           514     ;   Tables
+                           515     ;   Token Tables        -   Contains all tokens/token vals for Remote FSM
+                           516     ;   Toggle_JMP_Table    -   Jump table inside Toggle handler, muxes what value displa
+                                   y                    
+                           517     ;   Toggle_Label_Table  -   Muxes which value label to display
+                           518     ;   SerErrTable         -   Table of error strings for display
+                           519     ;   KeyDisplayTable     -   Table of cmd strings for display
+                           520     ;   KeyCmdTable         -   Table of strings cmds for Serial to Robot
+                           521     ;
+                           522     ;                              What's was last edit?
+                           523     ;
+                           524     ;                               Pseudo code ->  12-06-2013 - Anjian Wu
+                           525     ;                   Added KeyDisplayError/KeyDisplayInit Table -> 12-10-13 -AW
+                           526     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           527     CGROUP  GROUP   CODE
+                           528     DGROUP  GROUP   STACK, DATA
+                           529     
+----                       530     CODE    SEGMENT PUBLIC 'CODE'
+                           531     
+                           532     
+                           533             ASSUME  CS:CGROUP, DS:DGROUP
+                           534             
+                           535     ;external function declarations
+                           536      
+                           537     ;Init/Setup Functions 
+                           538             EXTRN   InitUserInterfaceCS:NEAR  
+                           539             EXTRN   EnqueueEventInit:NEAR
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE    8
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           540             EXTRN   Timer0Init:NEAR  
+                           541             EXTRN   ClrIRQVectors:NEAR  
+                           542             EXTRN   KeyHandlerInit:NEAR  
+                           543             EXTRN   Motorinit:NEAR  
+                           544             EXTRN   SerialInit:NEAR   
+                           545             EXTRN   ParseSerialChar:NEAR
+                           546             EXTRN   ParseReset:NEAR
+                           547            
+                           548     ;Main Loop Fuctions
+                           549             EXTRN   DequeueEvent:NEAR    
+                           550             EXTRN   EnqueueEvent:NEAR           
+                           551             EXTRN   EventAvailable:NEAR        
+                           552             EXTRN   SerialPutChar:NEAR             
+                           553                     EXTRN   no_op:NEAR     
+                           554          
+                           555     
+                           556                     
+                           557     ; Name:             Remote Main Loop
+                           558     ; Description:      This is the remote main loop
+                           559     ;
+                           560     ;                   *   Set up all initializations
+                           561     ;                   *   Enter remote_fsm_loop
+                           562     ;                   *   LOOP forever checking whether an event is available
+                           563     ;                       , if so dequeue it and pass to ParseRemoteWord
+                           564     ;
+                           565     ; Input:            None.
+                           566     ; Output:           None.
+                           567     ;
+                           568     ; User Interface:   None.
+                           569     ;
+                           570     ; Error Handling:   None.
+                           571     ;
+                           572     ; Algorithms:       None.
+                           573     ;
+                           574     ; Data Structures:  None.
+                           575     ;
+                           576     ; Known Bugs:       None.
+                           577     ; Limitations:      None.
+                           578     ;
+                           579     ; Revision History:
+                           580     ;                               Initial Version ->  12-05-2013 - Anjian Wu
+                           581     ;------------------------------------------------------------------------------------
+                                   ----               
+0000                       582     START:
+                           583     
+0000                       584     MAIN:
+0000 B8----         R      585             MOV     AX, DGROUP              ;initialize the stack pointer
+0003 8ED0                  586             MOV     SS, AX
+0005 BCE00190       R      587             MOV     SP, OFFSET(DGROUP:TopOfStack)
+                           588     
+0009 B8----         R      589             MOV     AX, DGROUP              ;initialize the data segment
+000C 8ED8                  590             MOV     DS, AX
+                           591             
+000E E80000         E      592             CALL    ClrIRQVectors              ; Clear whole vector table with Illegal Fu
+                                   nction
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE    9
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0011 E80000         E      593             CALL    InitUserInterfaceCS        ; Initialize All UI hardware (keypad, disp
+                                   lay)
+0014 E80000         E      594             CALL    Timer0Init                 ; Initialize timer 0 interrupt
+0017 E80000         E      595             CALL    SerialInit                 ; Initialize serial function variables
+001A E80000         E      596             CALL    EnqueueEventInit           ; Initialize the Event queue function vars
+                           597             
+001D E80000         E      598             CALL    MotorInit                   ;
+0020 E80000         E      599             CALL    ParseReset                  ;                                   
+                           600             
+0023 FB                    601             STI                                ; Start interrupts
+                           602             ;JMP     Robot_FSM_LOOP            ;
+                           603     
+                           604         
+0024                       605     Robot_FSM_LOOP:
+                           606         
+0024 E80000         E      607             CALL    EventAvailable              ; Is there a pending event? 
+0027 7406                  608             JZ      RobotFSMIdle               ; Event queue is empty, thus stay idle
+                           609             ;JNZ    RobotFSMIdle              ; There was an event!
+0029                       610     RobotFSMEvent:
+                           611     
+0029 E80000         E      612             CALL    DequeueEvent                ; Grab that event into AX
+002C E80200                613             CALL    ParseRobotWord             ; Pass to get event parsed
+                           614             
+002F                       615     RobotFSMIdle:
+                           616         
+002F EBF3                  617     JMP     Robot_FSM_LOOP                     ; Loop forever
+                           618     
+                           619     ; Name:             ParseRobotWord
+                           620     ; Description:      Uses a call table to select the next function to call to handle
+                           621     ;                   the event type. The event val is passed to this function call.
+                           622     ;
+                           623     ; Input:            None.
+                           624     ; Output:           None.
+                           625     ;
+                           626     ; User Interface:   None.
+                           627     ;
+                           628     ; Error Handling:   None.
+                           629     ;
+                           630     ; Algorithms:       None.
+                           631     ;
+                           632     ; Data Structures:  None.
+                           633     ;
+                           634     ; Known Bugs:       None.
+                           635     ; Limitations:      None.
+                           636     ;
+                           637     ; Revision History:
+                           638     ;                               Initial Version ->  12-05-2013 - Anjian Wu
+                           639     ;------------------------------------------------------------------------------------
+                                   ----       
+0031                       640     ParseRobotWord     PROC    NEAR
+                           641     
+                           642     ; Arg: AX = [AH = key, AL = value]
+                           643     
+0031 8AD8                  644         MOV     BL, AL                      ; Save event value
+0033 32FF                  645         XOR     BH, BH                      ; Isolate the Event val     
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE   10
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           646         
+0035 86E0                  647         XCHG    AH, AL                      ; Swap such that Event Type is LSNibble
+0037 32E4                  648         XOR     AH, AH                      ; Isolate the Event Type      
+                           649     
+0039 D1E0                  650         SHL     AX, WORD_LOOKUP_ADJUST      ; Prepare for WORD table lookup
+003B 93                    651         XCHG    BX, AX                      ; Copy to BX for pointer, and AX now has Even
+                                   t val
+003C 2EFF974200     R      652         CALL    CS:Robot_Call_Table[BX]     ; Go to that FSM  function, passing Event val
+                                    in AX
+                           653         
+0041 C3                    654         RET
+                           655         
+                           656     ParseRobotWord ENDP
+                           657     
+0042                       658     Robot_Call_Table            LABEL       WORD
+                           659                                         
+0042 0000           E      660             DW              no_op               ;KEY_EVENT_KEY - An internal key press
+0044 4A00           R      661             DW              HandleSerErr        ;SER_ERR_KEY   - An internal serial CHIP 
+                                   issue
+0046 0000           E      662             DW      ParseSerialChar     ;RX_ENQUEUED_KEY - External serial char stream
+0048 B800           R      663             DW      HandleModem         ;MODEM_KEY - Internal serial chip modem issue
+                           664     
+                           665     ;Procedure:                     HandleSerErr
+                           666     ;
+                           667     ;Description:           Determines which Serial error occurred at the chip,
+                           668     ;                   and informs the user to the issue.
+                           669     ;                
+                           670     ;Arguments:             None.
+                           671     ;Return Values:         none.
+                           672     ;Shared Variables:      None.
+                           673     ;Local Variables:       None.
+                           674     ;Global Variables:      None.                   
+                           675     ;Input:                 None.
+                           676     ;Output:                None.
+                           677     ;Registers Used:        None.
+                           678     ;Stack Depth:           none.
+                           679     ;Known Bugs:            None.
+                           680     ;Data Structures:       None.
+                           681     ;Error Handling:        None.
+                           682     ;Algorithms:            None.
+                           683     ;Limitations:           None.
+                           684     ;Author:                        Anjian Wu
+                           685     ;History:                       12-06-2013: Pseudo code - Anjian Wu
+                           686     ;------------------------------------------------------------------------------
+004A                       687     HandleSerErr    PROC    NEAR
+                           688     
+                           689     
+                           690 +1      
+004A 33DB                  691 +1      XOR     BX, BX                  ; Clear counter
+004C B309                  692 +2          MOV             BL, Display_SIZE+1          ; Let counter be CMD_LENGTH
+004E F6E3                  693 +1          MUL             BL                      ; Rel pinter = CMD_LENGTH * typeindex
+0050 055E0090       R      694 +2      ADD     AX, OFFSET( SerErrTable)  ;
+                           695 +1  
+                           696                                 ; Calc abs starting addr of the char string
+                           697                                 ; AX = Display_SIZE*AL + OFFSET(SerErrTable)
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE   11
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           698                                 
+                           699 +1      
+0054 8BF0                  700 +2      MOV     SI, AX          ; Prepare for display at SI
+0056 8CC8                  701 +2      MOV     AX, CS          ;
+0058 8EC0                  702 +2      MOV     ES, AX          ; String is in code segment
+                           703 +1                  ;
+005A E85C00                704         CALL    StatusFeedback               ;
+                           705         
+005D C3                    706         RET
+                           707         
+                           708     HandleSerErr    ENDP
+                           709     
+005E                       710     SerErrTable     LABEL       BYTE
+                           711     
+005E 20202020202020        712         DB     '        ', CAR_RETURN   ;
+     20
+0066 0D
+0067 522020302D5255        713         DB     'R  0-RUN', CAR_RETURN   ; Overrun serial error
+     4E
+006F 0D
+0070 20202020202020        714         DB     '        ', CAR_RETURN   ;
+     20
+0078 0D
+0079 52205041524954        715         DB     'R PARITY', CAR_RETURN   ; Parity serial error
+     59
+0081 0D
+0082 20202020202020        716         DB     '        ', CAR_RETURN   ;
+     20
+008A 0D
+008B 52204652414D45        717         DB     'R FRAME ', CAR_RETURN   ; Frame serial error
+     20
+0093 0D
+0094 20202020202020        718         DB     '        ', CAR_RETURN   ;
+     20
+009C 0D
+009D 20202020202020        719         DB     '        ', CAR_RETURN   ;
+     20
+00A5 0D
+00A6 20202020202020        720         DB     '        ', CAR_RETURN   ;
+     20
+00AE 0D
+00AF 5220425245414B        721         DB     'R BREAK ', CAR_RETURN   ; Break int
+     20
+00B7 0D
+                           722         
+                           723     ;Procedure:                     HandleModem
+                           724     ;
+                           725     ;Description:           Stub function for now.
+                           726     ;                
+                           727     ;Arguments:             None.
+                           728     ;Return Values:         none.
+                           729     ;Shared Variables:      None
+                           730     ;Local Variables:       None.
+                           731     ;Global Variables:      None.                   
+                           732     ;Input:                 None.
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE   12
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           733     ;Output:                None.
+                           734     ;Registers Used:        None.
+                           735     ;Stack Depth:           none.
+                           736     ;Known Bugs:            None.
+                           737     ;Data Structures:       None.
+                           738     ;Error Handling:        None.
+                           739     ;Algorithms:            None.
+                           740     ;Limitations:           None.
+                           741     ;Author:                        Anjian Wu
+                           742     ;History:                       12-06-2013: Pseudo code - Anjian Wu
+                           743     ;------------------------------------------------------------------------------
+00B8                       744     HandleModem    PROC    NEAR
+                           745     
+00B8 C3                    746         RET
+                           747         
+                           748     HandleModem    ENDP
+                           749         
+                           750     ;Procedure:                     StatusFeedback
+                           751     ;
+                           752     ;Description:           Stub function for now.
+                           753     ;                
+                           754     ;Arguments:             ES:SI
+                           755     ;Return Values:         none.
+                           756     ;Shared Variables:      None
+                           757     ;Local Variables:       None.
+                           758     ;Global Variables:      None.                   
+                           759     ;Input:                 None.
+                           760     ;Output:                None.
+                           761     ;Registers Used:        None.
+                           762     ;Stack Depth:           none.
+                           763     ;Known Bugs:            None.
+                           764     ;Data Structures:       None.
+                           765     ;Error Handling:        None.
+                           766     ;Algorithms:            None.
+                           767     ;Limitations:           None.
+                           768     ;Author:                        Anjian Wu
+                           769     ;History:                       12-12-2013: initial version
+                           770     ;------------------------------------------------------------------------------
+00B9                       771     StatusFeedback      PROC    NEAR
+                           772                         PUBLIC  StatusFeedback
+                           773     
+00B9 33C9                  774         XOR     CX, CX          ;
+                           775         
+00BB                       776     StatusFeedbackLoop: ; Counter goes from 0 to DisplaySize - 1 or ends early if ASCII_N
+                                   ULL found
+                           777     
+00BB 83F908                778         CMP     CX, Display_SIZE    ; Is the counter maxed out?
+00BE 7F10                  779         JG      StatusFeedbackDone      ; Yes, exit loop
+                           780                                     ; No, continue loop
+00C0 33C0                  781             XOR             AX, AX                      ; Clear AX
+                           782             
+00C2 268A04                783         MOV     AL, ES:[SI]         ; Grab char at address arg, put in AL
+00C5 3C00                  784         CMP     AL, ASCII_NULL      ; Is it ASCII_NULL? Cuz if so, end loop
+00C7 7407                  785         JE      StatusFeedbackDone  ; Yes, end loop
+00C9                       786     StatusFeedbackPutChar:
+8086/87/88/186 MACRO ASSEMBLER    ROBOT                                                    21:53:08  12/12/;3  PAGE   13
+
+
+LOC  OBJ                  LINE     SOURCE
+
+00C9 E80000         E      787         CALL    SerialPutChar        ;
+                           788         
+00CC 41                    789         INC     CX                          ; Update Counter
+00CD 46                    790         INC     SI                          ; Update char pointer (Str source)
+                           791         
+00CE EBEB                  792         JMP     StatusFeedbackLoop  ; 
+                           793         
+00D0                       794     StatusFeedbackDone:
+00D0 C3                    795         RET
+                           796         
+                           797     StatusFeedback    ENDP
+                           798         
+                           799         
+                           800         
+----                       801     CODE    ENDS
+                           802         
+                           803     ;the data segment
+                           804     
+----                       805     DATA    SEGMENT PUBLIC  'DATA'
+                           806     
+                           807     ; Empty for now
+                           808     
+                           809     
+----                       810     DATA    ENDS
+                           811     
+                           812     ;the stack
+                           813     
+----                       814     STACK   SEGMENT STACK  'STACK'
+                           815     
+0000 (80                   816                     DB      80 DUP ('Stack ')       ;240 words
+     537461636B20
+     )
+                           817     
+01E0                       818     TopOfStack      LABEL   WORD
+                           819     
+----                       820     STACK   ENDS
+                           821     
+                           822     
+                           823     
+                           824             END     START
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND

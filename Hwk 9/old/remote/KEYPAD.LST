@@ -1,0 +1,757 @@
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE    1
+
+
+DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE KEYPAD
+OBJECT MODULE PLACED IN KEYPAD.OBJ
+ASSEMBLER INVOKED BY:  C:\UTIL\ASM86.EXE KEYPAD.ASM M1 DB EP
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                             1     NAME        Keypad
+                             2     
+                             3     ; Include files
+                             4 +1  $INCLUDE(Keypad.inc);
+                      =1     5     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1     6     ;                                                                           ;
+                      =1     7     ;                                  Keypad.INC                                   ;
+                      =1     8     ;                               Keypad Constants                            ;
+                      =1     9     ;                                 Include File                              ;
+                      =1    10     ;                                                                           ;
+                      =1    11     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    12     
+                      =1    13     ; This file contains the definitions for the display functions
+                      =1    14     ;
+                      =1    15     ; Revision History:
+                      =1    16     ;    11/02/2013                 Created - Anjian Wu
+                      =1    17     
+                      =1    18     
+                      =1    19     
+                      =1    20     ; General Definitions
+                      =1    21     
+  03E8                =1    22     AUTO_REPEAT     EQU     1000            ; Counter for auto-repeat
+                      =1    23     
+  0064                =1    24     DEBOUNCE_TARGET EQU     100             ; Count for single key debounce
+                      =1    25     
+  0004                =1    26     numOfRows               EQU     4               ; number of rows in display
+                      =1    27     
+  0080                =1    28     KEYOFFSET               EQU     080h            ; Where keypad is first mapped 
+                      =1    29     
+  000F                =1    30     lownibblemask   EQU     000Fh           ; Used to mask lower nibble
+                      =1    31     
+  0000                =1    32     NOKEYPRESS      EQU     0               ; Value to indicate no keys pressed
+                      =1    33     
+                      =1    34     ; Key Definitions
+                      =1    35     
+                      =1    36     ; The following are constants that indicate what value maps to each key
+                      =1    37     ;                   The way KEYS are arranged is...
+                      =1    38     ;                   [0]     [1]   [2]   [3]
+                      =1    39     ;                   [4]     [5]   [6]   [7]
+                      =1    40     ;                   [8]     [9]   [10]  [11]
+                      =1    41     ;                   [12]    [13]  [14]  [15]
+  0000                =1    42     KEY0            EQU     0               
+  0001                =1    43     KEY1            EQU     1   
+  0002                =1    44     KEY2            EQU     2   
+  0003                =1    45     KEY3            EQU     3   
+  0004                =1    46     KEY4            EQU     4   
+  0005                =1    47     KEY5            EQU     5   
+  0006                =1    48     KEY6            EQU     6   
+  0007                =1    49     KEY7            EQU     7   
+  0008                =1    50     KEY8            EQU     8   
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE    2
+
+
+LOC  OBJ                  LINE     SOURCE
+
+  0009                =1    51     KEY9            EQU     9   
+  000A                =1    52     KEY10           EQU     10   
+  000B                =1    53     KEY11           EQU     11  
+  000C                =1    54     KEY12           EQU     12  
+  000D                =1    55     KEY13           EQU     13  
+  000E                =1    56     KEY14           EQU     14   
+  000F                =1    57     KEY15           EQU     15   
+  0010                =1    58     NOTAKEY         EQU     16  
+                            59 +1  $INCLUDE(general.inc);
+                      =1    60     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    61     ;                                                                               ;
+                      =1    62     ;                                  General.INC                                  ;
+                      =1    63     ;                               General Constants                           ;
+                      =1    64     ;                                 Include File                              ;
+                      =1    65     ;                                                                           ;
+                      =1    66     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    67     
+                      =1    68     ; This file contains general operations
+                      =1    69     ;
+                      =1    70     ; Revision History:
+                      =1    71     ;    11/02/2013                 Created - Anjian Wu
+                      =1    72     ;    11/23/2013                 Added WORD_LOOKUP_ADJUST - Anjian Wu
+                      =1    73     ;    12/05/2014         Added FMS_ERROR key, ZERO, changed other keys to 
+                      =1    74     ;                       ASCII based - Anjian
+                      =1    75     
+                      =1    76     
+                      =1    77     ; General Constants
+                      =1    78     
+  0000                =1    79     ASCII_NULL      EQU     0           ;
+  0001                =1    80     bit_size        EQU     1           ;
+  0004                =1    81     nibble_size     EQU     4           ;
+  0008                =1    82     BYTE_size       EQU     8           ;
+  0010                =1    83     WORD_size       EQU     16          ;
+  0000                =1    84     ArrayEmpty      EQU     0               ; Empty is set at 0 index
+                      =1    85     
+  0001                =1    86     TRUE            EQU     1           ;
+  0000                =1    87     FALSE           EQU     0           ;
+                      =1    88     
+  0000                =1    89     RESET           EQU     0           ; General Value for Resetting something
+                      =1    90     
+  0000                =1    91     CLEAR           EQU     0           ;
+                      =1    92     
+  0000                =1    93     ZERO            EQU     0           ;
+                      =1    94     
+  000A                =1    95     DIGIT           EQU     10          ; A digit in base 10 
+                      =1    96     
+  0001                =1    97     WORD_LOOKUP_ADJUST  EQU    1           ; Two bytes in one word -> SHL by 1
+                      =1    98     
+                      =1    99     ; General Definitions for Main Loops
+                      =1   100     
+  0001                =1   101     FIRST_RESERVED_VEC      EQU     1           ;reserve vectors 1-3
+  0003                =1   102     LAST_RESERVED_VEC       EQU     3       ;
+  0100                =1   103     NUM_IRQ_VECTORS     EQU 256     ;number of interrupt vectors
+                      =1   104     
+                      =1   105     ; MainLoop Key Codes
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   106     
+  0000                =1   107     KEY_EVENT_KEY       EQU     0   ; Event code indicating key pressed
+  0001                =1   108     SER_ERR_KEY         EQU     1   ; Event code indicating serial error
+  0002                =1   109     RX_ENQUEUED_KEY     EQU     2   ; Event code indicating new rx value gotten
+  0003                =1   110     MODEM_KEY           EQU     3   ; Event code indicating modem event
+  0004                =1   111     FSM_ERROR           EQU     4   ; Error key showing FSM error
+                      =1   112     
+                      =1   113     ; General Addresses
+                      =1   114     
+  FF22                =1   115     INTCtrlReg          EQU     0FF22H  ;EOI interrupt controller       
+                           116 +1  $INCLUDE(timer.inc);
+                      =1   117     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   118     ;                                                                               ;
+                      =1   119     ;                                  Timer.INC                                    ;
+                      =1   120     ;                              Timer Constants                              ;
+                      =1   121     ;                                 Include File                              ;
+                      =1   122     ;                                                                           ;
+                      =1   123     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   124     
+                      =1   125     ; This file contains the definitions for timers and their interupts
+                      =1   126     ;
+                      =1   127     ; Revision History:
+                      =1   128     ;    11/23/2013                 Created - Anjian Wu
+                      =1   129     ;    12/10/2013         Added Timer2 vals - Anjian Wu
+                      =1   130     
+                      =1   131     
+                      =1   132                                             ; Timer Definitions
+                      =1   133     
+                      =1   134     ; Addresses
+  FF56                =1   135     Tmr0Ctrl        EQU     0FF56H          ;address of Timer 0 Control Register
+  FF52                =1   136     Tmr0MaxCntA     EQU     0FF52H          ;address of Timer 0 Max Count A Register
+  FF50                =1   137     Tmr0Count       EQU     0FF50H          ;address of Timer 0 Count Register
+                      =1   138     
+  FF5E                =1   139     Tmr1Ctrl        EQU     0FF5EH          ;address of Timer 1 Control Register
+  FF5A                =1   140     Tmr1MaxCntA     EQU     0FF5AH          ;address of Timer 1 Max Count A Register
+  FF58                =1   141     Tmr1Count       EQU     0FF58H          ;address of Timer 1 Count Register
+                      =1   142     
+                      =1   143     
+  FF66                =1   144     Tmr2Ctrl        EQU     0FF66H          ;address of Timer 2 Control Register
+  FF62                =1   145     Tmr2MaxCnt      EQU     0FF62H          ;address of Timer 2 Max Count A Register
+  FF60                =1   146     Tmr2Count       EQU     0FF60H          ;address of Timer 2 Count Register
+                      =1   147     
+                      =1   148     ; Control Register Values
+  E001                =1   149     Tmr0CtrlVal     EQU     0E001H          ;value to write to Timer 0 Control Register
+                      =1   150                                             ;1---------------  enable timer
+                      =1   151                                             ;-1--------------  write to control
+                      =1   152                                             ;--1-------------  enable interrupts
+                      =1   153                                             ;----000000------  reserved
+                      =1   154                                             ;---0------0-----  read only
+                      =1   155                                             ;-----------0----  Retrigger
+                      =1   156                                             ;------------0---  Prescaler
+                      =1   157                                             ;-------------0--  external clock
+                      =1   158                                             ;--------------0-  single counter mode
+                      =1   159                                             ;---------------1  continuous mode
+                      =1   160                                             
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE    4
+
+
+LOC  OBJ                  LINE     SOURCE
+
+  E001                =1   161     Tmr1CtrlVal     EQU     0E001H          ;value to write to Timer 1 Control Register
+                      =1   162                                             ;1---------------  enable timer
+                      =1   163                                             ;-1--------------  write to control
+                      =1   164                                             ;--1-------------  enable interrupts
+                      =1   165                                             ;----000000------  reserved
+                      =1   166                                             ;---0------0-----  read only
+                      =1   167                                             ;-----------0----  Retrigger
+                      =1   168                                             ;------------0---  Prescaler
+                      =1   169                                             ;-------------0--  external clock
+                      =1   170                                             ;--------------0-  single counter mode
+                      =1   171                                             ;---------------1  continuous mode
+                      =1   172     
+  E001                =1   173     Tmr2CtrlVal     EQU     0E001H          ;value to write to Timer 2 Control Register
+                      =1   174                                             ;1---------------  enable timer
+                      =1   175                                             ;-1--------------  write to control
+                      =1   176                                             ;--1-------------  enable interrupts
+                      =1   177                                             ;----0000000-----  reserved
+                      =1   178                                             ;-----------0----  MaxCount
+                      =1   179                                             ;------------000-  reserved
+                      =1   180                                             ;---------------1  continuous mode
+                      =1   181     ; Control Register Values
+                      =1   182                                           
+                      =1   183                                             ; Control Register Values
+  08CA                =1   184     CTS_PER_MILSEC  EQU     2250            ; 18MHZ/(8 * 1KHz) ~ 2250 counts per MS
+                      =1   185     
+  07D0                =1   186     PRESCALE_2SEC   EQU     2000            ; 2 seconds = CTS_PER_MILSEC * 2000
+                      =1   187     
+  0008                =1   188     TimerEOI        EQU     00008H          ;Timer EOI command (same for all timers)
+  8000                =1   189     NonSpecEOI      EQU     08000H          ;Non-specific EOI command
+                      =1   190     
+                      =1   191     
+  0258                =1   192     COUNT_FOR_30HZ  EQU     600             ; 18,000,000 HZ/(8 * 30 Hz * PWM_WIDTH_MAX) 
+                      =1   193                                             ; ~ 600 counts for 30 HZ of PWM
+                      =1   194                                             
+  00B1                =1   195     COUNT_FOR_100HZ EQU     177             ; 18,000,000 HZ/(8 * 100 Hz * PWM_WIDTH_MAX) 
+                      =1   196                                             ; ~ 177 counts for 100 HZ of PWM             
+                                                             
+                      =1   197                                             
+                      =1   198                                             ; NOTE THIS IS APPROXIMATE, Clock is actually
+                                    a bit faster
+                      =1   199                                             ; than 18 MHZ
+                      =1   200     
+                      =1   201     
+                           202 +1  $INCLUDE(vectors.inc);
+                      =1   203     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   204     ;                                                                               ;
+                      =1   205     ;                                  Vector.INC                                   ;
+                      =1   206     ;                              IVector Constants                            ;
+                      =1   207     ;                                 Include File                              ;
+                      =1   208     ;                                                                           ;
+                      =1   209     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   210     
+                      =1   211     ; This file contains the definitions for timers and their interupts
+                      =1   212     ;
+                      =1   213     ; Revision History:
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE    5
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   214     ;    11/23/2013                 Created - Anjian Wu
+                      =1   215     ;    12/10/2013         Added Timer 2 info - Anjian Wu
+                      =1   216     
+                      =1   217                                             ; IVector Definitions
+                      =1   218     
+                      =1   219     ; Interrupt Vectors and their control values
+  0008                =1   220     Tmr0Vec         EQU     8               ;interrupt vector for Timer 0
+  0012                =1   221     Tmr1Vec         EQU     18              ;interrupt vector for Timer 1
+  0013                =1   222     Tmr2Vec         EQU     19              ;interrupt vector for Timer 2
+                      =1   223     
+  FF32                =1   224     INTCtrlrCtrl    EQU     0FF32H          ;address of interrupt controller for timer
+  FF22                =1   225     INTCtrlrEOI     EQU     0FF22H          ;address of interrupt controller EOI register
+                      =1   226     
+  0001                =1   227     INTCtrlrCVal    EQU     00001H          ;set priority for timers to 1 and enable
+                      =1   228                                             ;000000000000----  reserved
+                      =1   229                                             ;------------0---  enable timer interrupt
+                      =1   230                                             ;-------------001  timer priority
+                           231     
+                           232     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           233     ;                                                                            ;
+                           234     ;                                 HW5 Keypad Functions                       ;
+                           235     ;                                 EE51                                           ;
+                           236     ;                                 Anjian Wu                                  ;
+                           237     ;                                                                            ;
+                           238     ;                                 TA: Pipe-Mazo                              ;
+                           239     ;                                                                            ;
+                           240     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           241     ;                                 What's in here?
+                           242     ;
+                           243     ;                                   Code Segment
+                           244     ;
+                           245     ;   KeyHandler  -   Timer0 event handler that interrupts every milisecond.
+                           246     ;                   Every interrupt, the function scans ALL 4 rows from lowest
+                           247     ;                   to highest address. Each ROW's port values contain information
+                           248     ;                   on all columns, but making the index of the row and column
+                           249     ;                   sufficient to determine a specific key press.    
+                           250     ;
+                           251     ;                   After scanning, the function will then continue to debounce
+                           252     ;                   the key if a key is pressed.
+                           253     ;
+                           254     ;   KeyHandlerInit - This installs the KeyHandler into vector table and
+                           255     ;                    initializes all data seg variables used by Keyhandler 
+                           256     ;                    as zero.
+                           257     ;
+                           258     ;
+                           259     ;                                   Data Segment
+                           260     ;
+                           261     ;
+                           262     ;   DCounter    -   The debouncing counter holder for KeyHandler.
+                           263     ;   RCounter    -   The auto_repeat counter holder for KeyHandler.
+                           264     ;   Dflag       -   The flag used by Handler to signal a key has been debounced.
+                           265     ;   DebouncedKey-   Stores the key that was/in process of being debounced
+                           266     ;   Keytemp     -   Stores the temporary variable in KeyHandler (also helps debugging
+                                   )
+                           267     ;
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE    6
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           268     ;                                 What's was last edit?
+                           269     ;
+                           270     ;                               Pseudo code -> 11-11-2013 - Anjian Wu
+                           271     ;                               Working     -> 11-15-2013 - Anjian Wu
+                           272     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           273     
+                           274     ;Procedure:                     KeyHandler
+                           275     ;
+                           276     ;Description:           This interrupt procedure debounces a key press specifically 
+                           277     ;                   for the 4 x 4 keypad. This interrupt is using the Timer1 interrup
+                                   t
+                           278     ;                   and set to occur around every 1 ms. A key is debounced after
+                           279     ;                   DEBOUNCE_TARGET interrupts (thus DEBOUNCE_TARGET ms). It also
+                           280     ;                   can handle auto-repeat, where the user holds down the key. 
+                           281     ;                   That repeat rate is control similarly by AUTO_REPEAT constant. 
+                           282     ;                   Besides debouncing the key, this function will also convert 
+                           283     ;                   the key read directly into a key code using the KEYTABLE table.
+                           284     ;                   Finally it will auto enqueue the key code and event (EnqueueEvent
+                                   )
+                           285     ;
+                           286     ;                   In more detailed, the procedure is divided into the following ste
+                                   ps:
+                           287     ;
+                           288     ;                   Key Detection:
+                           289     ;                   Loop numOfRows times by grabbing
+                           290     ;                   each ROW by increasing order. If the key is determined to be pres
+                                   sed
+                           291     ;                   That row code is combined the column information. 
+                           292     ;                   This is stored in keytemp which will have the form 
+                           293     ;                   
+                           294     ;                               00[R1][R0]-[C3][C2][C1][C0]
+                           295     ;                   
+                           296     ;                   Key Processing:
+                           297     
+                           298     ;                   There are three possible paths of key processing
+                           299     ;                   1. No Key
+                           300     ;                   2. Different key than the DebounceKey from before
+                           301     ;                   3. SAME key, which gets treated in two differnt ways
+                           302     ;                           a)  Same key, but hasn't been debounced yet
+                           303     ;                           b)  Same key, but HAS been debounced and needs
+                           304     ;                               auto-repeat.
+                           305     ;                   4. If either 3a or 3b's debouncekey is deemed ready then 
+                           306     ;                      access the KeyTable and grabbed the key value.
+                           307     ;
+                           308     ;                   When a key is FIRST debounced, the Dflag is set high, the 
+                           309     ;                   Dcounter has hit DEBOUNCE_TARGET and needs to be reset,
+                           310     ;                   and the value in DebounceKey is considered VALID.
+                           311     ;
+                           312     ;                   Afterwards, the Dflag will remain high if the same key is HELD
+                           313     ;                   indicating that this needs to use Rcounter instead to hit
+                           314     ;                   the AUTO_REPEAT value before the key is debounced again.
+                           315     ;
+                           316     ;                   Otherwise if there is any diff key or NO key detected in 
+                           317     ;                   between the Dflag will be reset and the value inside
+                           318     ;                   DebounceKey is considered invalid on again.
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE    7
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           319     ;                                    
+                           320     ;                   
+                           321     ;Operation:                     Key Detection -> 
+                           322     ;                   *   Loop numOfRows times by grabbing
+                           323     ;                       each ROW by increasing order from port address KEYOFFSET
+                           324     ;                       to KEYOFFSET + numOfRows - 1. 
+                           325     ;                       *   Invert the BYTE (since active low) and then mask off 
+                           326     ;                           unused upper nibble of that byte.
+                           327     ;                       *   If a key is detected (aka keytemp > 0) then move on
+                           328     ;                           to add in ROW bits into upper nibble, else keytemp = 0
+                           329     ;                   *   When the loop terminated, only the key from the HIGHER
+                           330     ;                       index is ultimately recorded. Thus if a user pressed a
+                           331     ;                       key at address KEYOFFSET and another at KEYOFFSET +
+                           332     ;                       numOfRows - 1, then only the LATTER key is saved.
+                           333     ;
+                           334     ;
+                           335     ;                   Key Processing -> Now we have keytemp, which I use to check
+                           336     ;                   if a key was even pressed. 
+                           337     ;
+                           338     ;                   There are three possible paths of key processing
+                           339     ;
+                           340     ;                   *   No key
+                           341     ;                           * Reset DCounter, Dflag, and RCounter
+                           342     ;
+                           343     ;                   *   Different key than the DebounceKey from before   
+                           344     ;                           * Store NEW key in debouncedkey
+                           345     ;                           * Reset DCounter, Dflag, and RCounter
+                           346     ;
+                           347     ;                   * SAME key, which gets treated in two differnt ways
+                           348     ;                           a)  If the DFlag is LOW
+                           349     ;                               * Increment Dcounter
+                           350     ;                               * Check if counter is full
+                           351     ;                               * If full then grab mapped key value from Keytable
+                           352     ;                                 and pass to EnqueueEvent. Also set Dflag true.
+                           353     ;
+                           354     ;                   * Different key, which gets treated in two differnt ways
+                           355     ;                           a)  If the DFlag is HIGH
+                           356     ;                               * Increment Rcounter
+                           357     ;                               * Check if Rcounter is full
+                           358     ;                               * If full then grab mapped key value from Keytable in
+                                   to AL
+                           359     ;                                 and put KEYEVENT into AH.
+                           360     ;                                 Lastly, pass AX to EnqueueEvent. Also set Dflag tru
+                                   e.
+                           361     ;
+                           362     ;                   * Finally send out end of interrupt
+                           363     ;
+                           364     ;Arguments:             DCounter     -> Latest debouncing counter value
+                           365     ;                   Rcounter     -> Latest auto repeat counter (usually much larger)
+                           366     ;                   DebouncedKey -> Stores the last key being tested for debouncing.
+                           367     ;                   DFlag        -> Shows whether debounced has occured
+                           368     ;
+                           369     ;Return Values:         DFlag -> FLag used by KeyCheck to see if key is ready to grab
+                                   .
+                           370     ;                   DebouncedKey -> Stores the last key being tested for debouncing.
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE    8
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           371     
+                           372     ;
+                           373     ;Result:            Possibly new DCounter, Rcounter, DebouncedKey, and DFlag values. 
+                                   Also
+                           374     ;                   enqueues any debounced keys.
+                           375     ;
+                           376     ;Shared Variables:      The DFlag, DebounceKey, Keytemp, RCounter, and Dcounter (Read
+                                    and Write)
+                           377     ;                   
+                           378     ;
+                           379     ;Local Variables:       keytemp -   temporary variable that stores direct keypad valu
+                                   es
+                           380     ;                   AX      -   Used to store values for CMP
+                           381     ;                   BX      -   Used for talke look up
+                           382     ;                   CX      -   Counter
+                           383     ;                   DX      -   PORT addressing and interrupt EOI
+                           384     ;                   
+                           385     ;
+                           386     ;Global Variables:      None.
+                           387     ;                                       
+                           388     ;                                       
+                           389     ;Input:                 4 x 4 Keypad.
+                           390     ;
+                           391     ;Output:                14-seg display (via EnqueueEvent)
+                           392     ;
+                           393     ;Registers Used:        AX, BX, CX, DX
+                           394     ;
+                           395     ;Stack Depth:           8 Words
+                           396     ;
+                           397     ;Known Bugs:            None.
+                           398     ;
+                           399     ;Data Structures:       Queue is used for EnqueueEvent.
+                           400     ;
+                           401     ;Error Handling:        If a key is pressed that does not Map to a key function
+                           402     ;                   then the KeyTable will return a NOTAKEY cmd written to 
+                           403     ;                   EnqueueEvent which indicate to ignore this action.
+                           404     ;
+                           405     ;Algorithms:            Loops all rows and checked each row for valid key press.
+                           406     ;
+                           407     ;Limitations:           1.  Only detects keys pressed in a single ROW, not an issue
+                           408     ;                       if only designed for 1 key functionality.
+                           409     ;
+                           410     ;                   2.  Only considers the higher indexed ROW's keys, thus if
+                           411     ;                       key is pressed at KEYOFFSET and KEYOFFSET + 1, then only
+                           412     ;                       the latter is recognized. 
+                           413     ;
+                           414     ;                   3.  Since DebounceKey is not reset, functionally it 
+                           415     ;                       takes ONE less interrupt count to debounce the same
+                           416     ;                       key pressed consecutively (not key being held), as opposed
+                           417     ;                       to debouncing a NEW key. However the difference is 
+                           418     ;                       indistinguishable from the users perspective. 
+                           419     ;
+                           420     ;
+                           421     ;Author:                        Anjian Wu
+                           422     ;History:                       11-11-2013: Pseudo code - Anjian Wu
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE    9
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           423     ;                               11-15-2013: Working     - Anjian Wu
+                           424     
+                           425     ;------------------------------------------------------------------------------
+                           426     
+                           427     CGROUP  GROUP   CODE
+                           428     DGROUP  GROUP   DATA
+                           429     
+----                       430     CODE    SEGMENT PUBLIC 'CODE'
+                           431     
+                           432     
+                           433             ASSUME  CS:CGROUP, DS:DGROUP
+                           434     
+                           435     ;External Procedures needed
+                           436             EXTRN   EnqueueEvent:NEAR      ; Used to enqueue key event/code
+                           437             EXTRN   KeyHandlerTable:NEAR   ; Used for key code table look up
+                           438             
+0000                       439     KeyHandler              PROC    NEAR
+                           440                                     PUBLIC  KeyHandler
+                           441                                     
+0000 60                    442             PUSHA;  Save all used regs. Always save regs for interrupts
+                           443             
+0001                       444     KeyHandInit:
+                           445     
+0001 33C9                  446         XOR     CX, CX          ; Clear the counter before start of loop
+0003 C70608000000   R      447         MOV     keytemp, NOKEYPRESS ; Assume no key pressed so far
+                           448         
+                           449     ;------------------------Key Detection-----------------------------------------
+                           450         
+0009                       451     KeyRowLoop:
+                           452     
+0009 83F904                453         CMP     CX, numOfRows   ; Check to see if counter is done with all rows
+000C 7D1D                  454         JGE     KeyRowLoopExit  ; If so, then exit loop
+                           455         ;JLE    KeyRowLoopBody  ; Else, continue
+                           456         
+000E                       457     KeyRowLoopBody:
+                           458         
+000E 8BD1                  459         MOV     DX, CX          ; Prepare to get absolute keypad value from PORT
+0010 81C28000              460         ADD     DX, KEYOFFSET   ; Abs address = offset + current row
+0014 EC                    461         IN      AL, DX          ; Grab the next row's column values
+                           462         
+0015 F7D0                  463         NOT     AX              ; Keys are 'active' low   
+0017 250F00                464         AND     AX, lownibblemask   ; Mask off the unused bits (only lowest nibble needed
+                                   )
+                           465         
+                           466     ;Now we have AL = xxxx-xxxx-xxxx-[][][][], where [] -> valid column value
+                           467         
+001A 3C00                  468         CMP     AL, NOKEYPRESS  ; Were there any keys even pressed?
+001C 740A                  469         JE      KeyRowLoopEnd   ;
+                           470     ;   JNE     KeyRowLoopAbsCalc;
+                           471     
+001E                       472     KeyRowLoopAbsCalc:          ; Lets include information of ROW into AL
+                           473         
+001E 8BD9                  474         MOV     BX, CX          ; Grab the Row value (lower 2 bits of last nibble)
+0020 C1E304                475         SHL     BX, nibble_size ; Now Row information is in 2nd to last nibble
+                           476         
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE   10
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0023 03C3                  477         ADD     AX, BX          ; Now AL will have xx[R1][R0]-[C3][C2][C1][C0]
+                           478                                 ;                    Row info Column info  
+0025 A30800         R      479         MOV     keytemp, AX     ; Store this for checking later
+                           480         
+0028                       481     KeyRowLoopEnd:
+                           482     
+0028 41                    483         INC     CX              ; Update counter
+0029 EBDE                  484         JMP     KeyRowLoop      ; Loop
+                           485         
+002B                       486     KeyRowLoopExit:
+                           487     ;------------------------Key Processing-----------------------------------------
+                           488     
+002B 833E080000     R      489         CMP     keytemp,NOKEYPRESS  ; Was there even a key pressed after loop?
+0030 7455                  490         JE      KeyHandResetAll     ; Nope, so reset every data variable. Fresh start :)
+                           491                                     ; Notice that DebouncedKey is not reset, but should
+                           492                                     ; already have been reset from previous states.
+                           493                                     
+                           494         ;JNE    KeyHandKeySort      ; Yes, continue
+                           495         
+0032                       496     KeyHandKeySort:; Determines if it is SAME key as before or NEW key
+                           497         
+0032 A10800         R      498         MOV     AX, keytemp         ; Store local keytemp variable for COMPAREs
+0035 3B060600       R      499         CMP     AX, DebouncedKey    ; Is this the same key as before?
+                           500                                     ; used AX since (No mem2mem CMP allowed)
+                           501                                     
+0039 7406                  502         JE      KeyHandSameKey      ; Yes it is same key as previous interrupt
+                           503         ;JNE    KeyHandDiffKey      ; No, this is different key
+                           504         
+003B                       505     KeyHandDiffKey:
+                           506     
+003B A30600         R      507         MOV     DebouncedKey, AX    ; Store that key with AX (mem2mem MOV not allowed)
+003E EB4790                508         JMP     KeyHandResetAll        ; Still reset all other variables though
+                           509         
+                           510     
+0041                       511     KeyHandSameKey:
+                           512     
+0041 833E000001     R      513         CMP     DFlag,  TRUE           ; Was this key pressed/debounced before?
+                           514         
+                           515         ; The DFLag also provides protection against two same key presses WITH no key
+                           516         ; press in between. This is because even though the DebouncedKey stored is same
+                           517         ; DFlag is always reset if no key was pressed. Thus we still will process as
+                           518         ; a FIRST time debounce.
+                           519         
+0046 740D                  520         JE      KeyHandSameKeyAutoRepeat;
+                           521         ;JNE    KeyHandSameKeyNOTDebouncedYet; 
+                           522         
+0048                       523     KeyHandSameKeyNOTDebouncedYet:
+                           524     
+0048 FF060200       R      525         INC     Dcounter                    ; Increment Debounce counter
+004C 833E020064     R      526         CMP     Dcounter, DEBOUNCE_TARGET   ; Reached debounce target?
+0051 7410                  527         JE      KeyHandFirstRepDone         ; If so, then the first debounce is done
+0053 7544                  528         JNE     KeyHandlerDONE              ; Done until next time
+                           529          
+0055                       530     KeyHandSameKeyAutoRepeat:
+                           531     
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE   11
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0055 FF060400       R      532         INC     Rcounter                ; Increment the repeat counter
+0059 813E0400E803   R      533         CMP     Rcounter, AUTO_REPEAT   ; Is the repeat counter maxed?
+005F 7D11                  534         JGE     KeyHandAUTODone         ; If so then time for another debounce
+0061 7536                  535         JNE     KeyHandlerDONE          ; Else done
+                           536         
+0063                       537     KeyHandFirstRepDone:
+0063 C70600000100   R      538         MOV     Dflag,  TRUE            ; First time debouncing -> Dflag set
+0069 C70604000000   R      539         MOV     Rcounter, 0             ; Reset Repeat counter
+006F EB0790                540         JMP     KeyHandEnqueue          ; Time to enqueue
+                           541         
+0072                       542     KeyHandAUTODone:
+0072 C70604000000   R      543         MOV     Rcounter, 0         ;   Reset Rcounter to be ready for another auto repea
+                                   t
+                           544         ;JMP    KeyHandEnqueue      ;   Time to enqueue again
+                           545         
+0078                       546     KeyHandEnqueue:
+                           547     
+0078 8BD8                  548             MOV             BX, AX                      ; Prepare for table offset for lo
+                                   okup
+                           549                                     ; Note AX still has keytemp...
+                           550         
+007A 2E8A870000     E      551         MOV         AL,     CS:KeyHandlerTable[BX]              ;Now key code val is in A
+                                   L
+                           552           
+007F B400                  553         MOV     AH, KEY_EVENT_KEY        ;Set the keyevent to AH
+                           554         
+0081 E80000         E      555         CALL    EnqueueEvent        ;Passing AX into enqueue
+                           556         
+0084 EB1390                557         JMP     KeyHandlerDONE      ;Finished!
+                           558     
+                           559         
+0087                       560     KeyHandResetAll:; The only way all vars are reset is if no key or a new key pressed.
+                           561                     ; This makes sense since the only other case is if the same
+                           562                     ; KEY was pressed, meaning we would want to retain vars.
+                           563                     
+0087 C70600000000   R      564         MOV     Dflag, 0            ; Clear flag, and both repeat and regualr debounce
+008D C70602000000   R      565         MOV     Dcounter, 0         ; counters.
+0093 C70604000000   R      566         MOV     Rcounter, 0         ;
+                           567         ;jmp    KeyHandlerDONE      ;
+                           568     
+0099                       569     KeyHandlerDONE:; Send out EOI as usual
+                           570     
+0099 BA22FF                571         MOV     DX, INTCtrlrEOI         ;send the EOI to the interrupt controller
+009C B80800                572         MOV     AX, TimerEOI
+009F EE                    573         OUT     DX, AL
+                           574         
+                           575             
+00A0 61                    576         POPA; restore all used regs
+                           577         
+00A1 CF                    578         IRET
+                           579         
+                           580     
+                           581         KeyHandler  ENDP
+                           582     
+                           583     
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE   12
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           584     
+                           585     
+                           586     ; KeyHandlerInit
+                           587     ;
+                           588     ; Description:       Does all initializations for KeyHandler.
+                           589     ;
+                           590     ;                    Installs the displayhandler for the timer0 interrupt at 
+                           591     ;                    interrupt table index Tmr0Vec. ALso clears the Dflag,
+                           592     ;                    Rcounter, Dcounter, and DebouncedKey.
+                           593     ;
+                           594     ; Operation:         First clear Dflag, Dcounter, Rcounter and DebouncedKey.
+                           595     ;                    Then writes the address of the KeyHandler to the
+                           596     ;                    timer0 location in the interrupt vector table. Notice
+                           597     ;                    need to multiple by 4 since table stores a CS and IP.
+                           598     ;                     
+                           599     ;
+                           600     ; Arguments:         None.
+                           601     ; Return Value:      None.
+                           602     ;
+                           603     ; Local Variables:   AX - Used to temporarily store vector table offset for ES
+                           604     ; 
+                           605     ; Shared Variables:  Dflag, Rcounter, Dcounter, and DebouncedKey (WRITE ONLY)
+                           606     ;
+                           607     ; Global Variables:  None.
+                           608     ;
+                           609     ; Input:             None.
+                           610     ; Output:            None.
+                           611     ;
+                           612     ; Error Handling:    None.
+                           613     ;
+                           614     ; Algorithms:        None.
+                           615     ; Data Structures:   None.
+                           616     ;
+                           617     ; Registers Used:    AX, ES
+                           618     ;
+                           619     ; Stack Depth:       0 words
+                           620     ;
+                           621     ;Author:                        Anjian Wu
+                           622     ;History:                       11-11-2013: Pseudo code - Anjian Wu
+                           623     ;                               11-15-2013: Working     - Anjian Wu
+                           624     ;-------------------------------------------------------------------------------
+                           625     
+00A2                       626     KeyHandlerInit  PROC    NEAR
+                           627                     PUBLIC  KeyHandlerInit
+                           628     
+                           629     
+00A2                       630     KeyHandlerInitStart:
+00A2 C70600000000   R      631             MOV     Dflag, 0                ; Clear the Dflag
+00A8 C70602000000   R      632             MOV     Dcounter, 0             ; Clear the Dcounter 
+00AE C70606000000   R      633             MOV     DebouncedKey, 0         ; Clear the DebouncedKey
+00B4 C70604000000   R      634                     MOV             Rcounter, 0                     ; CLear the Repeat co
+                                   unter
+                           635             
+00BA                       636     KeyHandlerInitVector:
+                           637            
+8086/87/88/186 MACRO ASSEMBLER    KEYPAD                                                   00:30:06  12/12/;3  PAGE   13
+
+
+LOC  OBJ                  LINE     SOURCE
+
+00BA 33C0                  638             XOR     AX, AX          ;clear ES (interrupt vectors are in segment 0)
+00BC 8EC0                  639             MOV     ES, AX
+                           640                                     ;store the vector
+00BE 26C70648000000 R      641             MOV     ES: WORD PTR (4 * Tmr1Vec), OFFSET(KeyHandler)
+00C5 26C7064A00---- R      642             MOV     ES: WORD PTR (4 * Tmr1Vec + 2), SEG(KeyHandler)
+                           643                                     ; Again 4x since vector table is CS:IP (WORD:WORD)
+                           644     
+00CC C3                    645             RET                     ;all done, return
+                           646     
+                           647     
+                           648     KeyHandlerInit  ENDP
+                           649                                     
+----                       650     CODE    ENDS
+                           651         
+----                       652     DATA    SEGMENT PUBLIC  'DATA'
+                           653     
+                           654     
+0000 ????                  655         Dflag           DW  ?     ;Flag to show that a Key was debounced recently
+                           656                                                
+0002 ????                  657         Dcounter        DW  ?     ;Debounce count for single key press
+                           658     
+0004 ????                  659         Rcounter        DW  ?     ;Debounce count for auto-repeat key press
+                           660     
+0006 ????                  661         DebouncedKey    DW  ?     ;Stores key pressed 
+                           662             
+0008 ????                  663             keytemp                 DW  ?     ;Temporary variable used in Keyhandler
+                           664             
+----                       665     DATA    ENDS
+                           666     
+                           667             END 
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND

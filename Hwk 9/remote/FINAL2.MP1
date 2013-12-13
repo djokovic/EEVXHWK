@@ -5,7 +5,7 @@ INPUT FILES: QUEUE.OBJ, REMOTE.OBJ, SERIAL.OBJ, TIMERS.OBJ, VECTORS.OBJ,
   CONV.OBJ, SEGTAB14.OBJ
 OUTPUT FILE: FINAL2.LNK
 CONTROLS SPECIFIED IN INVOCATION COMMAND:
-DATE:  12/12/;3  TIME:  00:30:08
+DATE:  12/12/;3  TIME:  22:11:02
 
 
 LINK MAP OF MODULE QUEUE
@@ -13,8 +13,8 @@ LINK MAP OF MODULE QUEUE
 LOGICAL SEGMENTS INCLUDED:
 LENGTH ADDRESS ALIGN  SEGMENT         CLASS           OVERLAY
  0000H ------    G    ??SEG                                         
- 0980H ------    G    CODE            CODE                          
- 0438H ------    G    DATA            DATA                          
+ 09F0H ------    G    CODE            CODE                          
+ 0448H ------    G    DATA            DATA                          
  01E0H ------    G    STACK           STACK                         
 
 INPUT MODULES INCLUDED:

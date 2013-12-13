@@ -1,3 +1,4 @@
+
 asm86 chips.asm m1 db ep
 asm86 display.asm m1 db ep
 asm86 event.asm m1 db ep
@@ -20,7 +21,3 @@ link86 final1.lnk, final2.lnk to final.lnk
 
 
 loc86  final.lnk to remote NOIC AD(SM(CODE(2000H),DATA(400H),STACK(7000H)))
-
-pcdebug
-
-l remote

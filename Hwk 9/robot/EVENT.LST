@@ -1,0 +1,421 @@
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    21:53:06  12/12/;3  PAGE    1
+
+
+DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE EVENT
+OBJECT MODULE PLACED IN EVENT.OBJ
+ASSEMBLER INVOKED BY:  C:\5XTOOLS\ASM86.EXE EVENT.ASM M1 DB EP
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                             1     NAME        event
+                             2     
+                             3 +1  $INCLUDE(queue.inc);
+                      =1     4     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1     5     ;                                                                               ;
+                      =1     6     ;                                  Queues.INC                                   ;
+                      =1     7     ;                           Queue Conversion Constants                          ;
+                      =1     8     ;                                 Include File                              ;
+                      =1     9     ;                                                                           ;
+                      =1    10     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    11     
+                      =1    12     ; This file contains the definitions for the queue functions
+                      =1    13     ;
+                      =1    14     ; Revision History:
+                      =1    15     ;    10/29/2013                 Created - Anjian Wu
+                      =1    16     ;    11/01/2013   Debugged,Documented, and working - Anjian Wu
+                      =1    17     ;
+                      =1    18     ;Structure for Queue allocation, information, and storage
+                      =1    19     
+                      =1    20     
+                      =1    21     ; General Definitions
+                      =1    22     
+                      =1    23     
+  0000                =1    24     BYTE_QUEUE      EQU     0             ; QueueInit Key for Byte queue.
+  0001                =1    25     WORD_QUEUE      EQU     1             ; QueueInit Key for Word queue.
+                      =1    26     
+  0001                =1    27     ByteQ           EQU     1             ; Byte norm factor for indexing
+  0002                =1    28     WordQ           EQU     2             ; Word norm factor for indexing
+  0400                =1    29     ARRAY_SIZE      EQU     1024          ; Size of queue array (fits 512-1 words, 
+                      =1    30                                           ;or 1023 bytes)
+                      =1    31     
+  0200                =1    32     MAX_Q_LENG          EQU     512          ;Maxlength allowed for byte or word queue
+                      =1    33     
+----                  =1    34     QUEUESTRUC      STRUC                   ;structure containing all queue info
+0000                  =1    35         head            DW      ?           ;counter for debouncing the switch
+0002                  =1    36         tail            DW      ?           ;time until change repeat rates
+0004                  =1    37         qsize           DW      ?           ;rate at which to repeat the switch
+0006                  =1    38         leng            DW      ?           ;rate at which to repeat the switch
+0008                  =1    39         array               DB          ARRAY_SIZE  DUP     (?) ;pointer to the function 
+                                   to get switch status
+----                  =1    40     QUEUESTRUC      ENDS
+                      =1    41     
+                      =1    42     ;Structure for storing Queue return values or args
+                      =1    43     
+----                  =1    44     QUEUEVARS      STRUC                ;structure containing all queue info
+0000                  =1    45         dequeued    DW      ?               ;counter for debouncing the switch
+----                  =1    46     QUEUEVARS      ENDS
+                      =1    47     
+                      =1    48     
+                      =1    49     
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    21:53:06  12/12/;3  PAGE    2
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                            50 +1  $INCLUDE(vectors.inc);
+                      =1    51     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    52     ;                                                                               ;
+                      =1    53     ;                                  Vector.INC                                   ;
+                      =1    54     ;                              IVector Constants                            ;
+                      =1    55     ;                                 Include File                              ;
+                      =1    56     ;                                                                           ;
+                      =1    57     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    58     
+                      =1    59     ; This file contains the definitions for timers and their interupts
+                      =1    60     ;
+                      =1    61     ; Revision History:
+                      =1    62     ;    11/23/2013                 Created - Anjian Wu
+                      =1    63     ;    12/10/2013         Added Timer 2 info - Anjian Wu
+                      =1    64     
+                      =1    65                                             ; IVector Definitions
+                      =1    66     
+                      =1    67     ; Interrupt Vectors and their control values
+  0008                =1    68     Tmr0Vec         EQU     8               ;interrupt vector for Timer 0
+  0012                =1    69     Tmr1Vec         EQU     18              ;interrupt vector for Timer 1
+  0013                =1    70     Tmr2Vec         EQU     19              ;interrupt vector for Timer 2
+                      =1    71     
+  FF32                =1    72     INTCtrlrCtrl    EQU     0FF32H          ;address of interrupt controller for timer
+  FF22                =1    73     INTCtrlrEOI     EQU     0FF22H          ;address of interrupt controller EOI register
+                      =1    74     
+  0001                =1    75     INTCtrlrCVal    EQU     00001H          ;set priority for timers to 1 and enable
+                      =1    76                                             ;000000000000----  reserved
+                      =1    77                                             ;------------0---  enable timer interrupt
+                      =1    78                                             ;-------------001  timer priority
+                            79 +1  $INCLUDE(timer.inc);
+                      =1    80     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    81     ;                                                                               ;
+                      =1    82     ;                                  Timer.INC                                    ;
+                      =1    83     ;                              Timer Constants                              ;
+                      =1    84     ;                                 Include File                              ;
+                      =1    85     ;                                                                           ;
+                      =1    86     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    87     
+                      =1    88     ; This file contains the definitions for timers and their interupts
+                      =1    89     ;
+                      =1    90     ; Revision History:
+                      =1    91     ;    11/23/2013                 Created - Anjian Wu
+                      =1    92     ;    12/10/2013         Added Timer2 vals - Anjian Wu
+                      =1    93     
+                      =1    94     
+                      =1    95                                             ; Timer Definitions
+                      =1    96     
+                      =1    97     ; Addresses
+  FF56                =1    98     Tmr0Ctrl        EQU     0FF56H          ;address of Timer 0 Control Register
+  FF52                =1    99     Tmr0MaxCntA     EQU     0FF52H          ;address of Timer 0 Max Count A Register
+  FF50                =1   100     Tmr0Count       EQU     0FF50H          ;address of Timer 0 Count Register
+                      =1   101     
+  FF5E                =1   102     Tmr1Ctrl        EQU     0FF5EH          ;address of Timer 1 Control Register
+  FF5A                =1   103     Tmr1MaxCntA     EQU     0FF5AH          ;address of Timer 1 Max Count A Register
+  FF58                =1   104     Tmr1Count       EQU     0FF58H          ;address of Timer 1 Count Register
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    21:53:06  12/12/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   105     
+                      =1   106     
+  FF66                =1   107     Tmr2Ctrl        EQU     0FF66H          ;address of Timer 2 Control Register
+  FF62                =1   108     Tmr2MaxCnt      EQU     0FF62H          ;address of Timer 2 Max Count A Register
+  FF60                =1   109     Tmr2Count       EQU     0FF60H          ;address of Timer 2 Count Register
+                      =1   110     
+                      =1   111     ; Control Register Values
+  E001                =1   112     Tmr0CtrlVal     EQU     0E001H          ;value to write to Timer 0 Control Register
+                      =1   113                                             ;1---------------  enable timer
+                      =1   114                                             ;-1--------------  write to control
+                      =1   115                                             ;--1-------------  enable interrupts
+                      =1   116                                             ;----000000------  reserved
+                      =1   117                                             ;---0------0-----  read only
+                      =1   118                                             ;-----------0----  Retrigger
+                      =1   119                                             ;------------0---  Prescaler
+                      =1   120                                             ;-------------0--  external clock
+                      =1   121                                             ;--------------0-  single counter mode
+                      =1   122                                             ;---------------1  continuous mode
+                      =1   123                                             
+  E001                =1   124     Tmr1CtrlVal     EQU     0E001H          ;value to write to Timer 1 Control Register
+                      =1   125                                             ;1---------------  enable timer
+                      =1   126                                             ;-1--------------  write to control
+                      =1   127                                             ;--1-------------  enable interrupts
+                      =1   128                                             ;----000000------  reserved
+                      =1   129                                             ;---0------0-----  read only
+                      =1   130                                             ;-----------0----  Retrigger
+                      =1   131                                             ;------------0---  Prescaler
+                      =1   132                                             ;-------------0--  external clock
+                      =1   133                                             ;--------------0-  single counter mode
+                      =1   134                                             ;---------------1  continuous mode
+                      =1   135     
+  E001                =1   136     Tmr2CtrlVal     EQU     0E001H          ;value to write to Timer 2 Control Register
+                      =1   137                                             ;1---------------  enable timer
+                      =1   138                                             ;-1--------------  write to control
+                      =1   139                                             ;--1-------------  enable interrupts
+                      =1   140                                             ;----0000000-----  reserved
+                      =1   141                                             ;-----------0----  MaxCount
+                      =1   142                                             ;------------000-  reserved
+                      =1   143                                             ;---------------1  continuous mode
+                      =1   144     ; Control Register Values
+                      =1   145                                           
+                      =1   146                                             ; Control Register Values
+  08CA                =1   147     CTS_PER_MILSEC  EQU     2250            ; 18MHZ/(8 * 1KHz) ~ 2250 counts per MS
+                      =1   148     
+  07D0                =1   149     PRESCALE_2SEC   EQU     2000            ; 2 seconds = CTS_PER_MILSEC * 2000
+                      =1   150     
+  0008                =1   151     TimerEOI        EQU     00008H          ;Timer EOI command (same for all timers)
+  8000                =1   152     NonSpecEOI      EQU     08000H          ;Non-specific EOI command
+                      =1   153     
+                      =1   154     
+  0258                =1   155     COUNT_FOR_30HZ  EQU     600             ; 18,000,000 HZ/(8 * 30 Hz * PWM_WIDTH_MAX) 
+                      =1   156                                             ; ~ 600 counts for 30 HZ of PWM
+                      =1   157                                             
+  00B1                =1   158     COUNT_FOR_100HZ EQU     177             ; 18,000,000 HZ/(8 * 100 Hz * PWM_WIDTH_MAX) 
+                      =1   159                                             ; ~ 177 counts for 100 HZ of PWM             
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    21:53:06  12/12/;3  PAGE    4
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                                                             
+                      =1   160                                             
+                      =1   161                                             ; NOTE THIS IS APPROXIMATE, Clock is actually
+                                    a bit faster
+                      =1   162                                             ; than 18 MHZ
+                      =1   163     
+                      =1   164     
+                           165     
+                           166     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           167     ;                                                                            ;
+                           168     ;                                 Event Queue Functions                      ;
+                           169     ;                                 EE51                                           ;
+                           170     ;                                 Anjian Wu                                  ;
+                           171     ;                                                                            ;
+                           172     ;                                 TA: Pipe-Mazo                              ;
+                           173     ;                                                                            ;
+                           174     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           175     ;                                 What's in here?
+                           176     ;
+                           177     ;                                   Code Segment
+                           178     ;   
+                           179     ;   DequeueEvent     -   No args, and returns next dequeued val
+                           180     ;   EnqueueEvent     -   Takes a WORD and enqueues it.
+                           181     ;   EventAvailable   -   Checks if queue is empty
+                           182     ;   EventFull        -  Checks if queue is full.
+                           183     ;   EnqueueEventInit -  initializes the word queue
+                           184     ;                              What's was last edit?
+                           185     ;
+                           186     ;                               Pseudo code ->  12-06-2013 - Anjian Wu
+                           187     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           188     CGROUP  GROUP   CODE
+                           189     DGROUP  GROUP   DATA
+                           190     
+----                       191     CODE    SEGMENT PUBLIC 'CODE'
+                           192     
+                           193     
+                           194             ASSUME  CS:CGROUP, DS:DGROUP
+                           195             
+                           196             
+                           197                     
+                           198             EXTRN   QueueInit:NEAR        
+                           199             EXTRN   QueueFull:NEAR        
+                           200             EXTRN   QueueEmpty:NEAR    
+                           201             EXTRN   Enqueue:NEAR           
+                           202             EXTRN   Dequeue:NEAR          
+                           203                     
+                           204     ; Name:             DequeueEvent
+                           205     ; Description:      Returns with the dequeued WORD from EventQueue
+                           206     ;
+                           207     ; Input:            None.
+                           208     ; Output:           None.
+                           209     ;
+                           210     ; User Interface:   None.
+                           211     ;
+                           212     ; Error Handling:   None.
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    21:53:06  12/12/;3  PAGE    5
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           213     ;
+                           214     ; Algorithms:       None.
+                           215     ;
+                           216     ; Data Structures:  None.
+                           217     ;
+                           218     ; Known Bugs:       None.
+                           219     ; Limitations:      None.
+                           220     ;
+                           221     ; Revision History:
+                           222     ;                               Initial Version ->  12-05-2013 - Anjian Wu
+                           223     ;------------------------------------------------------------------------------------
+                                   ----               
+                           224                     
+0000                       225     DequeueEvent    PROC    NEAR
+                           226                     PUBLIC  DequeueEvent
+                           227     
+                           228     
+0000 8D360000       R      229         LEA     SI, EventQueue              ;
+0004 E80000         E      230         CALL    Dequeue                     ;
+0007 C3                    231         RET
+                           232         
+                           233     DequeueEvent    ENDP
+                           234     ; Name:             EnqueueEvent
+                           235     ; Description:      Enqueues the passed char into EventQueue
+                           236     ;
+                           237     ; Input:            None.
+                           238     ; Output:           None.
+                           239     ;
+                           240     ; User Interface:   None.
+                           241     ;
+                           242     ; Error Handling:   None.
+                           243     ;
+                           244     ; Algorithms:       None.
+                           245     ;
+                           246     ; Data Structures:  None.
+                           247     ;
+                           248     ; Known Bugs:       None.
+                           249     ; Limitations:      None.
+                           250     ;
+                           251     ; Revision History:
+                           252     ;                               Initial Version ->  12-05-2013 - Anjian Wu
+                           253     ;------------------------------------------------------------------------------------
+                                   ----       
+0008                       254     EnqueueEvent    PROC    NEAR
+                           255                     PUBLIC  EnqueueEvent
+                           256     
+0008 8D360000       R      257         LEA     SI, EventQueue              ;
+000C E80000         E      258         CALL    Enqueue                     ;
+000F C3                    259         RET
+                           260         
+                           261     EnqueueEvent    ENDP
+                           262     ;Procedure:                     EventAvailable
+                           263     ;
+                           264     ;Description:           Checks if EventQueue is empty
+                           265     ;                
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    21:53:06  12/12/;3  PAGE    6
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           266     ;Arguments:             hexcode.
+                           267     ;Return Values:         None.
+                           268     ;Shared Variables:      None.
+                           269     ;Local Variables:       None.
+                           270     ;Global Variables:      None.                   
+                           271     ;Input:                 None.
+                           272     ;Output:                None.
+                           273     ;Registers Used:        None.
+                           274     ;Stack Depth:           none.
+                           275     ;Known Bugs:            None.
+                           276     ;Data Structures:       None.
+                           277     ;Error Handling:        If tx_queue is FULL, then stop and return.
+                           278     ;Algorithms:            None.
+                           279     ;Limitations:           None.
+                           280     ;Author:                        Anjian Wu
+                           281     ;History:                       12-06-2013: Pseudo code - Anjian Wu
+                           282     ;------------------------------------------------------------------------------
+0010                       283     EventAvailable      PROC    NEAR
+                           284                         PUBLIC  EventAvailable
+                           285     
+0010 8D360000       R      286         LEA     SI, EventQueue              ;
+0014 E80000         E      287         CALL    QueueEmpty                  ;
+0017 C3                    288         RET
+                           289         
+                           290     EventAvailable  ENDP
+                           291     
+                           292     ;Procedure:                     EventFull
+                           293     ;
+                           294     ;Description:           Checks if EventQueue is Full
+                           295     ;                
+                           296     ;Arguments:             None.
+                           297     ;Return Values:         none.
+                           298     ;Shared Variables:      None.
+                           299     ;Local Variables:       None.
+                           300     ;Global Variables:      None.                   
+                           301     ;Input:                 None.
+                           302     ;Output:                None.
+                           303     ;Registers Used:        None.
+                           304     ;Stack Depth:           none.
+                           305     ;Known Bugs:            None.
+                           306     ;Data Structures:       None.
+                           307     ;Error Handling:        None.
+                           308     ;Algorithms:            None.
+                           309     ;Limitations:           None.
+                           310     ;Author:                        Anjian Wu
+                           311     ;History:                       12-06-2013: Pseudo code - Anjian Wu
+                           312     ;------------------------------------------------------------------------------
+0018                       313     EventFull   PROC    NEAR
+                           314                 PUBLIC  EventFull
+                           315                         
+0018 8D360000       R      316         LEA     SI, EventQueue              ;
+001C E80000         E      317         CALL    QueueFull                   ;
+001F C3                    318         RET
+                           319         
+                           320     EventFull   ENDP
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    21:53:06  12/12/;3  PAGE    7
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           321     
+                           322     
+                           323     ;Procedure:                     EnqueueEventInit
+                           324     ;
+                           325     ;Description:           Initializes the queue at EventQueue
+                           326     ;
+                           327     ;                
+                           328     ;Arguments:             None.
+                           329     ;Return Values:         none.
+                           330     ;Shared Variables:      None.
+                           331     ;Local Variables:       None.
+                           332     ;Global Variables:      None.                   
+                           333     ;Input:                 None.
+                           334     ;Output:                None.
+                           335     ;Registers Used:        None.
+                           336     ;Stack Depth:           none.
+                           337     ;Known Bugs:            None.
+                           338     ;Data Structures:       None.
+                           339     ;Error Handling:    None.
+                           340     ;                   
+                           341     ;Algorithms:            None.
+                           342     ;Limitations:           None.
+                           343     ;Author:                        Anjian Wu
+                           344     ;History:                       12-06-2013: Pseudo code - Anjian Wu
+                           345     ;------------------------------------------------------------------------------
+                           346     
+0020                       347     EnqueueEventInit    PROC NEAR
+                           348                         PUBLIC  EnqueueEventInit
+                           349     
+0020 8D360000       R      350         LEA     SI, EventQueue              ;
+0024 B301                  351         MOV     BL, WORD_QUEUE              ;
+0026 B8FF01                352         MOV     AX, MAX_Q_LENG - 1          ;
+0029 E80000         E      353         CALL    QueueInit                   ;
+                           354     
+002C C3                    355         RET
+                           356     EnqueueEventInit    ENDP
+                           357     
+----                       358     CODE    ENDS
+                           359     
+----                       360     DATA    SEGMENT PUBLIC  'DATA'
+                           361     
+0000 ????                  362     EventQueue          QUEUESTRUC <>           ; Holds the EventQueue
+0002 ????
+0004 ????
+0006 ????
+0008 (1024
+     ??
+     )
+                           363     
+                           364     
+----                       365     DATA    ENDS
+                           366     
+                           367     
+                           368             END 
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND

@@ -1,0 +1,1561 @@
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    1
+
+
+DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE MOTORS
+OBJECT MODULE PLACED IN MOTORS.OBJ
+ASSEMBLER INVOKED BY:  C:\5XTOOLS\ASM86.EXE MOTORS.ASM M1 DB EP
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                             1     NAME        Motors
+                             2     
+                             3 +1  $INCLUDE(motors.inc);
+                      =1     4     
+                      =1     5     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1     6     ;                                                                               ;
+                      =1     7     ;                                  Motors.INC                                   ;
+                      =1     8     ;                               Motor Constants                             ;
+                      =1     9     ;                                 Include File                              ;
+                      =1    10     ;                                                                           ;
+                      =1    11     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    12     
+                      =1    13     ; This file contains the definitions for the Motor functions
+                      =1    14     ;
+                      =1    15     ; Revision History:
+                      =1    16     ;    11/23/2013                 Created - Anjian Wu
+                      =1    17     
+                      =1    18     
+                      =1    19     
+                      =1    20     ; Fx Table Definitions
+                      =1    21     
+  7FFF                =1    22     Fx1             EQU     07FFFH         ; Fx component for Motor 1
+  C000                =1    23     Fx2             EQU     0C000H         ; Fx component for Motor 2
+  C000                =1    24     Fx3             EQU     0C000H         ; Fx component for Motor 3
+  0000                =1    25     Fy1             EQU     0              ; Fy component for Motor 1
+  9127                =1    26     Fy2             EQU     09127H         ; Fy component for Motor 2
+  6ED9                =1    27     Fy3             EQU     06ED9H         ; Fy component for Motor 3
+                      =1    28     
+  0003                =1    29     FY_offset       EQU     3              ; Fy components are 3 down in the table
+                      =1    30     
+                      =1    31     ; SetMotorSpeed Local Vars
+ -0002[]              =1    32     Fx          EQU     WORD PTR [BP - 2]   ; Stores the Fx component for each motor
+ -0004[]              =1    33     Fy          EQU     WORD PTR [BP - 4]   ; Stores the Fy component for each motor
+ -0006[]              =1    34     COS_VAL     EQU     WORD PTR [BP - 6]   ; Stores the COS(ANGLESTORED)
+ -0008[]              =1    35     SIN_VAL     EQU     WORD PTR [BP - 8]   ; Stored the SIN(ANGLESTORED)
+                      =1    36     
+                      =1    37     ; Motor Conv. Constants
+                      =1    38     
+  0168                =1    39     FULL_ANGLE      EQU     360             ; There are 360 deg in a full circle
+ -8000                =1    40     NO_ANGLE_CHANGE EQU     -32768          ; NO angle change is denoted by -32768
+  FFFF                =1    41     NO_SPEED_CHANGE EQU     65535           ; No speed change is denoted by 65534;
+  0003                =1    42     numOfmotors     EQU     3               ; There are three motors on Robotrike
+                      =1    43     
+  0000                =1    44     STOPPED_SPEED   EQU     0               ; Value for no motor movement
+  0000                =1    45     ZERO_ANGLE      EQU     0               ; Value for 0 degress
+                      =1    46     
+  0001                =1    47     SPEED_ADJUST    EQU     1               ; Num of bits to shift for speed
+                      =1    48     
+  0002                =1    49     EXTRA_SIGN_BITS EQU     2               ; There are two extra sign bits in
+                      =1    50                                             ; Setmotorspeed's S[i] calc
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    2
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1    51     
+  0000                =1    52     ZERO_SPEED_PWM  EQU     0               ; Zero speed requires 0 duty cycle
+                      =1    53     
+  007F                =1    54     PWM_WIDTH_MAX   EQU     127             ; Resolution of PWM
+                      =1    55     
+  0008                =1    56     SetMotorVarSize EQU     8               ; SetMotorSpeed requires 4 words of local
+                      =1    57                                             ; variables on Stack.
+                      =1    58     
+                      =1    59     
+                      =1    60     ; Motor PORT Vals
+  0183                =1    61     _8255_CNTRL_REG EQU     183H    ;Control Word Address
+  0080                =1    62     _8255_CNTRL_VAL EQU     80H     ;Control Word Write val: MODE 0 for BOTH groups A & B
+                      =1    63     
+  0181                =1    64     PORTB           EQU     181H    ;Address of port B
+                      =1    65     
+                      =1    66     ; MOtor MASK vals
+                      =1    67                                       
+  0002                =1    68     FORWARD_M1          EQU     00000010B   ;   MASK FORWARD for Motor 1
+  0003                =1    69     BACKWARD_M1     EQU     00000011B   ;   MASK BACKWARD for Motor 1
+                      =1    70     
+  0008                =1    71     FORWARD_M2          EQU     00001000B   ;   MASK FORWARD for Motor 2
+  000C                =1    72     BACKWARD_M2     EQU     00001100B   ;   MASK BACKWARD for Motor 2
+                      =1    73     
+  0020                =1    74     FORWARD_M3          EQU     00100000B   ;   MASK FORWARD for Motor 3
+  0030                =1    75     BACKWARD_M3     EQU     00110000B   ;   MASK BACKWARD for Motor 3
+                      =1    76     
+  00FD                =1    77     STOP_M1             EQU     11111101B   ;   MASK STOP for Motor 1 
+  00F7                =1    78     STOP_M2             EQU     11110111B   ;   MASK STOP for Motor 2 
+  00DF                =1    79     STOP_M3             EQU     11011111B   ;   MASK STOP for Motor 3 
+                      =1    80     
+  0080                =1    81     LASER_ON        EQU     10000000B   ;   OR MASK for laser ON (PortB)
+  007F                =1    82     LASER_OFF       EQU     01111111B   ;   AND MASK for laser OFF (PortB)
+                      =1    83     
+                      =1    84     
+                      =1    85     
+                      =1    86     
+                            87 +1  $INCLUDE(general.inc);
+                      =1    88     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    89     ;                                                                               ;
+                      =1    90     ;                                  General.INC                                  ;
+                      =1    91     ;                               General Constants                           ;
+                      =1    92     ;                                 Include File                              ;
+                      =1    93     ;                                                                           ;
+                      =1    94     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    95     
+                      =1    96     ; This file contains general operations
+                      =1    97     ;
+                      =1    98     ; Revision History:
+                      =1    99     ;    11/02/2013                 Created - Anjian Wu
+                      =1   100     ;    11/23/2013                 Added WORD_LOOKUP_ADJUST - Anjian Wu
+                      =1   101     ;    12/05/2014         Added FMS_ERROR key, ZERO, changed other keys to 
+                      =1   102     ;                       ASCII based - Anjian
+                      =1   103     ;    12/12/2014         Added CAR_RETURN
+                      =1   104     
+                      =1   105     
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   106     ; General Constants
+  000D                =1   107     CAR_RETURN      EQU     13          ;
+  0000                =1   108     ASCII_NULL      EQU     0           ;
+  0001                =1   109     bit_size        EQU     1           ;
+  0004                =1   110     nibble_size     EQU     4           ;
+  0008                =1   111     BYTE_size       EQU     8           ;
+  0010                =1   112     WORD_size       EQU     16          ;
+  0000                =1   113     ArrayEmpty      EQU     0               ; Empty is set at 0 index
+                      =1   114     
+  0001                =1   115     TRUE            EQU     1           ;
+  0000                =1   116     FALSE           EQU     0           ;
+                      =1   117     
+  0000                =1   118     RESET           EQU     0           ; General Value for Resetting something
+                      =1   119     
+  0000                =1   120     CLEAR           EQU     0           ;
+                      =1   121     
+  0000                =1   122     ZERO            EQU     0           ;
+                      =1   123     
+  000A                =1   124     DIGIT           EQU     10          ; A digit in base 10 
+                      =1   125     
+  0001                =1   126     WORD_LOOKUP_ADJUST  EQU    1           ; Two bytes in one word -> SHL by 1
+                      =1   127     
+                      =1   128     ; General Definitions for Main Loops
+                      =1   129     
+  0001                =1   130     FIRST_RESERVED_VEC      EQU     1           ;reserve vectors 1-3
+  0003                =1   131     LAST_RESERVED_VEC       EQU     3       ;
+  0100                =1   132     NUM_IRQ_VECTORS     EQU 256     ;number of interrupt vectors
+                      =1   133     
+                      =1   134     ; MainLoop Key Codes
+                      =1   135     
+  0000                =1   136     KEY_EVENT_KEY       EQU     0   ; Event code indicating key pressed
+  0001                =1   137     SER_ERR_KEY         EQU     1   ; Event code indicating serial error
+  0002                =1   138     RX_ENQUEUED_KEY     EQU     2   ; Event code indicating new rx value gotten
+  0003                =1   139     MODEM_KEY           EQU     3   ; Event code indicating modem event
+  0004                =1   140     FSM_ERROR           EQU     4   ; Error key showing FSM error
+                      =1   141     
+                      =1   142     ; General Addresses
+                      =1   143     
+  FF22                =1   144     INTCtrlReg          EQU     0FF22H  ;EOI interrupt controller       
+                           145 +1  $INCLUDE(timer.inc);
+                      =1   146     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   147     ;                                                                               ;
+                      =1   148     ;                                  Timer.INC                                    ;
+                      =1   149     ;                              Timer Constants                              ;
+                      =1   150     ;                                 Include File                              ;
+                      =1   151     ;                                                                           ;
+                      =1   152     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   153     
+                      =1   154     ; This file contains the definitions for timers and their interupts
+                      =1   155     ;
+                      =1   156     ; Revision History:
+                      =1   157     ;    11/23/2013                 Created - Anjian Wu
+                      =1   158     ;    12/10/2013         Added Timer2 vals - Anjian Wu
+                      =1   159     
+                      =1   160     
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    4
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   161                                             ; Timer Definitions
+                      =1   162     
+                      =1   163     ; Addresses
+  FF56                =1   164     Tmr0Ctrl        EQU     0FF56H          ;address of Timer 0 Control Register
+  FF52                =1   165     Tmr0MaxCntA     EQU     0FF52H          ;address of Timer 0 Max Count A Register
+  FF50                =1   166     Tmr0Count       EQU     0FF50H          ;address of Timer 0 Count Register
+                      =1   167     
+  FF5E                =1   168     Tmr1Ctrl        EQU     0FF5EH          ;address of Timer 1 Control Register
+  FF5A                =1   169     Tmr1MaxCntA     EQU     0FF5AH          ;address of Timer 1 Max Count A Register
+  FF58                =1   170     Tmr1Count       EQU     0FF58H          ;address of Timer 1 Count Register
+                      =1   171     
+                      =1   172     
+  FF66                =1   173     Tmr2Ctrl        EQU     0FF66H          ;address of Timer 2 Control Register
+  FF62                =1   174     Tmr2MaxCnt      EQU     0FF62H          ;address of Timer 2 Max Count A Register
+  FF60                =1   175     Tmr2Count       EQU     0FF60H          ;address of Timer 2 Count Register
+                      =1   176     
+                      =1   177     ; Control Register Values
+  E001                =1   178     Tmr0CtrlVal     EQU     0E001H          ;value to write to Timer 0 Control Register
+                      =1   179                                             ;1---------------  enable timer
+                      =1   180                                             ;-1--------------  write to control
+                      =1   181                                             ;--1-------------  enable interrupts
+                      =1   182                                             ;----000000------  reserved
+                      =1   183                                             ;---0------0-----  read only
+                      =1   184                                             ;-----------0----  Retrigger
+                      =1   185                                             ;------------0---  Prescaler
+                      =1   186                                             ;-------------0--  external clock
+                      =1   187                                             ;--------------0-  single counter mode
+                      =1   188                                             ;---------------1  continuous mode
+                      =1   189                                             
+  E001                =1   190     Tmr1CtrlVal     EQU     0E001H          ;value to write to Timer 1 Control Register
+                      =1   191                                             ;1---------------  enable timer
+                      =1   192                                             ;-1--------------  write to control
+                      =1   193                                             ;--1-------------  enable interrupts
+                      =1   194                                             ;----000000------  reserved
+                      =1   195                                             ;---0------0-----  read only
+                      =1   196                                             ;-----------0----  Retrigger
+                      =1   197                                             ;------------0---  Prescaler
+                      =1   198                                             ;-------------0--  external clock
+                      =1   199                                             ;--------------0-  single counter mode
+                      =1   200                                             ;---------------1  continuous mode
+                      =1   201     
+  E001                =1   202     Tmr2CtrlVal     EQU     0E001H          ;value to write to Timer 2 Control Register
+                      =1   203                                             ;1---------------  enable timer
+                      =1   204                                             ;-1--------------  write to control
+                      =1   205                                             ;--1-------------  enable interrupts
+                      =1   206                                             ;----0000000-----  reserved
+                      =1   207                                             ;-----------0----  MaxCount
+                      =1   208                                             ;------------000-  reserved
+                      =1   209                                             ;---------------1  continuous mode
+                      =1   210     ; Control Register Values
+                      =1   211                                           
+                      =1   212                                             ; Control Register Values
+  08CA                =1   213     CTS_PER_MILSEC  EQU     2250            ; 18MHZ/(8 * 1KHz) ~ 2250 counts per MS
+                      =1   214     
+  07D0                =1   215     PRESCALE_2SEC   EQU     2000            ; 2 seconds = CTS_PER_MILSEC * 2000
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    5
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   216     
+  0008                =1   217     TimerEOI        EQU     00008H          ;Timer EOI command (same for all timers)
+  8000                =1   218     NonSpecEOI      EQU     08000H          ;Non-specific EOI command
+                      =1   219     
+                      =1   220     
+  0258                =1   221     COUNT_FOR_30HZ  EQU     600             ; 18,000,000 HZ/(8 * 30 Hz * PWM_WIDTH_MAX) 
+                      =1   222                                             ; ~ 600 counts for 30 HZ of PWM
+                      =1   223                                             
+  00B1                =1   224     COUNT_FOR_100HZ EQU     177             ; 18,000,000 HZ/(8 * 100 Hz * PWM_WIDTH_MAX) 
+                      =1   225                                             ; ~ 177 counts for 100 HZ of PWM             
+                                                             
+                      =1   226                                             
+                      =1   227                                             ; NOTE THIS IS APPROXIMATE, Clock is actually
+                                    a bit faster
+                      =1   228                                             ; than 18 MHZ
+                      =1   229     
+                      =1   230     
+                           231 +1  $INCLUDE(vectors.inc);
+                      =1   232     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   233     ;                                                                               ;
+                      =1   234     ;                                  Vector.INC                                   ;
+                      =1   235     ;                              IVector Constants                            ;
+                      =1   236     ;                                 Include File                              ;
+                      =1   237     ;                                                                           ;
+                      =1   238     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   239     
+                      =1   240     ; This file contains the definitions for timers and their interupts
+                      =1   241     ;
+                      =1   242     ; Revision History:
+                      =1   243     ;    11/23/2013                 Created - Anjian Wu
+                      =1   244     ;    12/10/2013         Added Timer 2 info - Anjian Wu
+                      =1   245     
+                      =1   246                                             ; IVector Definitions
+                      =1   247     
+                      =1   248     ; Interrupt Vectors and their control values
+  0008                =1   249     Tmr0Vec         EQU     8               ;interrupt vector for Timer 0
+  0012                =1   250     Tmr1Vec         EQU     18              ;interrupt vector for Timer 1
+  0013                =1   251     Tmr2Vec         EQU     19              ;interrupt vector for Timer 2
+                      =1   252     
+  FF32                =1   253     INTCtrlrCtrl    EQU     0FF32H          ;address of interrupt controller for timer
+  FF22                =1   254     INTCtrlrEOI     EQU     0FF22H          ;address of interrupt controller EOI register
+                      =1   255     
+  0001                =1   256     INTCtrlrCVal    EQU     00001H          ;set priority for timers to 1 and enable
+                      =1   257                                             ;000000000000----  reserved
+                      =1   258                                             ;------------0---  enable timer interrupt
+                      =1   259                                             ;-------------001  timer priority
+                           260     
+                           261     CGROUP  GROUP   CODE
+                           262     DGROUP GROUP    DATA
+                           263     
+----                       264     CODE SEGMENT PUBLIC 'CODE'
+                           265     
+                           266             ASSUME  CS:CGROUP, DS:DGROUP
+                           267             
+                           268     ;External Procedures needed
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    6
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           269             EXTRN   XWORDLAT:NEAR       ; Used to grab elements from WORD table
+                           270             EXTRN   Cos_Table:NEAR      ; Table for COS operations
+                           271             EXTRN   Sin_Table:NEAR      ; Table for SIN operations
+                           272     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           273     ;                                                                            ;
+                           274     ;                                 HW6 Motor Functions                        ;
+                           275     ;                                 EE51                                           ;
+                           276     ;                                 Anjian Wu                                  ;
+                           277     ;                                                                            ;
+                           278     ;                                 TA: Pipe-Mazo                              ;
+                           279     ;                                                                            ;
+                           280     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           281     ;                                 What's in here?
+                           282     ;
+                           283     ;                                   Code Segment
+                           284     ;
+                           285     ;   SetMotorSpeed  -   Sets the motor speed by changing PWM width
+                           286     ;   GetMotorSpeed  -   Retrieves the motor speed 
+                           287     ;   GetMotorDirection  -  retrieves motor angle (0 to 359 deg)
+                           288     ;   SetLaser        -   Turns on/off the laser
+                           289     ;   GetLaser        -   Checks if Laser is turned on or not
+                           290     ;
+                           291     ;
+                           292     ;   MotorInit       - Initializes all motor vars, installs handler and sets up CS
+                           293     ;   MotorHandler    -   Interrupt handler that outputs to PORTB with proper PWM
+                           294     ;   SetMotor_GetTrig -   Used by MotorHandler to grab COS_VAL and SIN_VAL
+                           295     ;   SetMotor_GetArgs -   Used by MotorHandler to grab Fx and Fy values
+                           296     
+                           297     ;
+                           298     ;                                   Data Segment
+                           299     ;
+                           300     ;
+                           301     ;   s           -   this is the PWM width value set by SetMotorSpeed for each motor
+                           302     ;   s_pwm       -   This is the PWM counter that keeps track of where in the 
+                           303     ;                   PWM phase each motor is in.
+                           304     ;   SpeedStored -   Current ABS motor speed
+                           305     ;   AngleStored -   Current robot moving angle
+                           306     ;   LaserFlag   -   Status of laser
+                           307     ;   portb_buff  -   Holds the buffer value to be outputted.
+                           308     ;
+                           309     ;                                  Temporary Stack Variables
+                           310     ;
+                           311     ;   Fx          -   This is the calculated Fx component, which changed per motor 
+                           312     ;   Fy          -   This is the calculated Fy component, which changed per motor 
+                           313     ;   COS_VAL     -   Stores the COS(anglestored)
+                           314     ;   SIN_VAL     -   Stores the SIN(anglestored)
+                           315     ;
+                           316     ;                                 What's was last edit?
+                           317     ;
+                           318     ;                               Pseudo code -> 11-18-2013 - Anjian Wu
+                           319     ;                               Finished, but buggy -> 11-20-2013 - Anjian Wu
+                           320     ;                               Working -> 11-22-2013 - Anjian Wu
+                           321     ;                               Added Stack Variables -> 11-24-2013 - Anjian Wu
+                           322     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           323     
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    7
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           324     ;Procedure:                     SetMotorSpeed
+                           325     ;
+                           326     ;Description:           This function performs the holonomic calculations for each
+                           327     ;                   respective motor by storing the speed and angle passed, as
+                           328     ;                   well as calculating each motor's PWM length/counter such that
+                           329     ;                   the overall speed and angle of the system matches the stored
+                           330     ;                   angle and speed. Ultimately the function's stored
+                           331     ;                   PWM values for each counter (aka s[0 to 2]) will be accessed
+                           332     ;                   by the MotorHandler as the PWM width reference by which
+                           333     ;                   each motor can be turned on or off.
+                           334     ;           
+                           335     ;                   
+                           336     ;Operation:                     1.Check Angle 2.Angle Calc 3.Check Speed 4. Speed Cal
+                                   c
+                           337     ;
+                           338     ;                                           Check Angle
+                           339     ;                   * Check if angle needs to be changed (comp to NO_ANGLE_CHANGE)
+                           340     ;                       * If not, then use previous anglestored and go to Check Calc
+                           341     ;
+                           342     ;                                           Angle Calc
+                           343     ;                   * AngleStored = BX MOD FULL_ANGLE
+                           344     ;                       * If angle is neg, AngleStored = AngleStored + FULL_ANGLE deg
+                           345     ;
+                           346     ;                                           Check Speed
+                           347     ;                   * Check if speed needs to be changed (comp to NO_SPEED_CHANGE)
+                           348     ;                       * If not, then use previous speedstored and go to Speed Calc
+                           349     ;
+                           350     ;                                           SpeedCalc
+                           351     ;                   * Grab speed. Divide speed by two (To get into range 0 to 7FFFH)
+                           352     ;                     Do this because upper half of the range would appear negative.
+                           353     ;                   * For each i'th motor out of numOfMotors
+                           354     ;                       *   CALL SetMotor_GetArgs(i)
+                           355     ;                       *   CX = TopWordOf(TopWordOf(Fx * speedstored) * COS_VAL)
+                           356     ;                       *   DX = TopWordOf(TopWordOf(Fy * speedstored) * SIN_VAL)
+                           357     ;                       *   s[i] = TopByteOf((CX + DX) << 2)
+                           358     ;                   * DONE
+                           359     ;
+                           360     ;Arguments:             AX     -> ABS speed to be set
+                           361     ;                   BX     -> Angle to be set
+                           362     ;
+                           363     ;Return Values:         None.
+                           364     ;
+                           365     ;Result:            Possibly new values in s[0 to 2], speedstored, and anglestored
+                           366     ;
+                           367     ;Shared Variables:      s[0 to 2]   (WRITE)
+                           368     ;                   SpeedStored (WRITE/READ) 
+                           369     ;                   AngleStored (WRITE/READ)
+                           370     ;
+                           371     ;Local Variables:       AX      -   Used for DIV and MUL operations
+                           372     ;                   BX      -   Counter as well as pointer
+                           373     ;                   CX      -   Used for ADDing X and Y components
+                           374     ;                   DX      -   Holds MOD and remainder values
+                           375     ;                   ES      -   Used to pass Code Segment
+                           376     ;                   Fx (SP -2)  - Holds Fx component per i'th motor
+                           377     ;                   Fy (SP -4)  - Holds Fy component per i'th motor
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    8
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           378     ;                   COS_VAL(SP -6)  - Holds the COS(ANGLESTORED)
+                           379     ;                   SIN_VAL (SP -8) - Holds the SIN(ANGLESTORED)
+                           380     ;                   
+                           381     ;
+                           382     ;Global Variables:      None.
+                           383     ;                                       
+                           384     ;                                       
+                           385     ;Input:                 none.
+                           386     ;
+                           387     ;Output:                none.
+                           388     ;
+                           389     ;Registers Used:        AX, BX, CX, DX, ES.
+                           390     ;
+                           391     ;Stack Depth:           8 words + SetMotorVarSize
+                           392     ;
+                           393     ;Known Bugs:            None.
+                           394     ;
+                           395     ;Data Structures:       1D array. Stack frame
+                           396     ;
+                           397     ;Error Handling:        none.
+                           398     ;
+                           399     ;Algorithms:            Tables driven loop up to get values for COS_VAL, SIN_VAL, FX,
+                                    and Fy
+                           400     ;                   Math Algorithm ( * = IMUL)
+                           401     ;                       *   CX = TopWordOf(TopWordOf(Fx * speedstored) * COS_VAL)
+                           402     ;                       *   DX = TopWordOf(TopWordOf(Fy * speedstored) * SIN_VAL)
+                           403     ;                       *   s[i] = TopByteOf((CX + DX) << 2) ; Cut off repetitive sig
+                                   n bits
+                           404     ;                   
+                           405     ;
+                           406     ;Limitations:           Limited to 127 bits of resolution for PWM.
+                           407     ;                   Also during operation, Shared variables will be changed
+                           408     ;                   as the MotorHandler is READing from those variables. However
+                           409     ;                   it should not affect operation much.
+                           410     ;
+                           411     ;
+                           412     ;Author:                        Anjian Wu
+                           413     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                           414     ;                               Working -> 11-22-2013 - Anjian Wu
+                           415     ;                   12-12-2013 -> Added PUSH/POPS to save args
+                           416     ;------------------------------------------------------------------------------
+                           417     ; SetMotorSpeed Local Vars (In motors.inc but commented here for reference)
+                           418     ;Fx          EQU     WORD PTR [BP - 2]   ; Stores the Fx component for each motor
+                           419     ;Fy          EQU     WORD PTR [BP - 4]   ; Stores the Fy component for each motor
+                           420     ;COS_VAL     EQU     WORD PTR [BP - 6]   ; Stores the COS(ANGLESTORED)
+                           421     ;SIN_VAL     EQU     WORD PTR [BP - 8]   ; Stored the SIN(ANGLESTORED)
+                           422     
+0000                       423     SetMotorSpeed           PROC    NEAR
+                           424                                         PUBLIC  SetMotorSpeed
+0000 50                    425         PUSH    AX
+0001 53                    426         PUSH    BX
+                           427                         
+0002                       428     SetMotorStackFrameInit:
+0002 55                    429         PUSH    BP                      ;save BP
+0003 8BEC                  430         MOV     BP, SP                  ;and get BP pointing at our stack frame
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    9
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0005 83EC08                431         SUB     SP, SetMotorVarSize        ;save space on stack for local variables
+                           432     
+0008 60                    433         PUSHA           ; Save all regs used (AX - DX)
+0009                       434     SetMotorSpeedAngChk:
+                           435     
+0009 50                    436             PUSH    AX                                              ; Save Speed for late
+                                   r
+000A 81FB0080              437         CMP     BX, NO_ANGLE_CHANGE     ; Do we need to change the angle?
+000E 7502                  438         JNE     SetMotorAngleCalc       ; Yes
+0010 7415                  439         JE      SetMotorSpeedChk        ; No, go to speed check
+                           440     
+0012                       441     SetMotorAngleCalc:
+                           442     
+0012 8BC3                  443             MOV             AX, BX                                  ; Need to use AX spec
+                                   ifically for IDIV
+0014 BB6801                444         MOV     BX, FULL_ANGLE          ; 
+0017 99                    445         CWD                             ; Prepare for signed DIV
+0018 F7FB                  446         IDIV    BX                          ; Take the MOD to Full angle
+                           447     ; Angle now in DX since we want MOD
+001A 83FA00                448             CMP             DX,     ZERO_ANGLE                      ; Is the Angle Neg?
+001D 7D04                  449             JGE             SetMotorAngleSave               ; Nope, store it
+                           450             ;JL             SetMotorAngleNeg                ; Yes, it is ,need adjustment
+                           451     
+001F                       452     SetMotorAngleNeg:
+001F 81C26801              453             ADD             DX, FULL_ANGLE                  ; Calc positive equivalent an
+                                   gle
+                           454             ;jmp    SetMotorAngleSave
+0023                       455     SetMotorAngleSave:
+0023 89160200       R      456             MOV             AngleStored, DX                 ; Store this abs angle
+                           457         ;jmp    SetMotorSpeedChk
+0027                       458     SetMotorSpeedChk:
+0027 58                    459         POP     AX                      ; Now retrieve the Speed Arg
+0028 3DFFFF                460             CMP             AX, NO_SPEED_CHANGE     ; Are we changing the speed?
+002B 7403                  461         JE      SetMotor_SpeedCalcInit  ; No, so Start speed calculations
+                           462         ;JNE    SetMotorDiffSpeed       ; Yes, so save that speed
+                           463         
+002D                       464     SetMotorDiffSpeed:  
+002D A30000         R      465         MOV     SpeedStored, AX         ; Store that speed
+                           466         ;JMP    SetMotor_SpeedCalcInit
+                           467         
+                           468     ;-----------------------Motor Speed Math---------------------------------
+                           469     
+0030                       470     SetMotor_SpeedCalcInit:
+0030 33DB                  471         XOR     BX, BX                  ; Clear loop counter
+0032 8CC8                  472         MOV     AX, CS
+0034 8EC0                  473         MOV     ES, AX                  ; Prepare to use XWORDLAT in code segment
+0036 E83800                474         CALL    SetMotor_GetTrig        ; Grab COS(AngleStored) and SIN(AngleStored)
+                           475                                         ; This only needs to be done ONCE
+                           476         
+0039                       477     SetMotor_CalcLoop:  
+0039 83FB03                478         CMP     BX, numOfmotors         ; Is the counter done with all motors?
+003C 7D2B                  479         JGE     SetMotor_DONE           ; Yes, done
+                           480         ;JL     SetMotor_GrabAllArgs    ; No, keep going
+                           481         
+003E                       482     SetMotor_GrabAllArgs:     
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   10
+
+
+LOC  OBJ                  LINE     SOURCE
+
+003E E84B00                483         CALL    SetMotor_GetArgs        ; Update Fx, and Fy values for BX'th motor
+                           484                                         ; Must be done every loop...
+                           485                                         ; Passes ES, and CX
+0041                       486     SetMotor_CalcX:     
+                           487     
+0041 A10000         R      488         MOV     AX, SpeedStored         ; Grab current speed 
+0044 D1E8                  489         SHR     AX, SPEED_ADJUST        ; Div Speed to get into range [0, 7FFFH]     
+0046 F76EFE                490         IMUL    Fx                      ; Fx * SpeedStored. 
+0049 8BC2                  491         MOV     AX, DX                  ; Truncated answer in DX
+004B F76EFA                492         IMUL    COS_VAL                 ; (Fx * SpeedStored)*COS(AngleStored)    
+004E 8BCA                  493         MOV     CX, DX;    
+0050                       494     SetMotor_CalcY:   
+                           495      
+0050 A10000         R      496         MOV     AX, SpeedStored         ; Grab current speed 
+0053 D1E8                  497         SHR     AX, SPEED_ADJUST        ; Div Speed by two to get into range [0, 7FFFH]  
+                                      
+0055 F76EFC                498         IMUL    Fy                      ; Fy * SpeedStored. 
+0058 8BC2                  499         MOV     AX, DX                  ; Truncated answer in DX
+005A F76EF8                500         IMUL    SIN_VAL                 ; (Fy * SpeedStored)*SIN(AngleStored)
+                           501         
+005D 03CA                  502         ADD     CX, DX                  ; Add X and Y components
+                           503         
+005F C1E102                504         SAL     CX, EXTRA_SIGN_BITS     ; Take out the duplicated sign bits
+                           505         
+0062 88AF0600       R      506         MOV     s[BX], CH               ; Store (Fx * v * cos q + Fy * v * sin q)
+                           507     
+0066                       508     SetMotor_LoopDone:
+                           509         
+0066 43                    510         INC     BX                      ; Increment the counter
+0067 EBD0                  511         JMP     SetMotor_CalcLoop       ; LOOP
+                           512         
+0069                       513     SetMotor_DONE:
+                           514     
+0069 61                    515         POPA    ; Restore all regs used.
+                           516     
+006A 83C408                517         ADD     SP, SetMotorVarSize        ;release local variables from stack
+006D 5D                    518         POP     BP                      ;restore BP
+                           519     
+006E 5B                    520         POP     BX
+006F 58                    521         POP     AX
+                           522         
+0070 C3                    523         RET
+                           524     
+                           525     SetMotorSpeed ENDP
+                           526     
+                           527     ;Procedure:                     SetMotor_GetTrig
+                           528     ;
+                           529     ;Description:           This function updates COS_VAL, and SIN_VAL for SetMotor's mat
+                                   h. It does this
+                           530     ;                   through using the Cos_Table and Sin_Table. Since these are WORD t
+                                   ables, 
+                           531     ;                   the actual table grabbing is done though function XWORDLAT (from 
+                                   General.asm).
+                           532     ;                   Note this function is only use in SetMotorSpeed since COS_VAL and
+                                    SIN_VAL
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   11
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           533     ;                   are store in Stack frame.
+                           534     ;           
+                           535     ;                   NOTE: XWORDLAT takes the following ARGs.
+                           536     ;                   XWORDLAT(AX = table offset, BX = relative offset, ES = CS or DS)
+                           537     ;
+                           538     ;                   By doing this, the SetMotorSpeed is easier to debug since stack v
+                                   ariables
+                           539     ;                   can be easily searched before SetMotorSpeed finishes, while also 
+                                   avoiding
+                           540     ;                   using permanent data segment space.
+                           541     ;                   
+                           542     ;Operation:                     
+                           543     ;                                           COS Grab
+                           544     ;                   * CALL XWORDLAT(AX = offset(Cos_Table) , AngleStored)
+                           545     ;                   * COS_VAL = AX.
+                           546     ;                                           SIN Grab
+                           547     ;                   * CALL XWORDLAT(AX = offset(Sin_Table) , AngleStored)
+                           548     ;                   * SIN_VAL = AX.
+                           549     ;
+                           550     ;Arguments:             BX     -> Motor index (0 to numOfMotors -1)
+                           551     ;                   ES     -> Code segment or Data segment
+                           552     ;                   BP     -> Where local variables COS_VAL and SIN_VAL are.
+                           553     ;
+                           554     ;Return Values:         None.
+                           555     ;
+                           556     ;Result:            Updated COS_VAL, SIN_VAL for SetMotorSpeed
+                           557     ;
+                           558     ;Shared Variables:      AngleStored (READ)
+                           559     ;
+                           560     ;Local Variables:       AX      -   Used as table offset arg to pass to XWORDLAT, als
+                                   o holds
+                           561     ;                               XWORLAT return values.
+                           562     ;                   BX      -   Used as relative pointer arg for XWORDLAT
+                           563     ;                   ES      -   Used to pass Code Segment
+                           564     ;                   COS_VAL(BP -6)  - Holds the COS(ANGLESTORED)
+                           565     ;                   SIN_VAL (BP -8) - Holds the SIN(ANGLESTORED)
+                           566     ;                   
+                           567     ;
+                           568     ;Global Variables:      None.
+                           569     ;                                               
+                           570     ;Input:                 none.
+                           571     ;
+                           572     ;Output:                none.
+                           573     ;
+                           574     ;Registers Used:        AX, BX, ES.
+                           575     ;
+                           576     ;Stack Depth:           2 words.
+                           577     ;
+                           578     ;Known Bugs:            None.
+                           579     ;
+                           580     ;Data Structures:       None.
+                           581     ;
+                           582     ;Error Handling:        none.
+                           583     ;
+                           584     ;Algorithms:            Table look up. Stack frame
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   12
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           585     ;
+                           586     ;Limitations:           None.
+                           587     ;
+                           588     ;
+                           589     ;Author:                        Anjian Wu
+                           590     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                           591     ;                               Working -> 11-22-2013 - Anjian Wu
+                           592     ;------------------------------------------------------------------------------
+0071                       593     SetMotor_GetTrig                PROC    NEAR
+                           594     
+0071 53                    595         PUSH    BX                      ; Save All Used Regs
+0072 50                    596         PUSH    AX;
+0073                       597     GetTrigInit:
+                           598     
+                           599     ; NOTE XWORDLAT does not change BX
+                           600     
+0073                       601     GetTrigCos:
+0073 8B1E0200       R      602         MOV     BX, AngleStored         ; Grab stored angle, this is the proper element
+                           603                                         ; index for look up
+                           604     ; Grab Cos(AngleStored)    
+0077 B80000         E      605         MOV     AX, offset(Cos_Table)   ; Do COS operation table lookup
+007A E80000         E      606         CALL    XWORDLAT                ; COSVal component in AX
+007D 8946FA                607         MOV     COS_VAL, AX             ; Save it
+                           608         
+0080                       609     GetTrigSin:
+                           610     ; Grab Sin(AngleStored)    
+0080 B80000         E      611         MOV     AX, offset(Sin_Table)   ; Do SIN operation table lookup
+0083 E80000         E      612         CALL    XWORDLAT                ; SIN_VAL component in AX
+0086 8946F8                613         MOV     SIN_VAL, AX             ; Save it
+                           614     
+0089                       615     GetTrigDone:
+                           616     
+0089 58                    617         POP    AX;
+008A 5B                    618         POP    BX                      ; Restore all used regs
+                           619         
+008B C3                    620         RET
+                           621         
+                           622     SetMotor_GetTrig    ENDP
+                           623     
+                           624     ;Procedure:                     SetMotor_GetArgs
+                           625     ;
+                           626     ;Description:           This function takes in a relative pointer (BX), and memory se
+                                   gment (ES)
+                           627     ;                   and updates stack variables Fx, Fy for SetMotorSpeed. It does thi
+                                   s
+                           628     ;                   through using the relative pointer ARG on tables MotorFTable
+                           629     ;                   
+                           630     ;                   Since these are WORD tables, the actual table grabbing is
+                           631     ;                   done though function XWORDLAT (from General.asm).
+                           632     ;           
+                           633     ;                   NOTE: XWORDLAT takes the following ARGs.
+                           634     ;                   XWORDLAT(AX = table offset, BX = relative offset, ES = CS or DS)
+                           635     ;
+                           636     ;                   By doing this, the SetMotorSpeed is easier to debug since stack v
+                                   ariables
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   13
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           637     ;                   can be easily searched before SetMotorSpeed finishes, while also 
+                                   avoiding
+                           638     ;                   using permanent data segment space.
+                           639     ;                   
+                           640     ;Operation:                     
+                           641     ;                                           Fx Grab
+                           642     ;                   * CALL XWORDLAT(AX = offset(MotorFTable), BX = i'th motor)
+                           643     ;                   * Fx = AX.
+                           644     ;                                           Fy Grab
+                           645     ;                   * CALL XWORDLAT(AX = offset(MotorFTable) + 2*FY_OFFSET, BX = i'th
+                                    motor)
+                           646     ;                   * Fy = AX.
+                           647     ;
+                           648     ;Arguments:             BX     -> Motor index (0 to numOfMotors -1)
+                           649     ;                   ES     -> Code segment or Data segment
+                           650     ;
+                           651     ;Return Values:         None.
+                           652     ;
+                           653     ;Result:            Updated Fx, Fy for SetMotorSpeed
+                           654     ;
+                           655     ;Shared Variables:      SpeedStored (READ) 
+                           656     ;                   AngleStored (READ)
+                           657     ;
+                           658     ;Local Variables:       AX      -   Used as table offset arg to pass to XWORDLAT, als
+                                   o holds
+                           659     ;                               XWORLAT return values.
+                           660     ;                   BX      -   Used as relative pointer arg for XWORDLAT
+                           661     ;                   ES      -   Used to pass Code Segment
+                           662     ;                   Fx (SP -2)  - Holds Fx component per i'th motor
+                           663     ;                   Fy (SP -4)  - Holds Fy component per i'th motor
+                           664     ;                   
+                           665     ;
+                           666     ;Global Variables:      None.
+                           667     ;                                       
+                           668     ;                                       
+                           669     ;Input:                 none.
+                           670     ;
+                           671     ;Output:                none.
+                           672     ;
+                           673     ;Registers Used:        AX, BX, ES.
+                           674     ;
+                           675     ;Stack Depth:           2 words.
+                           676     ;
+                           677     ;Known Bugs:            None.
+                           678     ;
+                           679     ;Data Structures:       None.
+                           680     ;
+                           681     ;Error Handling:        none.
+                           682     ;
+                           683     ;Algorithms:            Table look up.
+                           684     ;
+                           685     ;Limitations:           None.
+                           686     ;
+                           687     ;
+                           688     ;Author:                        Anjian Wu
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   14
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           689     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                           690     ;                               Working -> 11-22-2013 - Anjian Wu
+                           691     ;------------------------------------------------------------------------------
+                           692     
+008C                       693     SetMotor_GetArgs                PROC    NEAR
+                           694     
+008C 53                    695         PUSH    BX                      ; Save All Used Regs
+008D 50                    696         PUSH    AX;
+008E                       697     GetArgsInit:
+                           698     
+                           699     ; NOTE XWORDLAT does not change BX
+                           700     
+008E                       701     GetArgsFx:
+                           702     ; Grab Fx    
+008E B87C01         R      703         MOV     AX, offset(MotorFTable) ; First grab CX'th Fx component
+0091 E80000         E      704         CALL    XWORDLAT                ; Fx component in AX
+0094 8946FE                705         MOV     Fx, AX                  ; Save it
+                           706         
+0097                       707     GetArgsFy:
+                           708     ; Grab Fy     
+0097 B88201         R      709         MOV     AX, offset(MotorFTable) + 2*FY_OFFSET ; First grab CX'th Fy component
+                           710                                                       ; 2x FY_OFFSET since this is
+                           711                                                       ; WORD table and offset is in
+                           712                                                       ; terms of 'elements'
+                           713                                                       
+009A E80000         E      714         CALL    XWORDLAT                ; Fx component in AX
+009D 8946FC                715         MOV     Fy, AX                  ; Save it
+                           716     
+00A0                       717     GetArgsDone:
+                           718     
+00A0 58                    719         POP    AX;
+00A1 5B                    720         POP    BX                      ; Restore all used regs
+                           721         
+00A2 C3                    722         RET
+                           723         
+                           724     SetMotor_GetArgs    ENDP
+                           725     
+                           726     
+                           727     ;Procedure:                     GetMotorSpeed
+                           728     ;
+                           729     ;Description:           This function returns the value of the motor speed. This valu
+                                   e
+                           730     ;                   is exactly the speedstore shared variable. It will simply return
+                           731     ;                   this value.    
+                           732     ;Operation:                     Simply Returns the speedstore value
+                           733     ;Arguments:             None.
+                           734     ;Return Values:         AX -> Speedstore
+                           735     ;Result:            Grabs the current motor speed for User.
+                           736     ;Shared Variables:      Speedstore (Read)
+                           737     ;Local Variables:       None.
+                           738     ;Global Variables:      None.                   
+                           739     ;Input:                 None.
+                           740     ;Output:                None.
+                           741     ;Registers Used:        AX
+                           742     ;Stack Depth:           N/A
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   15
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           743     ;Known Bugs:            None.
+                           744     ;Data Structures:       None.
+                           745     ;Error Handling:        None
+                           746     ;Algorithms:            None.
+                           747     ;Limitations:           None.
+                           748     ;Author:                        Anjian Wu
+                           749     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                           750     ;                               Working -> 11-22-2013 - Anjian Wu
+                           751     ;------------------------------------------------------------------------------
+00A3                       752     GetMotorSpeed               PROC    NEAR
+                           753                             PUBLIC  GetMotorSpeed
+                           754     
+00A3 A10000         R      755         MOV     AX, SpeedStored; Grab the stored speed
+00A6 C3                    756         RET
+                           757     
+                           758     GetMotorSpeed ENDP
+                           759     
+                           760     ;Procedure:                     GetMotorDirection
+                           761     ;
+                           762     ;Description:           This function returns the value of the motor angle. This valu
+                                   e
+                           763     ;                   is exactly the anglestore shared variable. 
+                           764     ;Operation:                     Simply Returns the anglestore 
+                           765     ;Arguments:             None.
+                           766     ;Return Values:         AX -> the angle to be returned, between 0 and 359 deg
+                           767     ;Result:            Grabs the current motor speed for User.
+                           768     ;Shared Variables:      anglestore (Read)
+                           769     ;Local Variables:       None.
+                           770     ;Global Variables:      None.                                                   
+                                              
+                           771     ;Input:                 None.
+                           772     ;Output:                None.
+                           773     ;Registers Used:        AX
+                           774     ;Stack Depth:           N/A
+                           775     ;Known Bugs:            None.
+                           776     ;Data Structures:       None.
+                           777     ;Error Handling:        None
+                           778     ;Algorithms:            None.
+                           779     ;Limitations:           None.
+                           780     ;Author:                        Anjian Wu
+                           781     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                           782     ;                               Working -> 11-22-2013 - Anjian Wu
+                           783     ;------------------------------------------------------------------------------
+00A7                       784     GetMotorDirection                   PROC    NEAR
+                           785                                 PUBLIC  GetMotorDirection
+                           786     
+00A7 A10200         R      787         MOV     AX, AngleStored; Grab the angle stored
+00AA C3                    788         RET
+                           789     GetMotorDirection ENDP
+                           790     
+                           791     ;Procedure:                     SetLaser
+                           792     ;
+                           793     ;Description:           This function will turn the robot laser on or off depending
+                           794     ;                   on the passed arg in AX. If AX is 0 then lazer is turned off.
+                           795     ;                   Else it is turned on. Also will record laser status in LaserFlag.
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   16
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           796     ;Operation:                     * Compare arg to zero
+                           797     ;                   * If zero then turn clear LaserFlag
+                           798     ;                   * If not then set LaserFlag
+                           799     ;                   
+                           800     ;Arguments:             arg -> AX -> on or off.
+                           801     ;Return Values:         None.
+                           802     ;Result:            Updates LaserFlag
+                           803     ;Shared Variables:      LaserFlag (Write)
+                           804     ;Local Variables:       None.                  
+                           805     ;Global Variables:      None.                                                   
+                                      
+                           806     ;Input:                 None.
+                           807     ;Output:                None.
+                           808     ;Registers Used:        AX
+                           809     ;Stack Depth:           N/A
+                           810     ;Known Bugs:            None.
+                           811     ;Data Structures:       None.
+                           812     ;Error Handling:        None.
+                           813     ;Algorithms:            None.
+                           814     ;Limitations:           None.
+                           815     ;Author:                        Anjian Wu
+                           816     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                           817     ;                               Working -> 11-22-2013 - Anjian Wu
+                           818     ;------------------------------------------------------------------------------
+                           819     
+00AB                       820     SetLaser                    PROC    NEAR
+                           821                         PUBLIC  SetLaser
+00AB A30400         R      822         MOV     LaserFlag, AX; Store new laserflag
+00AE C3                    823         RET
+                           824     SetLaser ENDP
+                           825     
+                           826     ;Procedure:                     GetLaser
+                           827     ;
+                           828     ;Description:           This function returns the value of the LaserFlag. This value
+                           829     ;                   is exactly the LaserFlag shared variable. It will simply return
+                           830     ;                   this value. Zero value indicates FALSE, other wise TRUE.
+                           831     ;Operation:                     Simply Returns the LaserFlag value
+                           832     ;Arguments:             None.
+                           833     ;Return Values:         AX -> LaserFlag
+                           834     ;Result:            Grabs the current motor speed for User.
+                           835     ;Shared Variables:      LaserFlag (Read)
+                           836     ;Local Variables:       None.
+                           837     ;Global Variables:      None.                                                   
+                                      
+                           838     ;Input:                 None.
+                           839     ;Output:                None.
+                           840     ;Registers Used:        AX
+                           841     ;Stack Depth:           N/A
+                           842     ;Known Bugs:            None.
+                           843     ;Data Structures:       None.
+                           844     ;Error Handling:        None
+                           845     ;Algorithms:            None.
+                           846     ;Limitations:           None.
+                           847     ;Author:                        Anjian Wu
+                           848     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   17
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           849     ;                               Working -> 11-22-2013 - Anjian Wu
+                           850     ;------------------------------------------------------------------------------
+00AF                       851     GetLaser                    PROC    NEAR
+00AF A10400         R      852         MOV     AX, LaserFlag; return laserflag
+00B2 C3                    853         RET
+                           854     GetLaser ENDP
+                           855     
+                           856     ; MOTORINIT
+                           857     ;
+                           858     ; Description:       Does all initializations for Motors.
+                           859     ;
+                           860     ;                    Installs the MotorHandler for the timer0 interrupt at 
+                           861     ;                    interrupt table index Tmr0Vec. ALso clears the 
+                           862     ;                    LaserFlag, SpeedStored, s[0 to 2], AngleStored, s_pwm
+                           863     ;                    Thus rendering the motors NOT moving, and at 0 deg angle.
+                           864     ;
+                           865     ;                    Also sets up the PORTB on the 8255 and proper chip select
+                           866     ;
+                           867     ; Operation:         First clear LaserFlag, SpeedStored, s[0 to 2], AngleStored, 
+                           868     ;                    s_pwm.
+                           869     ;
+                           870     ;                    Then writes the address of the MotorHandler to the
+                           871     ;                    timer0 location in the interrupt vector table. Notice
+                           872     ;                    need to multiple by 4 since table stores a CS and IP.
+                           873     ;
+                           874     ;                    Setup Parallel Chip control reg for MODE0 in both group A and B
+                           875     ;
+                           876     ;                    Then set up chip select and PORTB control word values
+                           877     ;                     
+                           878     ;
+                           879     ; Arguments:         None.
+                           880     ; Return Value:      None.
+                           881     ;
+                           882     ; Local Variables:   AX - Used to temporarily store vector table offset for ES and fo
+                                   r
+                           883     ;                         PORt values to be outputted.
+                           884     ;                    DX - used for PORT outputs
+                           885     ;                    BX - used as counter and pointer 
+                           886     ; 
+                           887     ; Shared Variables:  LaserFlag (WRITE)
+                           888     ;                    SpeedStored (WRITE)
+                           889     ;                    AngleStored (WRITE)
+                           890     ;                    s[0 to 2] (WRITE)
+                           891     ;                    s_pwm (WRITE)
+                           892     ;
+                           893     ; Global Variables:  None.
+                           894     ;
+                           895     ; Input:             None.
+                           896     ; Output:            None.
+                           897     ;
+                           898     ; Error Handling:    None.
+                           899     ;
+                           900     ; Algorithms:        None.
+                           901     ; Data Structures:   None.
+                           902     ;
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   18
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           903     ; Registers Used:    AX, ES, BX, DX
+                           904     ;
+                           905     ; Stack Depth:       0 words
+                           906     ;
+                           907     ;Author:                        Anjian Wu
+                           908     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                           909     
+                           910     ;-------------------------------------------------------------------------------
+                           911     
+00B3                       912     MOTORINIT          PROC    NEAR
+                           913                        PUBLIC  MOTORINIT
+                           914                        
+00B3                       915     MOTORINITInitStart:
+00B3 C70604000000   R      916             MOV     LaserFlag, FALSE            ; Laser OFF
+00B9 C70600000000   R      917             MOV     SpeedStored, STOPPED_SPEED  ; Should NOT be moving
+00BF C70602000000   R      918             MOV     AngleStored, ZERO_ANGLE         ; Going straight 
+00C5 C60609000090   R      919             MOV     s_pwm, ZERO_SPEED_PWM       ; Should NOT be moving e.g. PWM = 0
+                           920     
+00CB 33DB                  921             XOR     BX, BX                      ; Clear Counter
+                           922             
+00CD                       923     MOTORINITClearPWMvars:
+                           924     
+00CD 83FB03                925             CMP     BX, numOfmotors             ; For each motor PWM counter
+00D0 7D09                  926             JGE     MOTORINITInitVector         ; If each done, then leave loop
+                           927             
+00D2 C68706000090   R      928             MOV     s[BX], ZERO_SPEED_PWM       ; Should NOT be moving
+00D8 43                    929             INC     BX                          ; Increment counter/motor index
+00D9 EBF2                  930             JMP     MOTORINITClearPWMvars       ; Loop until all entries are cleared
+                           931             
+00DB                       932     MOTORINITInitVector:
+                           933            
+00DB 33C0                  934             XOR     AX, AX          ;clear ES (interrupt vectors are in segment 0)
+00DD 8EC0                  935             MOV     ES, AX
+                           936                                     ;store the vector
+00DF 26C7062000FC00 R      937             MOV     ES: WORD PTR (4 * Tmr0Vec), OFFSET(MotorHandler)
+00E6 26C7062200---- R      938             MOV     ES: WORD PTR (4 * Tmr0Vec + 2), SEG(MotorHandler)
+                           939     
+00ED                       940     MOTORINITCS:
+                           941     
+00ED BA8301                942             MOV     DX, _8255_CNTRL_REG ; Set up parallel chip
+00F0 B88000                943             MOV     AX, _8255_CNTRL_VAL
+00F3 EE                    944             OUT     DX, AL
+                           945        
+00F4 BA8101                946             MOV     DX, PORTB    ;Clear PortB
+00F7 B80000                947             MOV     AX, CLEAR
+00FA EE                    948             OUT     DX, AL
+                           949     
+                           950     
+00FB C3                    951             RET                     ;all done, return
+                           952     
+                           953     
+                           954     MOTORINIT  ENDP
+                           955     
+                           956     ;Procedure:                     MotorHandler
+                           957     ;
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   19
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           958     ;Description:           This function performs the PWM for the three motors. It does 
+                                   this
+                           959     ;                   by looping through each motor which share the s_pwm counter and d
+                                   etermining
+                           960     ;                   which phase in the PWM each motor is in. It will then set the
+                           961     ;                   PORT B buffer appropriately, ultimately outputting the final resu
+                                   lt
+                           962     ;                   to the parallel chip.
+                           963     ;
+                           964     ;                   Approach is to CLEAR the portb_buff at the beginning of the inter
+                                   rupt, 
+                           965     ;                   by doing this, only OR masks are needed to turn on only the bits 
+                                   necessary.
+                           966     ;                   The function will then mux which MASKS to use accordingly to the 
+                                   sign of 
+                           967     ;                   each s[i'th] PWM ref of each motor, as well as whether s_pwm is <
+                                    abs(s[i'th]).
+                           968     ;                   If in inactive PWM phase, then AND maskes are used to only turn o
+                                   ff
+                           969     ;                   forward bits, without touching REVERSE bit.
+                           970     ;                                    
+                           971     ;                   
+                           972     ;Operation:                     *   Clear i(BX) and portb_buff (assuming neither moto
+                                   r or laser on)
+                           973     ;                   *   Is s_pwm above PWM_WIDTH_MAX? If so reset s_pwm, else continu
+                                   e
+                           974     ;                   *   For i < numOfMotors
+                           975     ;                       *   If s[i] is < 0, then 
+                           976     ;                           *   If  neg(s[i]) > s_pwm
+                           977     ;                               *   Grab mask from MOTORTABLE_NEG[at i'th offset]
+                           978     ;                               *   OR MASK portb_buff
+                           979     ;                       *   If s[i] is >= 0, then 
+                           980     ;                           *   If  (s[i]) > s_pwm
+                           981     ;                               *   Grab mask from MOTORTABLE_POs[at i'th offset]
+                           982     ;                               *   OR MASK portb_buff
+                           983     ;                       *   Else ; we are in inactive phase of PWM
+                           984     ;                           *   Mask off only the FORWARD bit of i'th motor
+                           985     ;                   *   Is the LaserFlag set?
+                           986     ;                       * If so OR MASK portb_buff with LASER_ON
+                           987     ;                       * Else keep going
+                           988     ;                   *   Increment s_pwm, OUTPUT portb_buff to parallel chip
+                           989     ;                   *   Send out interrupt EOI
+                           990     ;                               
+                           991     ;
+                           992     ;Arguments:             None.
+                           993     ;
+                           994     ;Return Values:         None.
+                           995     ;
+                           996     ;Result:            Sets each individual motor's PORTB bit depending on PWM phase of
+                           997     ;                   eash motor. Also sets Laser's bit.
+                           998     ;
+                           999     ;Shared Variables:      s[bx](READ)             - this is the PWM width value set by 
+                                   SetMotorSpeed
+                          1000     ;                   s_pwm(WRITE/READ)       - This is the PWM counter that keeps trac
+                                   k of
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   20
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1001     ;                                             where in the PWM phase each motor is in
+                                   .
+                          1002     ;
+                          1003     ;Local Variables:       portb_buff(WRITE/READ)   - Stores the bits which will eventua
+                                   lly be written out to
+                          1004     ;                                              the parallel chip.
+                          1005     ;                   BX  -   Stores counter for each motor, and acts as pointer for ta
+                                   ble
+                          1006     ;                   AL  -   Holds the s[i] values for compares
+                          1007     ;                   DX  -   Holds address for PORT writing
+                          1008     ;                   CL  -   Holds bits that are MASKED on  
+                          1009     ;
+                          1010     ;Global Variables:      None.
+                          1011     ;                                       
+                          1012     ;Input:                 None.
+                          1013     ;
+                          1014     ;Output:                Each motor via PORT B on the parallel chip.
+                          1015     ;
+                          1016     ;Registers Used:        AL, BX, CL, DX
+                          1017     ;
+                          1018     ;Stack Depth:           8 words
+                          1019     ;
+                          1020     ;Known Bugs:            None.
+                          1021     ;
+                          1022     ;Data Structures:       None.
+                          1023     ;
+                          1024     ;Error Handling:        None
+                          1025     ;
+                          1026     ;Algorithms:            Table look up.
+                          1027     ;
+                          1028     ;Limitations:           None.
+                          1029     ;
+                          1030     ;
+                          1031     ;Author:                        Anjian Wu
+                          1032     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                          1033     ;------------------------------------------------------------------------------
+                          1034     ; DC movement reference table
+                          1035     ;_____________________________       
+                          1036     ;Port B Bit 1 |  Port B Bit 0
+                          1037     ;Port B Bit 3 |  Port B Bit 2 
+                          1038     ;Port B Bit 5 |  Port B Bit 4 
+                          1039     ;           0 | 0       no movement
+                          1040     ;           0 | 1       no movement
+                          1041     ;           1 | 0       forwards
+                          1042     ;           1 | 1       backwards
+                          1043     
+00FC                      1044     MotorHandler  PROC    NEAR
+                          1045                   PUBLIC  MotorHandler
+                          1046                
+00FC 60                   1047         PUSHA   ; Always Save all regs in interrupt
+00FD                      1048     MotorHandInit:
+                          1049     
+00FD 33DB                 1050         XOR     BX, BX              ; Start with motor 0/ clear counter
+00FF C6060A000090   R     1051         MOV     portb_buff, RESET   ; Clear portB such that we only need to turn on
+                          1052                                     ; bits we want. (No AND MASKs needed)
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   21
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0105                      1053     MotorHandPWMChk:
+0105 803E09007F     R     1054         CMP     s_pwm, PWM_WIDTH_MAX    ; Is the current PWM counter outside PWN range?
+010A 7606                 1055         JBE     MotorHandLoop           ; Nope, proceed
+                          1056         ;JA    MotorHandPWMChkRESET     ; Yes it is, clear it.
+010C                      1057     MotorHandPWMChkRESET:
+010C C60609000090   R     1058         MOV     s_pwm, RESET            ; Reset the PWM counter to beginning of PWM phase
+                          1059         ;JMP    MotorHandLoop           ;
+                          1060     
+0112                      1061     MotorHandLoop:
+0112 83FB03               1062         CMP     BX, numOfmotors             ; For each numOfmotors motors
+0115 7D3A                 1063         JGE     LaserHandler                ; If each is done, proceed to Laser handling
+                          1064         ;JL     MotorHandPWMMux             ;
+                          1065         
+0117                      1066     MotorHandPWMMux:
+0117 8A870600       R     1067         MOV     AL, s[BX]                   ; Grab counter ref value, it is used for many
+                                    CMPs
+011B 3C00                 1068         CMP     AL, ZERO_SPEED_PWM          ; Bx'th motor going reverse or forwards?
+011D 7C12                 1069         JL      MotorHandPWM_NEG            ; Going reverse
+                          1070         ;JGE    MotorHandPWM_POS            ; Going forward/stopped
+                          1071         
+011F                      1072     MotorHandPWM_POS:
+011F 2E8A8F8801     R     1073         MOV     CL, CS:MOTORTABLE_POs[BX]
+0124 080E0A00       R     1074         OR      portb_buff, CL              ; Turn on appropriate bits for FORWARD
+                          1075         
+0128 38060900       R     1076         CMP     s_pwm, AL                   ; Pwm counter over Active phase? (s_pwm < s[b
+                                   x])
+012C 7D17                 1077         JGE     MotorHandOFFPHASE           ; Motor should be in inactive phase
+012E EB1E90               1078         JMP     MotorHandLoopEnd            ;
+                          1079         
+0131                      1080     MotorHandPWM_NEG:
+0131 F6D8                 1081         NEG     AL                          ; Get the absolute value (we already know to 
+                                   go neg dir)
+0133 2E8A8F8B01     R     1082         MOV     CL, CS:MOTORTABLE_NEG[BX]   ; Grab REVERSE mask from table on bx'th motor
+                                   .
+0138 080E0A00       R     1083         OR      portb_buff, CL              ; Turn on appropriate bits for REVERSE
+                          1084         
+013C 38060900       R     1085         CMP     s_pwm, AL                   ; Pwm counter over Active phase? (s_pwm < s[b
+                                   x])
+0140 7D03                 1086         JGE     MotorHandOFFPHASE           ; Motor should be in inactive phase
+0142 EB0A90               1087         JMP     MotorHandLoopEnd       
+                          1088         
+0145                      1089     MotorHandOFFPHASE:
+0145 2E8A8F8E01     R     1090         MOV     CL, CS:MOTORTABLE_ZERO[BX]   ; Grab OFF mask from table on bx'th motor.
+014A 200E0A00       R     1091         AND      portb_buff, CL              ; Turn OFF forward bits, while leaving rever
+                                   se
+                          1092                                              ; bit untouched.
+                          1093         ;JMP     MotorHandLoopEnd            ; 
+                          1094         
+014E                      1095     MotorHandLoopEnd:
+014E 43                   1096         INC     BX;
+014F EBC1                 1097         JMP     MotorHandLoop
+                          1098      ;-------------------------------Laser Functions-----------------------------------
+                          1099        
+0151                      1100     LaserHandler:
+0151 833E040000     R     1101         CMP     LaserFlag, FALSE            ; Laser time?
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   22
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0156 7503                 1102         JNE     LaserHandlerON              ; pew pew
+                          1103         ;JE     LaserHandlerOFF             ; Turn off laser
+                          1104         
+0158                      1105     LaserHandlerOFF:
+0158 EB0790               1106         JMP     MotorHandEOI                ; Don't turn on laser
+                          1107     
+015B                      1108     LaserHandlerON:
+015B 800E0A008090   R     1109         OR      portb_buff, LASER_ON        ; Turn on appropriate bits for laser on
+                          1110         ;JMP     MotorHandEOI               ;        
+                          1111     
+0161                      1112     MotorHandEOI:
+0161 FE060900       R     1113         INC     s_pwm                      ; Update shared PWM counter
+                          1114     
+0165 33D2                 1115         XOR     DX, DX
+0167 BA8101               1116         MOV     DX, PORTB                  ;Finally write out the calculates Port B value
+                                   s
+016A A00A00         R     1117         MOV     AL, portb_buff
+016D EE                   1118         OUT     DX, AL
+                          1119     
+016E BA22FF               1120         MOV     DX, INTCtrlrEOI             ;send the EOI to the interrupt controller
+0171 B80800               1121         MOV     AX, TimerEOI
+0174 EE                   1122         OUT     DX, AL
+                          1123         
+0175 61                   1124         POPA    ; Restore all regs (AX, BX, CX, and DX were used)
+                          1125         
+0176 CF                   1126         IRET
+                          1127         
+                          1128      MotorHandler ENDP
+                          1129     ;-------------------------------Stub Functions-----------------------------------
+                          1130     ;Procedure:                     GetTurretAngle
+                          1131     ;
+                          1132     ;Description:           This function is just a stub function
+                          1133     ;Operation:                     Just returns
+                          1134     ;Arguments:             None.
+                          1135     ;Return Values:         None.
+                          1136     ;Result:            None.
+                          1137     ;Shared Variables:      None.
+                          1138     ;Local Variables:       None.
+                          1139     ;Global Variables:      None.                                                   
+                                      
+                          1140     ;Input:                 None.
+                          1141     ;Output:                None.
+                          1142     ;Registers Used:        None.
+                          1143     ;Stack Depth:           N/A
+                          1144     ;Known Bugs:            None.
+                          1145     ;Data Structures:       None.
+                          1146     ;Error Handling:        None
+                          1147     ;Algorithms:            None.
+                          1148     ;Limitations:           None.
+                          1149     ;Author:                        Anjian Wu
+                          1150     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                          1151     ;                               Working -> 11-22-2013 - Anjian Wu
+                          1152     ;------------------------------------------------------------------------------
+0177                      1153     GetTurretAngle      PROC    NEAR
+                          1154                         PUBLIC  GetTurretAngle
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   23
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1155                         
+0177 C3                   1156         RET
+                          1157         
+                          1158     GetTurretAngle ENDP
+                          1159     ;Procedure:                     SetTurretAngle
+                          1160     ;
+                          1161     ;Description:           This function is just a stub function
+                          1162     ;Operation:                     Just returns
+                          1163     ;Arguments:             None.
+                          1164     ;Return Values:         None.
+                          1165     ;Result:            None.
+                          1166     ;Shared Variables:      None.
+                          1167     ;Local Variables:       None.
+                          1168     ;Global Variables:      None.                                                   
+                                      
+                          1169     ;Input:                 None.
+                          1170     ;Output:                None.
+                          1171     ;Registers Used:        None.
+                          1172     ;Stack Depth:           N/A
+                          1173     ;Known Bugs:            None.
+                          1174     ;Data Structures:       None.
+                          1175     ;Error Handling:        None
+                          1176     ;Algorithms:            None.
+                          1177     ;Limitations:           None.
+                          1178     ;Author:                        Anjian Wu
+                          1179     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                          1180     ;                               Working -> 11-22-2013 - Anjian Wu
+                          1181     ;------------------------------------------------------------------------------
+0178                      1182     SetTurretAngle      PROC    NEAR
+                          1183                         PUBLIC  SetTurretAngle
+                          1184                         
+0178 C3                   1185         RET
+                          1186         
+                          1187     SetTurretAngle ENDP
+                          1188     ;Procedure:                     SetRelTurretAngle
+                          1189     ;
+                          1190     ;Description:           This function is just a stub function
+                          1191     ;Operation:                     Just returns
+                          1192     ;Arguments:             None.
+                          1193     ;Return Values:         None.
+                          1194     ;Result:            None.
+                          1195     ;Shared Variables:      None.
+                          1196     ;Local Variables:       None.
+                          1197     ;Global Variables:      None.                                                   
+                                      
+                          1198     ;Input:                 None.
+                          1199     ;Output:                None.
+                          1200     ;Registers Used:        None.
+                          1201     ;Stack Depth:           N/A
+                          1202     ;Known Bugs:            None.
+                          1203     ;Data Structures:       None.
+                          1204     ;Error Handling:        None
+                          1205     ;Algorithms:            None.
+                          1206     ;Limitations:           None.
+                          1207     ;Author:                        Anjian Wu
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   24
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1208     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                          1209     ;                               Working -> 11-22-2013 - Anjian Wu
+                          1210     ;------------------------------------------------------------------------------
+0179                      1211     SetRelTurretAngle      PROC    NEAR
+                          1212                             PUBLIC  SetRelTurretAngle
+                          1213                         
+0179 C3                   1214         RET
+                          1215         
+                          1216     SetRelTurretAngle ENDP
+                          1217     ;Procedure:                     SetTurretElevation
+                          1218     ;
+                          1219     ;Description:           This function is just a stub function
+                          1220     ;Operation:                     Just returns
+                          1221     ;Arguments:             None.
+                          1222     ;Return Values:         None.
+                          1223     ;Result:            None.
+                          1224     ;Shared Variables:      None.
+                          1225     ;Local Variables:       None.
+                          1226     ;Global Variables:      None.                                                   
+                                      
+                          1227     ;Input:                 None.
+                          1228     ;Output:                None.
+                          1229     ;Registers Used:        None.
+                          1230     ;Stack Depth:           N/A
+                          1231     ;Known Bugs:            None.
+                          1232     ;Data Structures:       None.
+                          1233     ;Error Handling:        None
+                          1234     ;Algorithms:            None.
+                          1235     ;Limitations:           None.
+                          1236     ;Author:                        Anjian Wu
+                          1237     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                          1238     ;                               Working -> 11-22-2013 - Anjian Wu
+                          1239     ;------------------------------------------------------------------------------
+017A                      1240     SetTurretElevation      PROC    NEAR
+                          1241                         PUBLIC  SetTurretElevation
+                          1242                         
+017A C3                   1243         RET
+                          1244         
+                          1245     SetTurretElevation ENDP
+                          1246     ;Procedure:                     GetTurretElevation
+                          1247     ;
+                          1248     ;Description:           This function is just a stub function
+                          1249     ;Operation:                     Just returns
+                          1250     ;Arguments:             None.
+                          1251     ;Return Values:         None.
+                          1252     ;Result:            None.
+                          1253     ;Shared Variables:      None.
+                          1254     ;Local Variables:       None.
+                          1255     ;Global Variables:      None.                                                   
+                                      
+                          1256     ;Input:                 None.
+                          1257     ;Output:                None.
+                          1258     ;Registers Used:        None.
+                          1259     ;Stack Depth:           N/A
+                          1260     ;Known Bugs:            None.
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   25
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1261     ;Data Structures:       None.
+                          1262     ;Error Handling:        None
+                          1263     ;Algorithms:            None.
+                          1264     ;Limitations:           None.
+                          1265     ;Author:                        Anjian Wu
+                          1266     ;History:                       11-18-2013: Pseudo code - Anjian Wu
+                          1267     ;                               Working -> 11-22-2013 - Anjian Wu
+                          1268     ;------------------------------------------------------------------------------
+017B                      1269      GetTurretElevation      PROC    NEAR
+                          1270                         PUBLIC  GetTurretElevation
+                          1271                         
+017B C3                   1272         RET
+                          1273         
+                          1274     GetTurretElevation ENDP
+                          1275     
+                          1276     ; MotorFTables (F1 to F3)
+                          1277     ;
+                          1278     ; Description:      This table contains all the X and Y direction vector
+                          1279     ;                   components for the Holonomic motion. They are taken from 
+                          1280     ;                   Glenn's handout :)
+                          1281     ;
+                          1282     ; Author:           Anjian Wu
+                          1283     ; Last Modified:    11/15/2013
+                          1284     
+                          1285     
+017C                      1286     MotorFTable         LABEL       WORD
+                          1287                     PUBLIC  MotorFTable
+                          1288                                         
+017C FF7F                 1289             DW              Fx1     ;Fx component for Motor 1
+017E 00C0                 1290             DW              Fx2         ;Fx component for Motor 2   
+0180 00C0                 1291             DW              Fx3         ;Fx component for Motor 3   
+                          1292             
+0182 0000                 1293             DW              Fy1     ;Fy component for Motor 1
+0184 2791                 1294             DW              Fy2         ;Fy component for Motor 2   
+0186 D96E                 1295             DW              Fy3         ;Fy component for Motor 3   
+                          1296             
+                          1297     
+                          1298     ; MOTORTABLE_POS
+                          1299     ;
+                          1300     ; Description:      This table contains all the MASK values for OR mask
+                          1301     ;                   such that when masked with PORTB bits, it will set
+                          1302     ;                   the (i+1)'th motor into Positive rotation.
+                          1303     ;
+                          1304     ; Author:           Anjian Wu
+                          1305     ; Last Modified:    11/18/2013
+                          1306     
+                          1307     
+0188                      1308     MOTORTABLE_POS      LABEL       BYTE
+                          1309                         PUBLIC  MOTORTABLE_POS
+                          1310                                         
+0188 02                   1311             DB              FORWARD_M1      ;MASK FORWARD for Motor 1
+0189 08                   1312             DB              FORWARD_M2      ;MASK FORWARD for Motor 2
+018A 20                   1313             DB              FORWARD_M3      ;MASK FORWARD for Motor 3
+                          1314     
+                          1315     
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   26
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1316     ; MOTORTABLE_NEG
+                          1317     ;
+                          1318     ; Description:      This table contains all the MASK values for OR mask
+                          1319     ;                   such that when masked with PORTB bits, it will set
+                          1320     ;                   the (i+1)'th motor into NEGATIVE rotation.
+                          1321     ;
+                          1322     ; Author:           Anjian Wu
+                          1323     ; Last Modified:    11/18/2013
+                          1324     
+                          1325     
+018B                      1326     MOTORTABLE_NEG      LABEL       BYTE
+                          1327                         PUBLIC  MOTORTABLE_NEG
+                          1328                                         
+018B 03                   1329             DB              BACKWARD_M1     ;MASK BACKWARD for Motor 1
+018C 0C                   1330             DB              BACKWARD_M2     ;MASK BACKWARD for Motor 2
+018D 30                   1331             DB              BACKWARD_M3     ;MASK BACKWARD for Motor 3
+                          1332     
+                          1333     ; MOTORTABLE_ZERO
+                          1334     ;
+                          1335     ; Description:      This table contains all the MASK values for AND mask
+                          1336     ;                   such that when masked with PORTB bits, it will set
+                          1337     ;                   the (i+1)'th motor to stop.
+                          1338     ;
+                          1339     ; Author:           Anjian Wu
+                          1340     ; Last Modified:    11/18/2013
+                          1341     
+                          1342     
+018E                      1343     MOTORTABLE_ZERO     LABEL       BYTE
+                          1344                         PUBLIC  MOTORTABLE_ZERO
+                          1345                                         
+018E FD                   1346             DB              STOP_M1         ;MASK BACKWARD for Motor 1
+018F F7                   1347             DB              STOP_M2         ;MASK BACKWARD for Motor 2
+0190 DF                   1348             DB              STOP_M3         ;MASK BACKWARD for Motor 3
+                          1349                             
+----                      1350     CODE    ENDS
+                          1351         
+----                      1352     DATA    SEGMENT PUBLIC  'DATA'
+                          1353     
+                          1354     
+0000 ????                 1355         SpeedStored     DW  ?     ;Stores current speed                                  
+                                         
+0002 ????                 1356         AngleStored     DW  ?     ;Stores current motor angle
+0004 ????                 1357         LaserFlag       DW  ?     ;Flag for whether laser should be on
+0006 (3                   1358         s           DB          numOfMotors DUP     (?) ; Motor speed array (essentially 
+                                   PWM width)
+     ??
+     )
+0009 ??                   1359         s_pwm   DB      ? ; Current motor pulse width counter  
+000A ??                   1360         portb_buff      DB  ?     ; Buffer for PORT B values (gets masked a lot)
+                          1361     
+                          1362             
+----                      1363     DATA    ENDs
+                          1364     
+                          1365             END 
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND

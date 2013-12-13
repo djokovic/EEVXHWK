@@ -1,0 +1,187 @@
+8086/87/88/186 MACRO ASSEMBLER    GENERAL                                                  00:30:06  12/12/;3  PAGE    1
+
+
+DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE GENERAL
+OBJECT MODULE PLACED IN GENERAL.OBJ
+ASSEMBLER INVOKED BY:  C:\UTIL\ASM86.EXE GENERAL.ASM M1 DB EP
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                             1     NAME        general
+                             2     
+                             3 +1  $INCLUDE(general.inc);
+                      =1     4     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1     5     ;                                                                               ;
+                      =1     6     ;                                  General.INC                                  ;
+                      =1     7     ;                               General Constants                           ;
+                      =1     8     ;                                 Include File                              ;
+                      =1     9     ;                                                                           ;
+                      =1    10     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    11     
+                      =1    12     ; This file contains general operations
+                      =1    13     ;
+                      =1    14     ; Revision History:
+                      =1    15     ;    11/02/2013                 Created - Anjian Wu
+                      =1    16     ;    11/23/2013                 Added WORD_LOOKUP_ADJUST - Anjian Wu
+                      =1    17     ;    12/05/2014         Added FMS_ERROR key, ZERO, changed other keys to 
+                      =1    18     ;                       ASCII based - Anjian
+                      =1    19     
+                      =1    20     
+                      =1    21     ; General Constants
+                      =1    22     
+  0000                =1    23     ASCII_NULL      EQU     0           ;
+  0001                =1    24     bit_size        EQU     1           ;
+  0004                =1    25     nibble_size     EQU     4           ;
+  0008                =1    26     BYTE_size       EQU     8           ;
+  0010                =1    27     WORD_size       EQU     16          ;
+  0000                =1    28     ArrayEmpty      EQU     0               ; Empty is set at 0 index
+                      =1    29     
+  0001                =1    30     TRUE            EQU     1           ;
+  0000                =1    31     FALSE           EQU     0           ;
+                      =1    32     
+  0000                =1    33     RESET           EQU     0           ; General Value for Resetting something
+                      =1    34     
+  0000                =1    35     CLEAR           EQU     0           ;
+                      =1    36     
+  0000                =1    37     ZERO            EQU     0           ;
+                      =1    38     
+  000A                =1    39     DIGIT           EQU     10          ; A digit in base 10 
+                      =1    40     
+  0001                =1    41     WORD_LOOKUP_ADJUST  EQU    1           ; Two bytes in one word -> SHL by 1
+                      =1    42     
+                      =1    43     ; General Definitions for Main Loops
+                      =1    44     
+  0001                =1    45     FIRST_RESERVED_VEC      EQU     1           ;reserve vectors 1-3
+  0003                =1    46     LAST_RESERVED_VEC       EQU     3       ;
+  0100                =1    47     NUM_IRQ_VECTORS     EQU 256     ;number of interrupt vectors
+                      =1    48     
+                      =1    49     ; MainLoop Key Codes
+                      =1    50     
+8086/87/88/186 MACRO ASSEMBLER    GENERAL                                                  00:30:06  12/12/;3  PAGE    2
+
+
+LOC  OBJ                  LINE     SOURCE
+
+  0000                =1    51     KEY_EVENT_KEY       EQU     0   ; Event code indicating key pressed
+  0001                =1    52     SER_ERR_KEY         EQU     1   ; Event code indicating serial error
+  0002                =1    53     RX_ENQUEUED_KEY     EQU     2   ; Event code indicating new rx value gotten
+  0003                =1    54     MODEM_KEY           EQU     3   ; Event code indicating modem event
+  0004                =1    55     FSM_ERROR           EQU     4   ; Error key showing FSM error
+                      =1    56     
+                      =1    57     ; General Addresses
+                      =1    58     
+  FF22                =1    59     INTCtrlReg          EQU     0FF22H  ;EOI interrupt controller       
+                            60     
+                            61     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            62     ;                                                                            ;
+                            63     ;                                 General Functions                          ;
+                            64     ;                                 EE51                                           ;
+                            65     ;                                 Anjian Wu                                  ;
+                            66     ;                                                                            ;
+                            67     ;                                 TA: Pipe-Mazo                              ;
+                            68     ;                                                                            ;
+                            69     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            70     ;                                 What's in here?
+                            71     ;
+                            72     ;                                   Code Segment
+                            73     ;
+                            74     ;   XWORDLAT  -   Sets the motor speed by changing PWM width
+                            75     ;
+                            76     ;
+                            77     ;                                 What's was last edit?
+                            78     ;
+                            79     ;                               Pseudo code -> 11-18-2013 - Anjian Wu
+                            80     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            81     
+                            82     ;Procedure:                     XWORDLAT
+                            83     ;
+                            84     ;Description:           This function performs the WORD equivalent of XLAT instr.
+                            85     ;                   It takes arguments AX as the offset of the Table, BX as the
+                            86     ;                   element pointer, and ES as the location of the where the segment
+                            87     ;                   should be.
+                            88     ;           
+                            89     ;                   It will then return the table lookup value in AX.
+                            90     ;                   
+                            91     ;Operation:                     * Adjust element index for WORD look up
+                            92     ;                   * Add in the absolute offset of the table
+                            93     ;                   * Grab the value and store word in AX. Then return that.
+                            94     ;
+                            95     ;Arguments:             AX     -> Offset of WORD look up table
+                            96     ;                   BX     -> Element Pointer
+                            97     ;                   ES     -> Which segment, CS or DS
+                            98     ;
+                            99     ;Return Values:         AX     -> The element grabbed.
+                           100     ;
+                           101     ;
+                           102     ;Shared Variables:      None.
+                           103     ;
+                           104     ;Local Variables:       BX -   absolute pointer for table look up
+                           105     ;                   
+8086/87/88/186 MACRO ASSEMBLER    GENERAL                                                  00:30:06  12/12/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           106     ;Global Variables:      None.
+                           107     ;                                                               
+                           108     ;Input:                 none.
+                           109     ;
+                           110     ;Output:                none.
+                           111     ;
+                           112     ;Registers Used:        none.
+                           113     ;
+                           114     ;Stack Depth:           none.
+                           115     ;
+                           116     ;Known Bugs:            None.
+                           117     ;
+                           118     ;Data Structures:       None.
+                           119     ;
+                           120     ;Error Handling:        none.
+                           121     ;
+                           122     ;Algorithms:            none.
+                           123     ;
+                           124     ;Limitations:           None.
+                           125     ;
+                           126     ;
+                           127     ;Author:                        Anjian Wu
+                           128     ;History:                       11-22-2013: Created - Anjian Wu
+                           129     ;------------------------------------------------------------------------------
+                           130     
+                           131     CGROUP  GROUP   CODE
+                           132     
+----                       133     CODE    SEGMENT PUBLIC 'CODE'
+                           134     
+                           135     
+                           136             ASSUME  CS:CGROUP
+                           137     
+                           138     
+0000                       139     XWORDLAT                PROC    NEAR
+                           140                                     PUBLIC  XWORDLAT    ; Used by many functions
+                           141     
+                           142     
+                           143         
+0000 53                    144         PUSH    BX;
+0001                       145     XWORDLATBODY:    
+0001 D1E3                  146         SHL     BX, WORD_LOOKUP_ADJUST  ; Adjust relative pointer for WORD entries
+0003 03D8                  147         ADD     BX, AX                  ; Grab absolute address by adding offset
+0005 268B07                148         MOV     AX, ES:[BX]             ; Grab the word from table
+                           149         
+0008 5B                    150         POP     BX;
+                           151         
+0009 C3                    152         RET
+                           153         
+                           154     XWORDLAT ENDP
+                           155     
+                           156                                     
+----                       157     CODE    ENDS
+                           158         
+                           159     
+                           160             END 
+8086/87/88/186 MACRO ASSEMBLER    GENERAL                                                  00:30:06  12/12/;3  PAGE    4
+
+
+LOC  OBJ                  LINE     SOURCE
+
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND

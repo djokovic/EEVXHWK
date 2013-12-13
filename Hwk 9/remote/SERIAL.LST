@@ -1,9 +1,9 @@
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE SERIAL
 OBJECT MODULE PLACED IN SERIAL.OBJ
-ASSEMBLER INVOKED BY:  C:\UTIL\ASM86.EXE SERIAL.ASM M1 DB EP
+ASSEMBLER INVOKED BY:  C:\5XTOOLS\ASM86.EXE SERIAL.ASM M1 DB EP
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
 ----                  =1   211     QUEUEVARS      ENDS
                       =1   212     
                       =1   213     
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
   0003                =1   266     MODEM_KEY           EQU     3   ; Event code indicating modem event
   0004                =1   267     FSM_ERROR           EQU     4   ; Error key showing FSM error
                       =1   268     
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
   FF3C                =1   312     INT2Ctrl        EQU     0FF3CH          ;INT2 Control register I2CON addr
                       =1   313     
   00BD                =1   314     INT2_MASK_REG   EQU     00BDH           ;AND Mask to enable INT2 from IMASK reg
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
                                    ched)
                       =1   362                                             
   0007                =1   363     IIR_MASK        EQU     00000111B       ; Only lower 3 bits of IIR contains INT info 
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   411                                             ;-?------  Set Break (leave untouched)
                       =1   412                                             ;--?-----  Stick Parity
                       =1   413                                             ;---?----  Even Parity
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -358,7 +358,7 @@ LOC  OBJ                  LINE     SOURCE
                            463     ;               SerialError     - Reads in all error bits and enqueues it.
                            464     ;   SetBaud         -   Sets appropriate baud rate into serial chip's divider latch
                            465     ;   SetParity       -   Sets appropriate parity into serial chip
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE    7
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -418,7 +418,7 @@ LOC  OBJ                  LINE     SOURCE
                            515     ;Local Variables:       SI - Holds address of tx queue
                            516     ;                   AL - Holds char, and PORT vals for IN and OUT
                            517     ;                   DX - Holds address of PORTs
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE    8
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE    8
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -478,7 +478,7 @@ LOC  OBJ                  LINE     SOURCE
 0012 EC                    569 +1          IN      AL, DX                  ;output to the port
                            570 +1           ;   Import IER reg val into AL
                            571     
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE    9
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE    9
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -538,7 +538,7 @@ LOC  OBJ                  LINE     SOURCE
                            622     ;                   BX - Holds relative pointer for call table
                            623     ;Global Variables:      None.
                            624     ;                                               
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE   10
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE   10
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -598,7 +598,7 @@ LOC  OBJ                  LINE     SOURCE
 0040 61                    677         POPA                        ; Restore all regs
 0041 CF                    678         IRET                        ;
                            679     
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE   11
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE   11
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -658,7 +658,7 @@ LOC  OBJ                  LINE     SOURCE
                            731     ;Output:                None.
                            732     ;Registers Used:        AH, AL
                            733     ;Stack Depth:           none.
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE   12
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE   12
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -718,7 +718,7 @@ LOC  OBJ                  LINE     SOURCE
                            785     ;Author:                        Anjian Wu
                            786     ;History:                       11-25-2013: Pseudo code - Anjian Wu
                            787     ;                   11-30-2013: Working     - Anjian Wu
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE   13
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE   13
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -778,7 +778,7 @@ LOC  OBJ                  LINE     SOURCE
                                    in Handler
                            840     
 006D 7407                  841         JZ          SerialTX_EmptyDONE      ; Finished
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE   14
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE   14
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -838,7 +838,7 @@ LOC  OBJ                  LINE     SOURCE
 0077 BA0601                893 +2          MOV     DX, MSR_ADDRESS               ;get the port number into DX
 007A EC                    894 +1          IN      AL, DX                  ;output to the port
                            895 +1    ; Grab the IIR reg into AL  
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE   15
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE   15
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -898,7 +898,7 @@ LOC  OBJ                  LINE     SOURCE
                            948     ;                   CL  -   LSByte of the div rate val
                            949     ;                   AL  -   Values to be outputted on port
                            950     ;                   DX  -   Address of port
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE   16
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE   16
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -958,7 +958,7 @@ LOC  OBJ                  LINE     SOURCE
 00A2 BA0301               1003 +2          MOV     DX, LCR_ADDRESS               ;get the port number into DX
 00A5 EE                   1004 +1          OUT     DX, AL                  ;output to the port
                           1005 +1      ;   
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE   17
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE   17
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1018,7 +1018,7 @@ LOC  OBJ                  LINE     SOURCE
                           1058 +1      
 00B8 BA0301               1059 +2          MOV     DX, LCR_ADDRESS               ;get the port number into DX
 00BB EE                   1060 +1          OUT     DX, AL                  ;output to the port
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE   18
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE   18
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1078,7 +1078,7 @@ LOC  OBJ                  LINE     SOURCE
                           1111     ;                   * CALL SetBaud with div rate in DX
                           1112     ;                   * CALL SetParity with NO_PARITY in AL
                           1113     ;                   * Initialize queue at tx_queue with MAX_Q_LENG - 1 elements as by
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE   19
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE   19
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1138,7 +1138,7 @@ LOC  OBJ                  LINE     SOURCE
 00CC BA0500               1163         MOV     DX, div_rate        ; Set the proper div value for baud rate
 00CF E8B0FF               1164         CALL    SetBaud             ; 
 00D2 B000                 1165         MOV     AL, NO_PARITY       ; Set for no parity
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE   20
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE   20
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1198,7 +1198,7 @@ LOC  OBJ                  LINE     SOURCE
 ----                      1216     CODE    ENDS
                           1217         
                           1218     ;the data segment
-8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   00:30:07  12/12/;3  PAGE   21
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   22:11:01  12/12/;3  PAGE   21
 
 
 LOC  OBJ                  LINE     SOURCE

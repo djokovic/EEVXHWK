@@ -1,0 +1,13 @@
+asm86chk chips.asm 
+asm86chk display.asm 
+asm86chk event.asm 
+asm86chk general.asm 
+asm86chk keypad.asm 
+asm86chk keytable.asm 
+asm86chk queue.asm 
+asm86chk remote.asm 
+asm86chk serial.asm 
+asm86chk timers.asm 
+asm86chk vectors.asm 
+asm86chk conv.asm 
+asm86chk segtab14.asm 

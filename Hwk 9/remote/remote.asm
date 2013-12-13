@@ -274,7 +274,7 @@ HandleKeyError:
 HandleKeyDone:
 
     MOV     Action_Buff_PTR, AX ;   
-    MOV     ToggleCTR, ACTION_LABEL;
+    MOV     ToggleCTR, ACTION_VAL;
     
     RET     
     
@@ -451,6 +451,7 @@ RemoteParseInit  PROC    NEAR
     MOV     Dir_PTR, zero               ; Initialize Direction Buff
     MOV     Spd_PTR, zero               ; Initialize Speed Buff
     MOV     ToggleCTR, zero             ; Start with first Status to toggle
+    MOV     Rbt_error_Ptr, zero         ;
     MOV     TogglePreScaler, zero
     
     MOV     Action_Buff_PTR, OFFSET(KeyDisplayInit) ; Display NO actions yet
@@ -470,6 +471,7 @@ RemoteParseInitBufClear:
     
     MOV     Dir_Buffer[BX], ASCII_NULL  ; Tell user we are going straight
     MOV     Spd_Buffer[BX], ASCII_NULL  ; Tell user we are not moving
+    MOV     Rbt_error_Buff[BX], ASCII_NULL  ; Tell user no error from robot yet
 
     INC     BX                          ; Increment buffer/counter index
     JMP     RemoteParseInitBufClear     ; Loop until all entries are cleared
@@ -552,6 +554,11 @@ T_Error_Val:	    ;7
     %DisplayCSStrPrep(AX)                ;
     JMP     ToggleSet
     
+T_R_Error_Val:
+    LEA     AX, Rbt_error_Buff           ;
+    %DisplayDSStrPrep(AX)                ;
+    JMP     ToggleSet
+    
 T_Label:
     MOV     AX, ToggleCTR                ;
     SHR     AX, bit_size                ; All 'labels' are EVEN indexed, thus we can
@@ -590,6 +597,7 @@ Toggle_Label_Table	    LABEL	BYTE
 	DB		'Speed: ?', ASCII_NULL      ;1
 	DB		'Angle: ?', ASCII_NULL      ;2
 	DB		'Errors:?', ASCII_NULL      ;3
+	DB		'Robot: ?', ASCII_NULL      ;4
 
 
 Toggle_JMP_Table	    LABEL	WORD
@@ -602,7 +610,8 @@ Toggle_JMP_Table	    LABEL	WORD
 	DW		T_Angle_Val	    ;5
 	DW		T_Label 	    ;6 - Error Label
 	DW		T_Error_Val	    ;7
-    
+	DW		T_Label 	    ;8 - Robot Error Label
+	DW		T_R_Error_Val	;9    
     
 ;Procedure:			ParseRemoteChar
 ;
@@ -826,6 +835,7 @@ RemoteParseReset  PROC    NEAR
             
     MOV     Dir_PTR, zero               ; Set default val as positive
     MOV     Spd_PTR, zero               ; Set Default FSM machine state
+    MOV     Rbt_error_Ptr, zero           ;
     MOV     FSM_state, ST_INITIAL       ;
 	RET
 	
@@ -891,6 +901,58 @@ no_op        PROC    NEAR
     
 no_op   ENDP
 
+;Procedure:			AddRobotErrorChar
+;
+;Description:      	Turns the laser ON
+;
+;Operation:        
+;                
+;Arguments:         None.
+;Return Values:    	None.
+;Shared Variables: 	None.
+;Local Variables:	None.
+;Global Variables:	None.			
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		none.
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None.
+;Algorithms:       	None.
+;Limitations:  		None.
+;Author:			Anjian Wu
+;History:			12-02-2013: Pseudo code - Anjian Wu
+;                   12-04-2013: Initial assembly - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
+;------------------------------------------------------------------------------
+AddRobotErrorChar    PROC    NEAR
+
+    PUSH    BX
+
+    CMP     Rbt_error_Ptr, Display_SIZE    ;
+    
+    JG      AddRobotErrorCharNoNo          ;
+    
+    XOR     BH, BH                  ;
+    MOV     BL, Rbt_error_Ptr             ;
+ 
+    MOV     Rbt_error_Buff[BX], AL     ;
+    
+    INC     Rbt_error_Ptr                 ;
+    
+    JMP     AddRobotErrorCharDone
+AddRobotErrorCharNoNo:
+    
+    CALL    SetError                        ;
+   
+AddRobotErrorCharDone:
+    POP     BX                      ;
+
+    RET                     ;
+
+AddRobotErrorChar    ENDP
+
 ;Procedure:			AddDirChar
 ;
 ;Description:      	Turns the laser ON
@@ -922,7 +984,7 @@ AddDirChar    PROC    NEAR
 
     CMP     Dir_Ptr, Display_SIZE    ;
     
-    JG      AddDirCharDone          ;
+    JG      AddDirCharNoNo          ;
     
     XOR     BH, BH                  ;
     MOV     BL, Dir_PTR             ;
@@ -930,6 +992,12 @@ AddDirChar    PROC    NEAR
     MOV     Dir_Buffer[BX], AL     ;
     
     INC     Dir_PTR                 ;
+    
+    JMP     AddDirCharDone
+    
+AddDirCharNoNo:
+    
+    CALL    SetError                        ;   
     
 AddDirCharDone:
     POP     BX                      ;
@@ -968,7 +1036,7 @@ AddSpeedChar    PROC    NEAR
 
     CMP     Spd_Ptr, Display_SIZE    ;
     
-    JG      AddDirCharDone          ;
+    JG      AddSpeedCharNoNo          ;
     
     XOR     BH, BH                  ;
     MOV     BL, Spd_Ptr             ;
@@ -976,7 +1044,13 @@ AddSpeedChar    PROC    NEAR
     MOV     Spd_Buffer[BX], AL     ;
     
     INC     Spd_Ptr                 ;
+
+    JMP     AddSpeedCharDone
     
+AddSpeedCharNoNo:
+    
+    CALL    SetError                        ;       
+ 
 AddSpeedCharDone:
 
     POP     BX
@@ -1015,6 +1089,7 @@ RemoteFSMTable	LABEL	TRANSITION_ENTRY
 	                                    ;Input Token Type
 	%TRANSITION(ST_SPEED, no_op)	    ;TOKEN_S - Set Speed
 	%TRANSITION(ST_DIR, no_op)	        ;TOKEN_D - Set Dir
+	%TRANSITION(ST_Robot, no_op)	;TOKEN_R - Robot Error
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_NUM - A digit or ASCII_NULL
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_END - C Return
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
@@ -1023,18 +1098,28 @@ RemoteFSMTable	LABEL	TRANSITION_ENTRY
 	                                    ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_S - Set Speed
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_D - Set Dir
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_R - Robot Error
 	%TRANSITION(ST_SPEED, AddSpeedChar) ;TOKEN_NUM - A digit
 	%TRANSITION(ST_INITIAL, no_op)	    ;TOKEN_END - C Return
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
 	
-	;Current State = ST_DIR: Grab speed chars   
+	;Current State = ST_DIR: Grab dir chars   
 	                                    ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_S - Set Speed
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_D - Set Dir
+	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_R - Robot Error
 	%TRANSITION(ST_DIR, AddDirChar)	    ;TOKEN_NUM - A digit or ASCII_NULL
 	%TRANSITION(ST_INITIAL, no_op)		;TOKEN_END - C Return
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
 
+	;Current State = ST_Robot: Grab robot error chars
+	                                    ;Input Token Type
+	%TRANSITION(ST_Robot, AddRobotErrorChar)	;TOKEN_S - Set Speed
+	%TRANSITION(ST_Robot, AddRobotErrorChar)	;TOKEN_D - Set Dir
+	%TRANSITION(ST_Robot, AddRobotErrorChar)	;TOKEN_R - Robot Error
+	%TRANSITION(ST_Robot, AddRobotErrorChar)   ;TOKEN_NUM - A digit or ASCII_NULL
+	%TRANSITION(ST_INITIAL, no_op)		;TOKEN_END - C Return
+	%TRANSITION(ST_Robot, AddRobotErrorChar)	;TOKEN_OTHER	
 	
 ; Token Tables
 ;
@@ -1118,7 +1203,7 @@ RemoteFSMTable	LABEL	TRANSITION_ENTRY
         %TABENT(TOKEN_OTHER, 'C')	;C
         %TABENT(TOKEN_D     , 'D')	;D
         %TABENT(TOKEN_OTHER     , 'E')  ;E 
-        %TABENT(TOKEN_OTHER     , TRUE)	;F
+        %TABENT(TOKEN_OTHER     , 'F')	;F
         %TABENT(TOKEN_OTHER, 'G')	;G
         %TABENT(TOKEN_OTHER, 'H')	;H
         %TABENT(TOKEN_OTHER, 'I')	;I
@@ -1127,10 +1212,10 @@ RemoteFSMTable	LABEL	TRANSITION_ENTRY
         %TABENT(TOKEN_OTHER, 'L')	;L
         %TABENT(TOKEN_OTHER, 'M')	;M
         %TABENT(TOKEN_OTHER, 'N')	;N
-        %TABENT(TOKEN_OTHER , FALSE)	;O
+        %TABENT(TOKEN_OTHER , 'O')	;O
         %TABENT(TOKEN_OTHER, 'P')	;P
         %TABENT(TOKEN_OTHER, 'Q')	;Q
-        %TABENT(TOKEN_OTHER, 'R')	;R
+        %TABENT(TOKEN_R, 'R')	;R
         %TABENT(TOKEN_S     , 'S')	;S
         %TABENT(TOKEN_OTHER, 'T')	;T
         %TABENT(TOKEN_OTHER, 'U')	;U
@@ -1150,7 +1235,7 @@ RemoteFSMTable	LABEL	TRANSITION_ENTRY
         %TABENT(TOKEN_OTHER, 'c')	;c
         %TABENT(TOKEN_D     , 'd')	;d
         %TABENT(TOKEN_OTHER     , 'e')	;e  
-        %TABENT(TOKEN_OTHER     , TRUE)	;f
+        %TABENT(TOKEN_OTHER     , 'f')	;f
         %TABENT(TOKEN_OTHER , 'g')	;g
         %TABENT(TOKEN_OTHER , 'h')	;h
         %TABENT(TOKEN_OTHER , 'i')	;i
@@ -1159,10 +1244,10 @@ RemoteFSMTable	LABEL	TRANSITION_ENTRY
         %TABENT(TOKEN_OTHER , 'l')	;l
         %TABENT(TOKEN_OTHER , 'm')	;m
         %TABENT(TOKEN_OTHER , 'n')	;n
-        %TABENT(TOKEN_OTHER     , FALSE)	;o
+        %TABENT(TOKEN_OTHER     , 'o')	;o
         %TABENT(TOKEN_OTHER , 'p')	;p
         %TABENT(TOKEN_OTHER , 'q')	;q
-        %TABENT(TOKEN_OTHER , 'r')	;r
+        %TABENT(TOKEN_R , 'r')	;r
         %TABENT(TOKEN_S     , 's')	;s
         %TABENT(TOKEN_OTHER , 't')	;t
         %TABENT(TOKEN_OTHER , 'u')	;u
@@ -1208,6 +1293,9 @@ Dir_PTR         DB  ?                         ;
 
 Spd_Buffer      DB  Display_SIZE+1	DUP	(?)   ; 
 Spd_PTR         DB  ?                         ;
+
+Rbt_error_Buff  DB  Display_SIZE+1	DUP	(?)   ; 
+Rbt_error_Ptr   DB  ?                         ;
 
 Action_Buff_PTR DW  ?                         ;
 

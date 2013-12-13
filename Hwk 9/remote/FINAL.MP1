@@ -4,7 +4,7 @@ DOS 5.0 (038-N) 8086 LINKER, V2.7
 INPUT FILES: FINAL1.LNK, FINAL2.LNK
 OUTPUT FILE: FINAL.LNK
 CONTROLS SPECIFIED IN INVOCATION COMMAND:
-DATE:  12/12/;3  TIME:  00:30:09
+DATE:  12/12/;3  TIME:  22:11:03
 
 
 LINK MAP OF MODULE CHIPS
@@ -12,8 +12,8 @@ LINK MAP OF MODULE CHIPS
 LOGICAL SEGMENTS INCLUDED:
 LENGTH ADDRESS ALIGN  SEGMENT         CLASS           OVERLAY
  0000H ------    G    ??SEG                                         
- 0BE0H ------    G    CODE            CODE                          
- 0878H ------    G    DATA            DATA                          
+ 0C50H ------    G    CODE            CODE                          
+ 0888H ------    G    DATA            DATA                          
  01E0H ------    G    STACK           STACK                         
 
 INPUT MODULES INCLUDED:

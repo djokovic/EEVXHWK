@@ -1,9 +1,9 @@
-8086/87/88/186 MACRO ASSEMBLER    KEYTABLE                                                 00:30:06  12/12/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    KEYTABLE                                                 22:11:00  12/12/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE KEYTABLE
 OBJECT MODULE PLACED IN KEYTABLE.OBJ
-ASSEMBLER INVOKED BY:  C:\UTIL\ASM86.EXE KEYTABLE.ASM M1 DB EP
+ASSEMBLER INVOKED BY:  C:\5XTOOLS\ASM86.EXE KEYTABLE.ASM M1 DB EP
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
   0000                =1    48     NOKEYPRESS      EQU     0               ; Value to indicate no keys pressed
                       =1    49     
                       =1    50     ; Key Definitions
-8086/87/88/186 MACRO ASSEMBLER    KEYTABLE                                                 00:30:06  12/12/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    KEYTABLE                                                 22:11:00  12/12/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
                            103     ;                   and the lower TWO bits of the upper nibble.
                            104     ;                   
                            105     ;                   Thus the table contains 2^6 entries.
-8086/87/88/186 MACRO ASSEMBLER    KEYTABLE                                                 00:30:06  12/12/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    KEYTABLE                                                 22:11:00  12/12/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
                            158             
 0019 10                    159             DB              NOTAKEY ;       25      ->      00011001        ->
 001A 10                    160             DB              NOTAKEY ;       26      ->      00011010        ->
-8086/87/88/186 MACRO ASSEMBLER    KEYTABLE                                                 00:30:06  12/12/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    KEYTABLE                                                 22:11:00  12/12/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
 ----                       213     CODE    ENDS
                            214     
                            215     
-8086/87/88/186 MACRO ASSEMBLER    KEYTABLE                                                 00:30:06  12/12/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    KEYTABLE                                                 22:11:00  12/12/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE

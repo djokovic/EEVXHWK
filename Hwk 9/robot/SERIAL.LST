@@ -1,0 +1,1222 @@
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE    1
+
+
+DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE SERIAL
+OBJECT MODULE PLACED IN SERIAL.OBJ
+ASSEMBLER INVOKED BY:  C:\5XTOOLS\ASM86.EXE SERIAL.ASM M1 DB EP
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                             1     NAME        Serial
+                             2 +1  $INCLUDE(macros.inc);
+                      =1     3 +1  $NOLIST
+                           168 +1  $INCLUDE(queue.inc);
+                      =1   169     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   170     ;                                                                               ;
+                      =1   171     ;                                  Queues.INC                                   ;
+                      =1   172     ;                           Queue Conversion Constants                          ;
+                      =1   173     ;                                 Include File                              ;
+                      =1   174     ;                                                                           ;
+                      =1   175     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   176     
+                      =1   177     ; This file contains the definitions for the queue functions
+                      =1   178     ;
+                      =1   179     ; Revision History:
+                      =1   180     ;    10/29/2013                 Created - Anjian Wu
+                      =1   181     ;    11/01/2013   Debugged,Documented, and working - Anjian Wu
+                      =1   182     ;
+                      =1   183     ;Structure for Queue allocation, information, and storage
+                      =1   184     
+                      =1   185     
+                      =1   186     ; General Definitions
+                      =1   187     
+                      =1   188     
+  0000                =1   189     BYTE_QUEUE      EQU     0             ; QueueInit Key for Byte queue.
+  0001                =1   190     WORD_QUEUE      EQU     1             ; QueueInit Key for Word queue.
+                      =1   191     
+  0001                =1   192     ByteQ           EQU     1             ; Byte norm factor for indexing
+  0002                =1   193     WordQ           EQU     2             ; Word norm factor for indexing
+  0400                =1   194     ARRAY_SIZE      EQU     1024          ; Size of queue array (fits 512-1 words, 
+                      =1   195                                           ;or 1023 bytes)
+                      =1   196     
+  0200                =1   197     MAX_Q_LENG          EQU     512          ;Maxlength allowed for byte or word queue
+                      =1   198     
+----                  =1   199     QUEUESTRUC      STRUC                   ;structure containing all queue info
+0000                  =1   200         head            DW      ?           ;counter for debouncing the switch
+0002                  =1   201         tail            DW      ?           ;time until change repeat rates
+0004                  =1   202         qsize           DW      ?           ;rate at which to repeat the switch
+0006                  =1   203         leng            DW      ?           ;rate at which to repeat the switch
+0008                  =1   204         array               DB          ARRAY_SIZE  DUP     (?) ;pointer to the function 
+                                   to get switch status
+----                  =1   205     QUEUESTRUC      ENDS
+                      =1   206     
+                      =1   207     ;Structure for storing Queue return values or args
+                      =1   208     
+----                  =1   209     QUEUEVARS      STRUC                ;structure containing all queue info
+0000                  =1   210         dequeued    DW      ?               ;counter for debouncing the switch
+----                  =1   211     QUEUEVARS      ENDS
+                      =1   212     
+                      =1   213     
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE    2
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   214     
+                           215 +1  $INCLUDE(general.inc);
+                      =1   216     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   217     ;                                                                               ;
+                      =1   218     ;                                  General.INC                                  ;
+                      =1   219     ;                               General Constants                           ;
+                      =1   220     ;                                 Include File                              ;
+                      =1   221     ;                                                                           ;
+                      =1   222     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   223     
+                      =1   224     ; This file contains general operations
+                      =1   225     ;
+                      =1   226     ; Revision History:
+                      =1   227     ;    11/02/2013                 Created - Anjian Wu
+                      =1   228     ;    11/23/2013                 Added WORD_LOOKUP_ADJUST - Anjian Wu
+                      =1   229     ;    12/05/2014         Added FMS_ERROR key, ZERO, changed other keys to 
+                      =1   230     ;                       ASCII based - Anjian
+                      =1   231     ;    12/12/2014         Added CAR_RETURN
+                      =1   232     
+                      =1   233     
+                      =1   234     ; General Constants
+  000D                =1   235     CAR_RETURN      EQU     13          ;
+  0000                =1   236     ASCII_NULL      EQU     0           ;
+  0001                =1   237     bit_size        EQU     1           ;
+  0004                =1   238     nibble_size     EQU     4           ;
+  0008                =1   239     BYTE_size       EQU     8           ;
+  0010                =1   240     WORD_size       EQU     16          ;
+  0000                =1   241     ArrayEmpty      EQU     0               ; Empty is set at 0 index
+                      =1   242     
+  0001                =1   243     TRUE            EQU     1           ;
+  0000                =1   244     FALSE           EQU     0           ;
+                      =1   245     
+  0000                =1   246     RESET           EQU     0           ; General Value for Resetting something
+                      =1   247     
+  0000                =1   248     CLEAR           EQU     0           ;
+                      =1   249     
+  0000                =1   250     ZERO            EQU     0           ;
+                      =1   251     
+  000A                =1   252     DIGIT           EQU     10          ; A digit in base 10 
+                      =1   253     
+  0001                =1   254     WORD_LOOKUP_ADJUST  EQU    1           ; Two bytes in one word -> SHL by 1
+                      =1   255     
+                      =1   256     ; General Definitions for Main Loops
+                      =1   257     
+  0001                =1   258     FIRST_RESERVED_VEC      EQU     1           ;reserve vectors 1-3
+  0003                =1   259     LAST_RESERVED_VEC       EQU     3       ;
+  0100                =1   260     NUM_IRQ_VECTORS     EQU 256     ;number of interrupt vectors
+                      =1   261     
+                      =1   262     ; MainLoop Key Codes
+                      =1   263     
+  0000                =1   264     KEY_EVENT_KEY       EQU     0   ; Event code indicating key pressed
+  0001                =1   265     SER_ERR_KEY         EQU     1   ; Event code indicating serial error
+  0002                =1   266     RX_ENQUEUED_KEY     EQU     2   ; Event code indicating new rx value gotten
+  0003                =1   267     MODEM_KEY           EQU     3   ; Event code indicating modem event
+  0004                =1   268     FSM_ERROR           EQU     4   ; Error key showing FSM error
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   269     
+                      =1   270     ; General Addresses
+                      =1   271     
+  FF22                =1   272     INTCtrlReg          EQU     0FF22H  ;EOI interrupt controller       
+                           273 +1  $INCLUDE(serial.inc);
+                      =1   274     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   275     ;                                                                               ;
+                      =1   276     ;                                  Serial.INC                                   ;
+                      =1   277     ;                              Serial Constants                             ;
+                      =1   278     ;                                 Include File                              ;
+                      =1   279     ;                                                                           ;
+                      =1   280     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   281     
+                      =1   282     ; This file contains the definitions for timers and their interupts
+                      =1   283     ;
+                      =1   284     ; Revision History:
+                      =1   285     ;    11/28/2013                 Created - Anjian Wu
+                      =1   286     ;    11/29/2013                 Added a lot of constants, masks, comments - Anjian Wu
+                      =1   287     
+                      =1   288     ;General Serial Definitions
+                      =1   289     
+  0000                =1   290     NO_PARITY           EQU  0   ;code for no parity
+  0001                =1   291     PARITY_ODD              EQU  1   ;code for odd parity
+  0002                =1   292     PARITY_EVEN         EQU  2   ;code for even parity
+  0003                =1   293     PARITY_STICKY_CLR   EQU  3   ;code for sticky clr parity
+  0004                =1   294     PARITY_STICKY_SET   EQU  4   ;code for sticky set parity
+                      =1   295     
+  2580                =1   296     BAUD_RATE           EQU  9600   ; The baud rate value
+                      =1   297     
+                      =1   298     ; Addresses
+  0100                =1   299     TX_ADDRESS      EQU             100H                ;RX buff 
+  0100                =1   300     RX_ADDRESS      EQU     TX_ADDRESS      ;TX hold reg addr
+  0101                =1   301     IER_ADDRESS             EQU             101H                ;interrupt enable registe
+                                   r addr
+  0102                =1   302     IIR_ADDRESS             EQU             102H                ;interrupt identification
+                                    register addr
+  0103                =1   303     LCR_ADDRESS             EQU             103H                ;line control register ad
+                                   dr
+  0104                =1   304     MCR_ADDRESS             EQU             104H                ;modem control register a
+                                   ddr
+  0105                =1   305     LSR_ADDRESS             EQU             105H                ;line Status register add
+                                   r
+  0106                =1   306     MSR_ADDRESS             EQU             106H            ;modem status register addr
+  0107                =1   307     SCR_ADDRESS             EQU             107H                    ;scratch register add
+                                   r
+  0100                =1   308     DLL_ADDRESS             EQU             100H                    ;divisor latch LSB ad
+                                   dr 
+  0101                =1   309     DLM_ADDRESS             EQU             101H                    ;division latch MSB a
+                                   ddr
+                      =1   310     
+  000E                =1   311     Int2Vec             EQU         14                      ;INT2 interrupt in vector tab
+                                   le addr
+                      =1   312     
+  FF3C                =1   313     INT2Ctrl        EQU     0FF3CH          ;INT2 Control register I2CON addr
+                      =1   314     
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE    4
+
+
+LOC  OBJ                  LINE     SOURCE
+
+  00BD                =1   315     INT2_MASK_REG   EQU     00BDH           ;AND Mask to enable INT2 from IMASK reg
+  FF28                =1   316     IMASK_ADDR      EQU     0FF28H          ; 
+                      =1   317     
+                      =1   318     ; Control Register Values
+  0011                =1   319     INT2VAL         EQU             0011h   ;Value for INT2 control
+                      =1   320                                     ;00000000000-----  Reserved values
+                      =1   321                                     ;-----------0----  Level Trigger Mode (Edge)
+                      =1   322                                     ;------------0---  Int Mask (Unmasked)
+                      =1   323                                     ;-------------001  Priority (Set for 2nd highest)
+                      =1   324     
+  000E                =1   325     INT2EOI         EQU     14      ; INT2 is type 14
+                      =1   326     
+                      =1   327     ; Serial Mask Values
+                      =1   328     
+  0001                =1   329     RXINT_ON        EQU     01H             ; Enable RX int from IER (OR MASK)
+                      =1   330                                             ;0000----  Reserved as cleared
+                      =1   331                                             ;----0---  Modem Int Enable 
+                      =1   332                                             ;-----0--  Receiver Line Int Enable 
+                      =1   333                                             ;------0-  THRE Int Enable
+                      =1   334                                             ;-------1  Receive RX Int Enable 
+                      =1   335                                             
+  0004                =1   336     ERRINT_ON       EQU     00000100B       ; Enable Err int from IER (OR MASK)
+                      =1   337                                             ;0000----  Reserved as cleared
+                      =1   338                                             ;----0---  Modem Int Enable 
+                      =1   339                                             ;-----0--  Receiver Line Int Enable 
+                      =1   340                                             ;------0-  THRE Int Enable
+                      =1   341                                             ;-------1  Receive RX Int Enable 
+                      =1   342                                             
+  0008                =1   343     MODEM_ON       EQU     00001000B       ; Enable MODEM int from IER (OR MASK)
+                      =1   344                                             ;0000----  Reserved as cleared
+                      =1   345                                             ;----1---  Modem Int Enable 
+                      =1   346                                             ;-----0--  Receiver Line Int Enable 
+                      =1   347                                             ;------0-  THRE Int Enable
+                      =1   348                                             ;-------0  Receive RX Int Enable 
+                      =1   349     
+  00FD                =1   350     THRE_OFF        EQU     11111101B       ; Disable THRE int from IER (AND MASK)
+                      =1   351                                             ;1111----  Reserved as cleared (leave untouch
+                                   ed)
+                      =1   352                                             ;----1---  Modem Int Enable (leave untouched)
+                      =1   353                                             ;-----1--  Receiver Line Int Enable (leave un
+                                   touched)
+                      =1   354                                             ;------0-  THRE Int Enable
+                      =1   355                                             ;-------1  Receive RX Int Enable (leave untou
+                                   ched)
+                      =1   356                                             
+  0002                =1   357     THRE_ON         EQU     00000010B       ; Enable THRE int from IER (OR MASK)
+                      =1   358                                             ;0000----  Reserved as cleared (leave untouch
+                                   ed)
+                      =1   359                                             ;----0---  Modem Int Enable (leave untouched)
+                      =1   360                                             ;-----0--  Receiver Line Int Enable (leave un
+                                   touched)
+                      =1   361                                             ;------1-  THRE Int Enable
+                      =1   362                                             ;-------0  Receive RX Int Enable (leave untou
+                                   ched)
+                      =1   363                                             
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE    5
+
+
+LOC  OBJ                  LINE     SOURCE
+
+  0007                =1   364     IIR_MASK        EQU     00000111B       ; Only lower 3 bits of IIR contains INT info 
+                                   (AND MASK)
+                      =1   365                                             ;00000---  Reserved as cleared (leave untouch
+                                   ed)
+                      =1   366                                             ;-----???  Interrupt ID
+                      =1   367                                             
+  001E                =1   368     ERROR_BIT_MASKS EQU     00011110B       ; For isolating 4 different types of error bi
+                                   ts (AND MASK)
+                      =1   369                                             ;0-------  Reserved as cleared (leave untouch
+                                   ed)
+                      =1   370                                             ;-0------  TEMT Empty (leave untouched)
+                      =1   371                                             ;--0-----  THRE Empty (leave untouched)
+                      =1   372                                             ;---1----  Break Int
+                      =1   373                                             ;----1---  Framing Err
+                      =1   374                                             ;-----1--  Parity Err
+                      =1   375                                             ;------1-  Overrun Err
+                      =1   376                                             ;-------0  Data Rdy (leave untouched)
+                      =1   377                                             
+  0080                =1   378     DLAB_BIT_ON     EQU     10000000B       ; OR mask to turn on DLAB
+                      =1   379                                             ;1-------  DLAB bit (TURN ON)
+                      =1   380                                             ;-0------  Set Break (leave untouched)
+                      =1   381                                             ;--0-----  Stick Parity (leave untouched)
+                      =1   382                                             ;---0----  Even Parity (leave untouched)
+                      =1   383                                             ;----0---  Enable Parity (leave untouched)
+                      =1   384                                             ;-----0--  # of Stop Bits (leave untouched)
+                      =1   385                                             ;------00  worth length (leave untouched)
+                      =1   386                                             
+  007F                =1   387     DLAB_BIT_OFF    EQU     01111111B       ; AND mask to turn off DLAB
+                      =1   388                                             ;0-------  DLAB bit (TURN OFF)
+                      =1   389                                             ;-1------  Set Break (leave untouched)
+                      =1   390                                             ;--1-----  Stick Parity (leave untouched)
+                      =1   391                                             ;---1----  Even Parity (leave untouched)
+                      =1   392                                             ;----1---  Enable Parity (leave untouched)
+                      =1   393                                             ;-----1--  # of Stop Bits (leave untouched)
+                      =1   394                                             ;------11  worth length (leave untouched)
+                      =1   395                                             
+  00C7                =1   396     PARITY_BITS            EQU  11000111B   ; AND MASK to clear all parity bits
+                      =1   397                                             ;1-------  DLAB bit (leave untouched)
+                      =1   398                                             ;-0------  Set Break (leave untouched)
+                      =1   399                                             ;--0-----  Stick Parity
+                      =1   400                                             ;---0----  Even Parity
+                      =1   401                                             ;----1---  Enable Parity
+                      =1   402                                             ;-----1--  # of Stop Bits (leave untouched)
+                      =1   403                                             ;------11  worth length (leave untouched)
+                      =1   404                                             
+  0000                =1   405     NO_PARITY_MASK         EQU  00000000B   ;no parity is generated or checked
+  0008                =1   406     PARITY_ODD_MASK            EQU  00001000B   ;odd parity (an odd number of logic 1's)
+  0018                =1   407     PARITY_EVEN_MASK       EQU  00011000B   ;even parity (an even number of logic 1's)
+  0038                =1   408     PARITY_STICKY_CLR_MASK EQU  00111000B   ;parity bit is transmitted and checked as cle
+                                   ared
+  0028                =1   409     PARITY_STICKY_SET_MASK EQU  00101000B   ;parity bit is transmitted and checked as set
+                      =1   410     ; Table below shows bits used for all PARITY OR masks
+                      =1   411                                             ;0-------  DLAB bit (leave untouched)
+                      =1   412                                             ;-?------  Set Break (leave untouched)
+                      =1   413                                             ;--?-----  Stick Parity
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE    6
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   414                                             ;---?----  Even Parity
+                      =1   415                                             ;----0---  Enable Parity
+                      =1   416                                             ;-----0--  # of Stop Bits (leave untouched)
+                      =1   417                                             ;------00  worth length (leave untouched)
+                      =1   418                                             
+  0003                =1   419     WORD_LENTH_BITS        EQU  00000011B   ;Bits to OR MASK ON for Word length
+                      =1   420                                             ;0-------  DLAB bit (leave untouched)
+                      =1   421                                             ;-0------  Set Break (leave untouched)
+                      =1   422                                             ;--0-----  Stick Parity (leave untouched)
+                      =1   423                                             ;---0----  Even Parity (leave untouched)
+                      =1   424                                             ;----0---  Enable Parity (leave untouched)
+                      =1   425                                             ;-----0--  # of Stop Bits (leave untouched)
+                      =1   426                                             ;------11  WORD LENGTH, set for 8 bits
+                      =1   427     
+  0000                =1   428     STOP_BITS              EQU  00000000B   ;Bits to OR MASK ON for Word length
+                      =1   429                                             ;0-------  DLAB bit (leave untouched)
+                      =1   430                                             ;-0------  Set Break (leave untouched)
+                      =1   431                                             ;--0-----  Stick Parity (leave untouched)
+                      =1   432                                             ;---0----  Even Parity (leave untouched)
+                      =1   433                                             ;----0---  Enable Parity (leave untouched)
+                      =1   434                                             ;-----0--  # of Stop Bits (ONE STOP BIT)
+                      =1   435                                             ;------00  WORD LENGTH (leave untouched)
+                      =1   436     ; Serial Register Values
+                      =1   437                             
+  0005                =1   438     div_rate        EQU     5               ; 9.216 MHz /115200/16 = 5
+                      =1   439     
+  0001                =1   440     SERIAL_NO_INT   EQU     00000001B       ; Value of IIR for NO more interrupts pending
+                      =1   441                                             ;00000---  Reserved as cleared (leave untouch
+                                   ed)
+                      =1   442                                             ;-----???  Interrupt ID
+                      =1   443     
+                           444     
+                           445     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           446     ;                                                                            ;
+                           447     ;                                 HW7 Serial Functions                       ;
+                           448     ;                                 EE51                                           ;
+                           449     ;                                 Anjian Wu                                  ;
+                           450     ;                                                                            ;
+                           451     ;                                 TA: Pipe-Mazo                              ;
+                           452     ;                                                                            ;
+                           453     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           454     ;                                 What's in here?
+                           455     ;
+                           456     ;                                   Code Segment
+                           457     ;
+                           458     ;   SerialPutChar   -   Places passed char into serial tx queue
+                           459     ;   SerialHandler   -   Handles all serial chip interrupts (RX, Error, Modem, TX)
+                           460     ;               SerialModem     - Reads modem register and enqueues the status bits
+                           461     ;               SerialTX_Empty  - Either dequeues the next TX char or sets kickstart 
+                                   flag
+                           462     ;               SerialRX_Avail  - Enqueues the next RX available char from Chip
+                           463     ;               SerialNone          - Stub function (Should not enter, but if so just
+                                    returns)
+                           464     ;               SerialError     - Reads in all error bits and enqueues it.
+                           465     ;   SetBaud         -   Sets appropriate baud rate into serial chip's divider latch
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE    7
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           466     ;   SetParity       -   Sets appropriate parity into serial chip
+                           467     ;   Serialinit      -   Initializes all serial function variables and chip
+                           468     ;
+                           469     ;                                 What's was last edit?
+                           470     ;
+                           471     ;                               Pseudo code ->  11-25-2013 - Anjian Wu
+                           472     ;                   Working     ->  11-30-2013 - Anjian Wu
+                           473     ;                   Documentation-> 12-01-2013 - Anjian Wu
+                           474     ;                   12-10-2013: Removed kickstart_flag and always kick starts now
+                           475     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           476     CGROUP  GROUP   CODE
+                           477     DGROUP  GROUP   DATA
+                           478     
+----                       479     CODE    SEGMENT PUBLIC 'CODE'
+                           480     
+                           481     
+                           482             ASSUME  CS:CGROUP, DS:DGROUP
+                           483             
+                           484             EXTRN   QueueInit:NEAR          ;Initializes a queue 
+                           485             EXTRN   QueueEmpty:NEAR         ;Checks if a queue is empty
+                           486             EXTRN   QueueFull:NEAR          ;Checks if a queue is full
+                           487             EXTRN   Dequeue:NEAR            ;Dequeue next char (note there is blocking)
+                           488             EXTRN   Enqueue:NEAR            ;Enqueue next char (note there is blocking)
+                           489                     EXTRN   EnqueueEvent:NEAR       ;Enqueue char into eventqueue
+                           490     
+                           491     
+                           492     ;Procedure:                     SerialPutChar
+                           493     ;
+                           494     ;Description:           This function will insert/enqueue a passed char arg into the
+                           495     ;                   serial_queue. If the queue is full, then no new char is placed, a
+                                   nd
+                           496     ;                   the carry flag is asserted. Else the carry flag is cleared.
+                           497     ;                   This function will always
+                           498     ;                   kick start the TX by turning off and on the THRE interrupt
+                           499     ;                   of the serial chip.
+                           500     ;           
+                           501     ;                   
+                           502     ;Operation:                     * Check if serial queue is full, if so, then set carr
+                                   y flag and return
+                           503     ;                   * Else
+                           504     ;                       * Enqueue the passed char
+                           505     ;                       * read in IER value, mask OFF THRE  bit
+                           506     ;                       * Send out new IER value, then MASK ON THRE bit again
+                           507     ;                       * Finally send out final IER value to complete kickstart
+                           508     ;                       * Set carryflag FALSE
+                           509     ;
+                           510     ;Arguments:             AL   -> The new char to be placed
+                           511     ;
+                           512     ;Return Values:         Carry Flag - > indicates of queue was able to accept the char
+                                   .
+                           513     ;
+                           514     ;Shared Variables:      None.
+                           515     ;
+                           516     ;Local Variables:       SI - Holds address of tx queue
+                           517     ;                   AL - Holds char, and PORT vals for IN and OUT
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE    8
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           518     ;                   DX - Holds address of PORTs
+                           519     ;                   
+                           520     ;Global Variables:      None.
+                           521     ;                                                               
+                           522     ;Input:                 none.
+                           523     ;
+                           524     ;Output:                none.
+                           525     ;
+                           526     ;Registers Used:        SI, AL, DX
+                           527     ;
+                           528     ;Stack Depth:           3 words
+                           529     ;
+                           530     ;Known Bugs:            None.
+                           531     ;
+                           532     ;Data Structures:       None.
+                           533     ;
+                           534     ;Error Handling:        none.
+                           535     ;
+                           536     ;Algorithms:        None.
+                           537     ;                   
+                           538     ;Limitations:           None.
+                           539     ;
+                           540     ;Author:                        Anjian Wu
+                           541     ;History:                       11-25-2013: Pseudo code - Anjian Wu
+                           542     ;                   11-30-2013: Working     - Anjian Wu
+                           543     ;                   12-01-2013: Documentation - Anjian Wu
+                           544     ;                   12-10-2013: Removed kickstart_flag and always kick starts now
+                           545     ;------------------------------------------------------------------------------
+                           546     
+                           547     
+0000                       548     SerialPutChar           PROC NEAR
+                           549                                             PUBLIC SerialPutChar
+                           550     
+0000 50                    551         PUSH    AX                      ; Store used regs
+0001 52                    552         PUSH    DX
+0002 56                    553         PUSH    SI
+                           554         
+0003                       555     SerialPutInit:
+0003 8D360000       R      556         LEA     SI, tx_queue            ; Grab address of Queue
+0007 E80000         E      557             CALL    QueueFull                               ; Is the queue full?
+                           558     
+000A 7411                  559             JZ              SerialPutFailed                 ; If so, can't enqueue so set
+                                    Carry
+                           560             ;JNZ    SerialPutQueue                  ; Not full, so continue
+                           561             
+000C                       562     SerialPutQueue:
+000C E80000         E      563             CALL    Enqueue                                 ;   Enqueue the next char
+                           564     
+                           565             ;JMP    SerialPutKickstart              ;   Always kickstart :D
+                           566     
+000F                       567     SerialPutKickstart:
+                           568 +1     
+000F BA0101                569 +2          MOV     DX, IER_ADDRESS               ;get the port number into DX
+0012 EC                    570 +1          IN      AL, DX                  ;output to the port
+                           571 +1           ;   Import IER reg val into AL
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE    9
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           572     
+0013 24FD                  573         AND     AL, THRE_OFF            ;   Turn OFF THRE
+0015 EE                    574         OUT     DX, AL                  ;   Write to IER reg
+0016 0C02                  575         OR      AL, THRE_ON             ;   Turn ON THRE
+0018 EE                    576         OUT     DX, AL                  ;   Write to IER Reg
+                           577         ;jmp    SerialPutSuccess        ;
+                           578         
+0019                       579     SerialPutSuccess:
+0019 F8                    580             CLC                                                             ; Reset Carry
+                                    Flag
+001A EB0290                581             JMP             SerialPutDone                   ;
+001D                       582     SerialPutFailed:
+001D F9                    583             STC                                                             ; Set Carry F
+                                   lag        
+001E                       584     SerialPutDone:
+001E 5E                    585         POP     SI
+001F 5A                    586         POP     DX
+0020 58                    587         POP     AX                      ; Restore used Regs
+0021 C3                    588             RET
+                           589             
+                           590     SerialPutChar ENDP
+                           591     ;Procedure:                     SerialHandler
+                           592     ;
+                           593     ;Description:           This function is the event handler for serial. It will
+                           594     ;                   take the INT2 hardware interrupt and process which type
+                           595     ;                   of serial chip interrupt is present via the IIR register.
+                           596     ;                   
+                           597     ;                   For errors, the error variable take all the error bits,
+                           598     ;                   for RX rdy or TX empty, the handler will enqueue and dequeue
+                           599     ;                   the RX and TX queues respectively. For Modem int, the modem
+                           600     ;                   status is also stored into the modem_status variable. Each of 
+                           601     ;                   these operations is done through mapping the IIR val into a
+                           602     ;                   call table such that there are unique functions to handle each
+                           603     ;                   valid INT type. 
+                           604     ;                   
+                           605     ;
+                           606     ;Operation:                     * LOOP
+                           607     ;                       * Grab IIR address
+                           608     ;                       * Mask OFF all NON-interrupt ID bits
+                           609     ;                       * Check to see if no int's left, if so then EXIT loop
+                           610     ;                       * Else adjust thhe masked IIR val for WORD table lookup and 
+                           611     ;                         CALL Serial_Call_Table to go to proper function to handle.
+                           612     ;                       * Again go back to beginning of LOOP
+                           613     ;                   * Send out INT2 EOI to INT control reg to complete interrupt.
+                           614     ;
+                           615     ;Arguments:         None.
+                           616     ;
+                           617     ;Return Values:         None.
+                           618     ;
+                           619     ;Shared Variables:      None.
+                           620     ;
+                           621     ;Local Variables:       AL - Holds IIR reg val, and PORT vals for IN and OUT
+                           622     ;                   DX - Holds address of PORTs
+                           623     ;                   BX - Holds relative pointer for call table
+                           624     ;Global Variables:      None.
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE   10
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           625     ;                                               
+                           626     ;Input:                 none.
+                           627     ;
+                           628     ;Output:                none.
+                           629     ;
+                           630     ;Registers Used:        AX, BX, DX
+                           631     ;
+                           632     ;Stack Depth:           8 Words
+                           633     ;
+                           634     ;Known Bugs:            None.
+                           635     ;
+                           636     ;Data Structures:       None.
+                           637     ;
+                           638     ;Error Handling:        None.
+                           639     ;
+                           640     ;Algorithms:            Call table loop up
+                           641     ;
+                           642     ;Limitations:           None.
+                           643     ;
+                           644     ;Author:                        Anjian Wu
+                           645     ;History:                       11-25-2013: Pseudo code - Anjian Wu
+                           646     ;                   11-30-2013: Working     - Anjian Wu
+                           647     ;                   12-01-2013: Documentation - Anjian Wu
+                           648     ;------------------------------------------------------------------------------
+                           649                             
+0022                       650     SerialHandler           PROC NEAR
+                           651                                             PUBLIC SerialHandler
+0022                       652     SerialHInit:
+0022 60                    653         PUSHA                       ;Save all regs
+                           654         
+0023                       655     SerialIntLoop:
+0023 33C0                  656         XOR     AX, AX              ; Clear AX
+                           657 +1      
+0025 BA0201                658 +2          MOV     DX, IIR_ADDRESS               ;get the port number into DX
+0028 EC                    659 +1          IN      AL, DX                  ;output to the port
+                           660 +1      ; Grab the IIR reg into AL  
+0029 2407                  661         AND     AL, IIR_MASK        ; Ensure we only have ID bits pass
+002B 3C01                  662         CMP     AL, SERIAL_NO_INT   ; Are we done with Serial Ints?
+002D 740A                  663         JE      SerialHDone         ; Yes, so go to send EOI
+                           664         ;JNE    SerialHCall         ; No, continue processing
+                           665     
+002F                       666     SerialHCall:
+                           667     
+002F D1E0                  668         SHL     AX, WORD_LOOKUP_ADJUST      ; Prepare for WORD table lookup
+0031 93                    669         XCHG    BX, AX                      ; Copy to BX for pointer
+0032 2EFF974200     R      670         CALL    CS:Serial_Call_Table[BX]    ; Go to that INT handler function
+0037 EBEA                  671         JMP     SerialIntLoop               ; Loop
+                           672         
+0039                       673     SerialHDone:
+0039 BA22FF                674         MOV     DX, INTCtrlReg          ;send the EOI to INT2 control
+003C B80E00                675         MOV     AX, INT2EOI
+003F EE                    676         OUT     DX, AL
+                           677         
+0040 61                    678         POPA                        ; Restore all regs
+0041 CF                    679         IRET                        ;
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE   11
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           680     
+                           681     SerialHandler   ENDP
+                           682     
+                           683     ;Name:                      Serial_Call_Table (WORD Table)
+                           684     ;Description:           This is the call table used by the SerialHander that maps the
+                                    
+                           685     ;                   interrupt identification reg of the Serial Chip to their 
+                           686     ;                   respective functions to handle each INT type.                
+                           687     ;Arguments:             None.
+                           688     ;Return Values:         none.
+                           689     ;Shared Variables:      none.
+                           690     ;Local Variables:       None.
+                           691     ;Global Variables:      None.                   
+                           692     ;Input:                 None.
+                           693     ;Output:                None.
+                           694     ;Registers Used:        none.
+                           695     ;Stack Depth:           none.
+                           696     ;Known Bugs:            None.
+                           697     ;Data Structures:       None.
+                           698     ;Error Handling:        None
+                           699     ;Algorithms:            None.
+                           700     ;Limitations:           None.
+                           701     ;Author:                        Anjian Wu
+                           702     ;History:                       11-25-2013: Pseudo code - Anjian Wu
+                           703     ;                   11-30-2013: Working     - Anjian Wu
+                           704     ;                   12-01-2013: Documentation - Anjian Wu
+                           705     ;------------------------------------------------------------------------------
+0042                       706     Serial_Call_Table           LABEL       WORD
+                           707                                         
+0042 7700           R      708             DW              SerialModem     ;IIR = 0
+0044 8100           R      709             DW              SerialNone      ;IIR = 1 - Should Not Happen
+0046 6600           R      710             DW              SerialTX_Empty  ;IIR = 2
+0048 8100           R      711             DW              SerialNone          ;IIR = 3 - Should Not Happen
+004A 5C00           R      712             DW              SerialRX_Avail  ;IIR = 4
+004C 8100           R      713             DW              SerialNone          ;IIR = 5 - Should Not Happen
+004E 5000           R      714             DW              SerialError     ;IIR = 6
+                           715     
+                           716     ;Procedure:                     SerialError
+                           717     ;
+                           718     ;Description:           This function takes the Serial Error from the LSR reg in the
+                           719     ;                   serial chip and enqueues the error with the SER_ERR_KEY such
+                           720     ;                   that it can be handled.                 
+                           721     ;Operation:                     * Read in LSR reg val
+                           722     ;                   * Let only error bits pass into lower byte
+                           723     ;                   * Set SER_ERR_KEY into upper byte
+                           724     ;                   * Enqueue this with EnqueueEvent
+                           725     ;Arguments:             AL  -   Value of error ID
+                           726     ;                   AH  -   Stores the SER_ERR_KEY
+                           727     ;Return Values:         none.
+                           728     ;Shared Variables:      none.
+                           729     ;Local Variables:       None.
+                           730     ;Global Variables:      None.                   
+                           731     ;Input:                 None.
+                           732     ;Output:                None.
+                           733     ;Registers Used:        AH, AL
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE   12
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           734     ;Stack Depth:           none.
+                           735     ;Known Bugs:            None.
+                           736     ;Data Structures:       None.
+                           737     ;Error Handling:        None
+                           738     ;Algorithms:            None.
+                           739     ;Limitations:           None.
+                           740     ;Author:                        Anjian Wu
+                           741     ;History:                       11-25-2013: Pseudo code - Anjian Wu
+                           742     ;                   11-30-2013: Working     - Anjian Wu
+                           743     ;                   12-01-2013: Documentation - Anjian Wu
+                           744     ;------------------------------------------------------------------------------
+0050                       745     SerialError             PROC NEAR
+                           746     
+                           747 +1      
+0050 BA0501                748 +2          MOV     DX, LSR_ADDRESS               ;get the port number into DX
+0053 EC                    749 +1          IN      AL, DX                  ;output to the port
+                           750 +1      ; Grab the LSR reg into AL  
+                           751         
+0054 241E                  752         AND     AL, ERROR_BIT_MASKS ; Leave only Error bits uncleared
+                           753         
+0056 B401                  754         MOV     AH, SER_ERR_KEY     ;Set the SER_ERR_KEY event to AH 
+0058 E80000         E      755         CALL    EnqueueEvent        ;Passing AX into enqueue
+                           756         
+005B C3                    757         RET                         ; GO back to Serial Handler
+                           758     
+                           759     SerialError   ENDP
+                           760     
+                           761     ;Procedure:                     SerialRX_Avail
+                           762     ;
+                           763     ;Description:           This function takes the next RX char that is available from t
+                                   he
+                           764     ;                   serial chip and enqueues it into the EnqueueEvent. It also makes
+                           765     ;                   sure to include the RX_ENQUEUED_KEY in the upper byte such that
+                           766     ;                   this event is properly identifiable.
+                           767     ;                   
+                           768     ;Operation:                     * Read in RX reg val into AL
+                           769     ;                   * Set RX_ENQUEUED_KEY into upper byte
+                           770     ;                   * Enqueue this with EnqueueEvent
+                           771     ;Arguments:             AL  -   Value of RX char
+                           772     ;                   AH  -   Stores the RX_ENQUEUED_KEY
+                           773     ;Return Values:         none.
+                           774     ;Shared Variables:      none.
+                           775     ;Local Variables:       None.
+                           776     ;Global Variables:      None.                   
+                           777     ;Input:                 None.
+                           778     ;Output:                None.
+                           779     ;Registers Used:        none.
+                           780     ;Stack Depth:           none.
+                           781     ;Known Bugs:            None.
+                           782     ;Data Structures:       None.
+                           783     ;Error Handling:        None
+                           784     ;Algorithms:            None.
+                           785     ;Limitations:           None.
+                           786     ;Author:                        Anjian Wu
+                           787     ;History:                       11-25-2013: Pseudo code - Anjian Wu
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE   13
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           788     ;                   11-30-2013: Working     - Anjian Wu
+                           789     ;                   12-01-2013: Documentation - Anjian Wu
+                           790     ;------------------------------------------------------------------------------
+005C                       791     SerialRX_Avail          PROC NEAR
+                           792     
+                           793 +1      
+005C BA0001                794 +2          MOV     DX, RX_ADDRESS               ;get the port number into DX
+005F EC                    795 +1          IN      AL, DX                  ;output to the port
+                           796 +1      ; Grab the RX byte
+                           797         
+0060 B402                  798         MOV     AH, RX_ENQUEUED_KEY ;Set the keyevent to AH 
+0062 E80000         E      799         CALL    EnqueueEvent        ;Passing AX into enqueue   
+                           800     
+0065 C3                    801             RET
+                           802             
+                           803     SerialRX_Avail   ENDP
+                           804     
+                           805     ;Procedure:                     SerialTX_empty
+                           806     ;
+                           807     ;Description:           This function dequeues the next char from tx_queue and
+                           808     ;                   outputs it into the THRE of the serial chip. IF that tx-queue
+                           809     ;                   is empty, then the function will NOT output anything.
+                           810     ;                   
+                           811     ;Operation:                     * Check if tx_queue is empty
+                           812     ;                       * If so, then set kickstart_flag and then return
+                           813     ;                   *Else continue to dequeue the tx_queue and then output
+                           814     ;                    that char into the THRE reg of the serial chip.
+                           815     ;                   
+                           816     ;Arguments:             SI - Holds pointer of TX-queue
+                           817     ;Return Values:         none.
+                           818     ;Shared Variables:      None.
+                           819     ;Local Variables:       None.
+                           820     ;Global Variables:      None.                   
+                           821     ;Input:                 None.
+                           822     ;Output:                None.
+                           823     ;Registers Used:        none.
+                           824     ;Stack Depth:           none.
+                           825     ;Known Bugs:            None.
+                           826     ;Data Structures:       None.
+                           827     ;Error Handling:        None
+                           828     ;Algorithms:            None.
+                           829     ;Limitations:           None.
+                           830     ;Author:                        Anjian Wu
+                           831     ;History:                       11-25-2013: Pseudo code - Anjian Wu
+                           832     ;                   11-30-2013: Working     - Anjian Wu
+                           833     ;                   12-01-2013: Documentation - Anjian Wu
+                           834     ;                   12-10-2013: Removed kickstart_flag
+                           835     ;------------------------------------------------------------------------------
+0066                       836     SerialTX_Empty          PROC NEAR
+                           837     
+0066 8D360000       R      838         LEA     SI, tx_queue            ; Grab address of Queue
+006A E80000         E      839         CALL    QueueEmpty              ; Make sure queue is actually empty, to avoid inf
+                           840                                         ; blocking loop. Not critical code since already 
+                                   in Handler
+                           841     
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE   14
+
+
+LOC  OBJ                  LINE     SOURCE
+
+006D 7407                  842         JZ          SerialTX_EmptyDONE      ; Finished
+                           843         ;JNZ     TxQueueisReady          ; Queue has chars available
+                           844         
+006F                       845     TxQueueisReady:
+                           846         
+006F E80000         E      847         CALL    Dequeue                 ; Grab next val into AL
+0072                       848     TxQueueOUT:
+                           849 +1      
+0072 BA0001                850 +2          MOV     DX, TX_ADDRESS               ;get the port number into DX
+0075 EE                    851 +1          OUT     DX, AL                  ;output to the port
+                           852 +1          ; Output next TX char to serial chip 
+                           853         ;JMP     SerialTX_EmptyDONE     ; Finished
+                           854     
+0076                       855     SerialTX_EmptyDONE:
+                           856     
+0076 C3                    857         RET                             ;
+                           858     
+                           859     SerialTX_Empty   ENDP
+                           860     
+                           861     ;Procedure:                     SerialModem
+                           862     ;
+                           863     ;Description:           This function will read the modem register from the serial
+                           864     ;                   chip and then store the ID bits into AL. It will then include
+                           865     ;                   the MODEM_KEY into AH and Enqueue this event for later processing
+                                   .
+                           866     ;                   
+                           867     ;Operation:                     * Read in MODEM reg val into AL
+                           868     ;                   * Set MODEM_KEY into upper byte
+                           869     ;                   * Enqueue this with EnqueueEvent
+                           870     ;
+                           871     ;Arguments:             None.
+                           872     ;Return Values:         none.
+                           873     ;Shared Variables:      none.
+                           874     ;Local Variables:       AL  -   Value of modem ID bits
+                           875     ;                   AH  -   Stores the MODEM_KEY
+                           876     ;Global Variables:      None.                   
+                           877     ;Input:                 None.
+                           878     ;Output:                None.
+                           879     ;Registers Used:        none.
+                           880     ;Stack Depth:           none.
+                           881     ;Known Bugs:            None.
+                           882     ;Data Structures:       None.
+                           883     ;Error Handling:        None
+                           884     ;Algorithms:            None.
+                           885     ;Limitations:           None.
+                           886     ;Author:                        Anjian Wu
+                           887     ;History:                       11-25-2013: Pseudo code - Anjian Wu
+                           888     ;                   11-30-2013: Working     - Anjian Wu
+                           889     ;                   12-01-2013: Documentation - Anjian Wu
+                           890     ;------------------------------------------------------------------------------
+0077                       891     SerialModem             PROC NEAR
+                           892     
+                           893 +1      
+0077 BA0601                894 +2          MOV     DX, MSR_ADDRESS               ;get the port number into DX
+007A EC                    895 +1          IN      AL, DX                  ;output to the port
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE   15
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           896 +1    ; Grab the IIR reg into AL  
+                           897             
+007B B403                  898         MOV     AH, MODEM_KEY       ;Indicate this this MODEM val to AH 
+007D E80000         E      899         CALL    EnqueueEvent        ;Passing AX into enqueue
+                           900         
+0080 C3                    901         RET                         ; GO back to Serial Handler
+                           902         
+                           903     SerialModem   ENDP
+                           904     
+                           905     ;Procedure:                     SerialNone
+                           906     ;Description:           This function is a stub and just returns.            
+                           907     ;Operation:                     * Return
+                           908     ;Arguments:             None.
+                           909     ;Return Values:         none.
+                           910     ;Shared Variables:      none.
+                           911     ;Local Variables:       None.
+                           912     ;Global Variables:      None.                   
+                           913     ;Input:                 None.
+                           914     ;Output:                None.
+                           915     ;Registers Used:        none.
+                           916     ;Stack Depth:           none.
+                           917     ;Known Bugs:            None.
+                           918     ;Data Structures:       None.
+                           919     ;Error Handling:        None
+                           920     ;Algorithms:            None.
+                           921     ;Limitations:           None.
+                           922     ;Author:                        Anjian Wu
+                           923     ;History:                       11-25-2013: Pseudo code - Anjian Wu
+                           924     ;                   11-30-2013: Working     - Anjian Wu
+                           925     ;                   12-01-2013: Documentation - Anjian Wu
+                           926     ;------------------------------------------------------------------------------
+0081                       927     SerialNone              PROC NEAR
+                           928     
+0081 C3                    929             RET ; Should not enter here, but if so just return.
+                           930             
+                           931     SerialNone   ENDP
+                           932     
+                           933     ;Procedure:                     SetBaud
+                           934     ;
+                           935     ;Description:           This function sets the BAUD rate. It is passed the calc'ed
+                           936     ;                   div_rate in DX and placed the MSByte and LSByte of DX into
+                           937     ;                   the MSB and LSB div latches of the serial chip.
+                           938     ;
+                           939     ;Operation:                     * Save all flags and turn off interrupts
+                           940     ;                   * Make a copy of DX in CX
+                           941     ;                   * Read in LCR reg val and turn ON DLAB bit
+                           942     ;                   * Write CH and CL into DLM reg and DLL reg respectively
+                           943     ;                   * Now turn back OFF DLAB bit and output to LCR reg
+                           944     ;                   * restore all flags
+                           945     ;Arguments:             DX -> the desired divisor rate
+                           946     ;Return Values:         none.
+                           947     ;Shared Variables:      none.
+                           948     ;Local Variables:       CH  -   MSByte of the div rate val
+                           949     ;                   CL  -   LSByte of the div rate val
+                           950     ;                   AL  -   Values to be outputted on port
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE   16
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           951     ;                   DX  -   Address of port
+                           952     ;Global Variables:      None.                   
+                           953     ;Input:                 None.
+                           954     ;Output:                None.
+                           955     ;Registers Used:        CH, CL, AL, DX
+                           956     ;Stack Depth:           1 word
+                           957     ;Known Bugs:            None.
+                           958     ;Data Structures:       None.
+                           959     ;Error Handling:        None
+                           960     ;Algorithms:            None.
+                           961     ;Limitations:           Interrupts are off through the whole process.
+                           962     ;Author:                        Anjian Wu
+                           963     ;History:                       11-25-2013: Pseudo code - Anjian Wu
+                           964     ;                   11-30-2013: Working     - Anjian Wu
+                           965     ;                   12-01-2013: Documentation - Anjian Wu
+                           966     ;------------------------------------------------------------------------------
+                           967     
+0082                       968     SetBaud         PROC    NEAR
+                           969     
+0082                       970     SetBaudInit:
+0082 9C                    971         PUSHF                        ; Save All Flags
+                           972       
+0083 FA                    973         CLI                          ; Turn Interrupts off to avoid critical code
+                           974        
+0084 8BCA                  975         MOV     CX, DX               ; Make copy of DX since need it for OUT and IN instr
+0086                       976     SetBaudDLABON:
+                           977 +1      
+0086 BA0301                978 +2          MOV     DX, LCR_ADDRESS               ;get the port number into DX
+0089 EC                    979 +1          IN      AL, DX                  ;output to the port
+                           980 +1       ; Grab current LCR reg val
+008A 0C80                  981         OR  AL, DLAB_BIT_ON          ; Mask OFF DLAB
+                           982 +1      
+008C BA0301                983 +2          MOV     DX, LCR_ADDRESS               ;get the port number into DX
+008F EE                    984 +1          OUT     DX, AL                  ;output to the port
+                           985 +1      ; Enable LSByte div latch writing      
+0090 8AC1                  986         MOV AL, CL                   ; Prepare to write LSByte of div factor
+                           987 +1      
+0092 BA0001                988 +2          MOV     DX, DLL_ADDRESS               ;get the port number into DX
+0095 EE                    989 +1          OUT     DX, AL                  ;output to the port
+                           990 +1      ; Write to LSByte of div latch
+0096 8AC5                  991         MOV AL, CH                   ; Prepare to write MSByte of div factor
+                           992 +1      
+0098 BA0101                993 +2          MOV     DX, DLM_ADDRESS               ;get the port number into DX
+009B EE                    994 +1          OUT     DX, AL                  ;output to the port
+                           995 +1      ; Write to MSByte of div latch       
+                           996         
+009C                       997     SetBaudDLABOFF:
+                           998 +1      
+009C BA0301                999 +2          MOV     DX, LCR_ADDRESS               ;get the port number into DX
+009F EC                   1000 +1          IN      AL, DX                  ;output to the port
+                          1001 +1       ; Now retrieved the line ctrl val again 
+00A0 247F                 1002         AND  AL, DLAB_BIT_OFF        ; Turn OFF DLAB
+                          1003 +1      
+00A2 BA0301               1004 +2          MOV     DX, LCR_ADDRESS               ;get the port number into DX
+00A5 EE                   1005 +1          OUT     DX, AL                  ;output to the port
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE   17
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1006 +1      ;   
+                          1007         
+00A6 9D                   1008         POPF                            ; Restore all flags
+00A7 C3                   1009         RET
+                          1010     
+                          1011     SetBaud     ENDP
+                          1012     
+                          1013     ;Procedure:                     SetParity
+                          1014     ;
+                          1015     ;Description:           This function sets the parity based on passed parity value.
+                          1016     ;                   The arg AL can be NO_PARITY, PARITY_ODD, PARITY_EVEN, 
+                          1017     ;                   PARITY_STICKY_CLR, or PARITY_STICKY_SET.
+                          1018     ;
+                          1019     ;Operation:                     * Use pass AL parity code for loop up table of MASKs
+                          1020     ;                   * Save that mask into BL for later
+                          1021     ;                   * Now grab the LCR reg val, which controls parity
+                          1022     ;                   * Clear all parity bits of LCR val
+                          1023     ;                   * Finally turn ON all parity bits needed with OR mask
+                          1024     ;                   * Output back that new parity setting
+                          1025     ;
+                          1026     ;Arguments:             AL -> the desired parity key code
+                          1027     ;Return Values:         none.
+                          1028     ;Shared Variables:      none.
+                          1029     ;Local Variables:       BX  -   Holds pointer for table loop up
+                          1030     ;                   AL  -   Holds mask value, and LCR reg val
+                          1031     ;                   BL  -   Holds copy of mask value
+                          1032     ;                   DX  -   Address of LCR port
+                          1033     ;Global Variables:      None.                   
+                          1034     ;Input:                 None.
+                          1035     ;Output:                None.
+                          1036     ;Registers Used:        BX, AL, BL, DX
+                          1037     ;Stack Depth:           none.
+                          1038     ;Known Bugs:            None.
+                          1039     ;Data Structures:       None.
+                          1040     ;Error Handling:        None
+                          1041     ;Algorithms:            Table lookup
+                          1042     ;Limitations:           None.
+                          1043     ;Author:                        Anjian Wu
+                          1044     ;History:                       11-25-2013: Pseudo code - Anjian Wu
+                          1045     ;                   11-30-2013: Working     - Anjian Wu
+                          1046     ;                   12-01-2013: Documentation - Anjian Wu
+                          1047     ;------------------------------------------------------------------------------
+00A8                      1048     SetParity       PROC    NEAR
+                          1049     
+00A8 8D1EBD00       R     1050         LEA     BX, Parity_Table        ; Prepare for table look up
+00AC 2ED7                 1051         XLAT        CS:Parity_Table                 ; Get the right parity mask  
+00AE 8AD8                 1052         MOV     BL, AL                  ; Keep a copy of that value
+                          1053 +1      
+00B0 BA0301               1054 +2          MOV     DX, LCR_ADDRESS               ;get the port number into DX
+00B3 EC                   1055 +1          IN      AL, DX                  ;output to the port
+                          1056 +1          ; Now retrieved the line ctrl val  
+00B4 24C7                 1057         AND     AL, PARITY_BITS         ; Let us first clear all parity bits
+00B6 0AC3                 1058         OR      AL, BL                  ; OR MASK proper parity bits
+                          1059 +1      
+00B8 BA0301               1060 +2          MOV     DX, LCR_ADDRESS               ;get the port number into DX
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE   18
+
+
+LOC  OBJ                  LINE     SOURCE
+
+00BB EE                   1061 +1          OUT     DX, AL                  ;output to the port
+                          1062 +1         ; Write back to LCR reg to complete parity change 
+00BC C3                   1063         RET                             ; Done
+                          1064     
+                          1065     SetParity   ENDP
+                          1066     
+                          1067     ;Name:                      Parity_Table (BYTE Table)
+                          1068     ;Description:           This is the table used by the SetParity that maps the 
+                          1069     ;                   parity key arg passed into the proper OR masks needed
+                          1070     ;                   to turn on the right parity bits.              
+                          1071     ;Arguments:             None.
+                          1072     ;Return Values:         none.
+                          1073     ;Shared Variables:      none.
+                          1074     ;Local Variables:       None.
+                          1075     ;Global Variables:      None.                   
+                          1076     ;Input:                 None.
+                          1077     ;Output:                None.
+                          1078     ;Registers Used:        none.
+                          1079     ;Stack Depth:           none.
+                          1080     ;Known Bugs:            None.
+                          1081     ;Data Structures:       None.
+                          1082     ;Error Handling:        None
+                          1083     ;Algorithms:            None.
+                          1084     ;Limitations:           None.
+                          1085     ;Author:                        Anjian Wu
+                          1086     ;History:                       11-25-2013: Pseudo code - Anjian Wu
+                          1087     ;                   11-30-2013: Working     - Anjian Wu
+                          1088     ;                   12-01-2013: Documentation - Anjian Wu
+                          1089     ;------------------------------------------------------------------------------
+00BD                      1090     Parity_Table        LABEL       BYTE
+                          1091     
+00BD 00                   1092         DB      NO_PARITY_MASK           ;no parity is generated or checked
+00BE 08                   1093             DB              PARITY_ODD_MASK              ;odd parity (an odd number of lo
+                                   gic 1's)
+00BF 18                   1094         DB      PARITY_EVEN_MASK         ;even parity (an even number of logic 1's)
+00C0 38                   1095         DB      PARITY_STICKY_CLR_MASK   ;parity bit is transmitted and checked as cleare
+                                   d
+00C1 28                   1096         DB      PARITY_STICKY_SET_MASK   ;parity bit is transmitted and checked as set
+                          1097         
+                          1098     ;Procedure:                     SerialInit
+                          1099     ;
+                          1100     ;Description:           This function initializes 
+                          1101     ;                   1. Local variables of the serial functions
+                          1102     ;                   2. Serial Chip's word length, stop bits, div rate, and parity.
+                          1103     ;                      Also chip's interrupt enables
+                          1104     ;                   3. TX_queue
+                          1105     ;                   4. SerialHander into vector table for INT2
+                          1106     ;                   5. INT2Ctrl reg for triggering, and enable
+                          1107     ;                   6. IMASK reg for allowing INT2 int
+                          1108     ;                   After this, the Serial functions and serial chip is fully ready.
+                          1109     ;                   
+                          1110     ;Operation:         * Clear AL, mask ON appropriate WORD_LENTH_BITS and STOP_BITS
+                          1111     ;                   * OUTPUT that val to LCR to set word and stop bit vals
+                          1112     ;                   * CALL SetBaud with div rate in DX
+                          1113     ;                   * CALL SetParity with NO_PARITY in AL
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE   19
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1114     ;                   * Initialize queue at tx_queue with MAX_Q_LENG - 1 elements as by
+                                   te queue
+                          1115     ;                   * Install SerialHandler into Int2 of vector table
+                          1116     ;                   * Enable RX and ERR interrupts on the serial chip by OR mask ON
+                          1117     ;                     bits for the IER reg. Set those bits by writing to IER.
+                          1118     ;                   * Set the INT2CON with appropriate triggering and unmask to enabl
+                                   e
+                          1119     ;                   * Make sure IMASK does not have INT2 masked by AND clearing the I
+                                   NT2 bit
+                          1120     ;                     and writing back to IMASK reg
+                          1121     ;                   * FInally send out to INTCtrl the INT2EOI.
+                          1122     ;
+                          1123     ;Arguments:             None.
+                          1124     ;Return Values:         none.
+                          1125     ;Shared Variables:      None.
+                          1126     ;Local Variables:       AL  -   Holds read/write byte for ports
+                          1127     ;                   DX  -   HOlds address for ports
+                          1128     ;                   SI  -   holds pointer for queue
+                          1129     ;                   AX  -   Holds val for ES 
+                          1130     ;                   BL  -   queue size 
+                          1131     ;Global Variables:      None.                   
+                          1132     ;Input:                 None.
+                          1133     ;Output:                None.
+                          1134     ;Registers Used:        Al, AX, DX, SI, BL
+                          1135     ;Stack Depth:           none.
+                          1136     ;Known Bugs:            None.
+                          1137     ;Data Structures:       None.
+                          1138     ;Error Handling:        None
+                          1139     ;Algorithms:            None.
+                          1140     ;Limitations:           None.
+                          1141     ;Author:                        Anjian Wu
+                          1142     ;History:                       11-25-2013: Pseudo code - Anjian Wu
+                          1143     ;                   11-30-2013: Working     - Anjian Wu
+                          1144     ;                   12-01-2013: Documentation - Anjian Wu
+                          1145     ;                   12-10-2013: Removed kickstart_flag
+                          1146     ;------------------------------------------------------------------------------
+                          1147     
+00C2                      1148     SerialInit      PROC    NEAR
+                          1149                         PUBLIC  SerialInit
+                          1150                             
+00C2                      1151     SerialSetWordandSTOP:
+                          1152     
+00C2 32C0                 1153         XOR     AL, AL              ; Clear bits for LCR
+                          1154         
+00C4 0C03                 1155         OR      AL, WORD_LENTH_BITS ; Turn on bits for proper word length
+00C6 0C00                 1156         OR      AL, STOP_BITS       ; Turn on bits for proper # of stop bits
+                          1157          
+                          1158 +1      
+00C8 BA0301               1159 +2          MOV     DX, LCR_ADDRESS               ;get the port number into DX
+00CB EE                   1160 +1          OUT     DX, AL                  ;output to the port
+                          1161 +1     ; Set those word and stop bit settings to LCR
+                          1162          
+00CC                      1163     SerialBAUDandParity:
+00CC BA0500               1164         MOV     DX, div_rate        ; Set the proper div value for baud rate
+00CF E8B0FF               1165         CALL    SetBaud             ; 
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE   20
+
+
+LOC  OBJ                  LINE     SOURCE
+
+00D2 B000                 1166         MOV     AL, NO_PARITY       ; Set for no parity
+00D4 E8D1FF               1167         CALL    SetParity           ;
+                          1168         
+00D7                      1169     SerialMakeQueue:
+00D7 8D360000       R     1170         LEA     SI, tx_queue        ; Grab address of tx Queue
+00DB B8FF01               1171         MOV     AX, MAX_Q_LENG - 1  ; Prepare to make queue of max length
+00DE B300                 1172         MOV     BL, BYTE_QUEUE      ; We want a BYTE tx queue
+00E0 E80000         E     1173         CALL    QueueInit           ; Make a Queue of Bytes with length MAX_Q_LENG - 1
+                          1174     
+00E3                      1175     SerialVectorInit:
+                          1176            
+00E3 33C0                 1177             XOR     AX, AX          ;clear ES (interrupt vectors are in segment 0)
+00E5 8EC0                 1178             MOV     ES, AX
+                          1179                                     ;store the vector
+00E7 26C70638002200 R     1180             MOV     ES: WORD PTR (4 * Int2Vec), OFFSET(SerialHandler)
+00EE 26C7063A00---- R     1181             MOV     ES: WORD PTR (4 * Int2Vec + 2), SEG(SerialHandler)
+                          1182                                      ; We mul by 4 since each vector is comprised
+                          1183                                     ; of a CS:IP (WORD:WORD). Thus each unit is normalize
+                                   d
+                          1184                                     ; to four bytes and we need to jump 4 positions per v
+                                   ector.       
+00F5                      1185     SerialChipIntEnable:
+00F5 33C0                 1186         XOR     AX, AX                   ;  Clear bits for IER
+00F7 0C01                 1187         OR      AL, RXINT_ON             ;  Turn on RX interrupts
+00F9 0C04                 1188         OR      AL, ERRINT_ON            ;  Turn on Error interrupts
+                          1189 +1     
+00FB BA0101               1190 +2          MOV     DX, IER_ADDRESS               ;get the port number into DX
+00FE EE                   1191 +1          OUT     DX, AL                  ;output to the port
+                          1192 +1           ;  Set IER with those RX and ERR settings
+                          1193     
+                          1194         
+00FF                      1195     SerialInt2Enable:
+                          1196     
+00FF BA3CFF               1197         MOV     DX, INT2Ctrl            ;Setup how hardware INT2 works
+0102 B81100               1198         MOV     AX, INT2VAL             ;Turn it on along with proper trigger settings
+0105 EE                   1199         OUT     DX, AL
+                          1200         
+0106                      1201     SerialInt2MASKENABLE:
+                          1202     
+0106 BA28FF               1203         MOV     DX, IMASK_ADDR            ;Make sure IMASK allows fro INT2
+0109 ED                   1204         IN      AX, DX
+010A 25BD00               1205         AND     AX, INT2_MASK_REG         ;By masking OFF INT2 bit of IMASK
+010D EF                   1206         OUT     DX, AX                    ;
+                          1207         
+                          1208         
+010E                      1209     SerialSetEOI:   
+010E BA22FF               1210         MOV     DX, INTCtrlReg          ;send the EOI to INT2 control
+0111 B80E00               1211         MOV     AX, INT2EOI
+0114 EE                   1212         OUT     DX, AL
+                          1213         
+0115 C3                   1214         RET                                
+                          1215     SerialInit      ENDP
+                          1216     
+----                      1217     CODE    ENDS
+                          1218         
+8086/87/88/186 MACRO ASSEMBLER    SERIAL                                                   21:53:09  12/12/;3  PAGE   21
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                          1219     ;the data segment
+                          1220     
+----                      1221     DATA    SEGMENT PUBLIC  'DATA'
+                          1222     
+0000 ????                 1223     tx_queue          QUEUESTRUC <>           ; Holds the TX serial queue
+0002 ????
+0004 ????
+0006 ????
+0008 (1024
+     ??
+     )
+                          1224     
+----                      1225     DATA    ENDS
+                          1226     
+                          1227             END 
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND
