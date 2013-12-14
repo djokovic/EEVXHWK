@@ -1,0 +1,494 @@
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    1
+
+
+DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE HW2TEST
+OBJECT MODULE PLACED IN CONV.OBJ
+ASSEMBLER INVOKED BY:  C:\5XTOOLS\ASM86.EXE CONV.ASM M1 DB EP
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                             1     NAME        HW2TEST
+                             2     
+                             3     ; local include files
+                             4 +1  $INCLUDE(conv.inc)
+                      =1     5     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1     6     ;                                                                            ;
+                      =1     7     ;                                  conversions.INC                           ;
+                      =1     8     ;                           String Conversion Constants                          ;
+                      =1     9     ;                                 Include File                               ;
+                      =1    10     ;                                                                            ;
+                      =1    11     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    12     
+                      =1    13     ; This file contains the definitions for the timing functions for the 8088
+                      =1    14     ; version of the Microprocessor-Based Clock.
+                      =1    15     ;
+                      =1    16     ; Revision History:
+                      =1    17     ;    10/23/2013                 Created - Anjian Wu
+                      =1    18     
+                      =1    19     
+                      =1    20     
+                      =1    21     ; ASCII Constants
+                      =1    22     
+  0000                =1    23     ASCII_NULL      EQU     0              ;interrupt vector for timer
+                      =1    24     
+                      =1    25     
+                      =1    26     
+                      =1    27     ; General Definitions
+                      =1    28     
+  000F                =1    29     Hex2StrMASK     EQU     000FH           ;number of interrupts per second * 10
+  0004                =1    30     ByteSize        EQU     4               ; 4 Bits in a byte
+                      =1    31     
+  0000                =1    32     CounterEmpty    EQU             0                               ; Value for loop coun
+                                   ter when empty
+                      =1    33     
+  0004                =1    34     MaxHexStrSize   EQU             4                               ; Value for max size 
+                                   of Hex string (=<4)
+                            35     
+                            36     ;Procedure:                     Hex2String
+                            37     ;
+                            38     ;Description:           This procedure will convert a value b^^nb^^ into a hex that 
+                                              
+                            39     ;                                       is fixed at 4 characters and stores are strin
+                                   g.
+                            40     ;
+                            41     ;                   If the Hex is less than 4 chars long, zeros are fitted
+                            42     ;
+                            43     ;                                       String will be <null> terminated. The string 
+                                   is stored at 
+                            44     ;                                       a memory location indicated by 'a'. AX - 'n',
+                                    SI - 'a'.
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    2
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                            45     ;
+                            46     ;
+                            47     ;
+                            48     ;Operation:                     This code will convert a hex number from AX (n) and s
+                                   tore 
+                            49     ;                                       the signed ASCII values at 'a'. For convenien
+                                   ce, the storing
+                            50     ;                   is done in REVERSE (i.e from SI + HExMaxsize down to SI, this
+                            51     ;                   includes ASCII_NULL).
+                            52     ;
+                            53     ;                   The procedure to actually store each char is done by calling
+                            54     ;                   the StoreDaChar(byte AL) function. See StoreDaChar for more 
+                            55     ;                   details.
+                            56     ;
+                            57     ;Arguments:             n (AX) -> 16 - bit  value
+                            58     ;                                       a (DS:SI) -> location in memory (DS:SI)
+                            59     ;
+                            60     ;Return Values:         None;
+                            61     ;
+                            62     ;Shared Variables:      None.
+                            63     ;
+                            64     ;Local Variables:       AX -> Holds arg, shifted arg, and masked arg
+                            65     ;                                       DX -> Holds shifted arg, used to place ASCII_
+                                   NULL
+                            66     ;                   CX -> While loop counter
+                            67     ;                   SI -> String pointer
+                            68     ;
+                            69     ;Global Variables:      None.
+                            70     ;                                       
+                            71     ;                                       
+                            72     ;Input:                 None.
+                            73     ;
+                            74     ;Output:                Fixed 4 char string starting at SI and ending at SI + 5 (
+                            75     ;                   including ASCII_NULL)
+                            76     ;
+                            77     ;Registers Changed: Flags
+                            78     ;
+                            79     ;Stack Depth:           5 words (4 push/pops and 1 call)
+                            80     ;
+                            81     ;Known Bugs:            None :D
+                            82     ;
+                            83     ;Data Structures:       None.
+                            84     ;
+                            85     ;Error Handling:        If is less than CounterEmpty, the loop terminates as well;
+                            86     ;
+                            87     ;Algorithms:            1. Mask off least sig BYTE
+                            88     ;                   2. Call StoreDaChar
+                            89     ;                   3. Update pointer (DEC)
+                            90     ;                   4. Shift Arg down 4 bits
+                            91     ;                   5. Update counter (DEC)
+                            92     ;                   5. LOOP until counter is empty
+                            93     ;
+                            94     ;Limitations:           Will always allocate 5 characters worth space in mem for 
+                            95     ;                                       return value (e.g. 0xF -> 0x000F). 
+                            96     ;
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                            97     ;                   Cannot store any Hex greater than 4 chars.
+                            98     ;
+                            99     ;Author:                        Anjian Wu
+                           100     ;History:                       Pseudo code: 10-21-2013
+                           101     ;                   Intial working: 10/23/2013
+                           102     ;                   Documentation Update: 10/24/2013
+                           103     ;-------------------------------------------------------------------------------
+                           104     
+                           105     CGROUP  GROUP   CODE
+                           106     
+----                       107     CODE    SEGMENT PUBLIC 'CODE'
+                           108     
+                           109     
+                           110             ASSUME  CS:CGROUP
+                           111     
+0000                       112     Hex2String              PROC    NEAR
+                           113                                     PUBLIC  Hex2String
+                           114     
+0000 50                    115             PUSH    AX
+0001 52                    116             PUSH    DX
+0002 51                    117             PUSH    CX
+0003 56                    118             PUSH    SI
+                           119     
+0004                       120     HexINIT:
+                           121     
+0004 B90400                122             MOV     CX, MaxHexStrSize   ; Counter should loop fixed Hex size of 4
+0007 83C604                123             ADD     SI, MaxHexStrSize   ; Reverse insertion of chars means start at ASCII
+                                   _NULL
+                           124             
+000A BA0000                125             MOV     DX, ASCII_NULL      ; Place ASCII NULL
+000D 8814                  126             MOV     DS:[SI], DL         ; Store
+000F 4E                    127             DEC     SI;                 ; Update pointer
+                           128             
+0010 8BD0                  129             MOV     DX, AX              ; Save the arg
+                           130     
+                           131             
+0012                       132     HexLoop: 
+0012 83F900                133             CMP     CX, CounterEmpty    ;Is the while loop done when counter is empty.
+0015 7E0F                  134             JLE     Hex2StringEND       ;Yes, thus exit loop
+                           135             ;JG     HexLoopBody         ; NO continue to body
+                           136             
+0017                       137     HexLoopBody:        
+0017 250F00                138                     AND     AX, Hex2StrMASK     ;Mask the last byte (4 bits)
+                           139             
+001A E86400                140             CALL    StoreDaChar         ;Store Char, Note BX is changed
+001D 4E                    141             DEC     SI                  ;Update pointer
+                           142             
+001E C1EA04                143             SHR     DX, ByteSize        ;Shift off the last byte
+0021 8BC2                  144             MOV     AX, DX              ;update the ARG
+                           145             
+0023 49                    146             DEC     CX                  ;Decrement the counter
+                           147                     
+0024 EBEC                  148             JMP     HexLoop             ;Loop
+                           149     
+0026                       150     Hex2StringEND:
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    4
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           151             
+0026 5E                    152             POP    SI
+0027 59                    153             POP    CX
+0028 5A                    154             POP    DX
+0029 58                    155             POP    AX
+                           156             
+002A C3                    157             RET
+                           158     Hex2String ENDP
+                           159     
+                           160     
+                           161     ;Procedure:                     Dec2String
+                           162     ;
+                           163     ;Description:           This procedure will convert a value b^^nb^^ into a decimal th
+                                   at                 
+                           164     ;                                       is at most 6 characters (with sign) and store
+                                   s are string.
+                           165     ;
+                           166     ;                                       String will be <null> terminated. The string 
+                                   is stored at 
+                           167     ;                                       a memory location indicated by 'a'. AX - 'n',
+                                    SI - 'a'.
+                           168     ;                   The string is than store from SI to SI + 5
+                           169     ;
+                           170     ;                                       Assume we store first digit first, and <null>
+                                    last.
+                           171     ;
+                           172     ;                   For positive integers, there will be NO sign designation.
+                           173     ;
+                           174     ;                   For neg integers, a "-" char is placed before the number.
+                           175     ;
+                           176     ;                   Actually calls external function StoreDaChar to store the char
+                           177     ;                   see that function for more details.
+                           178     ;
+                           179     ;
+                           180     ;Operation:                     This code will convert a bin number from AX (n) and s
+                                   tore 
+                           181     ;                                       the signed decimal value at 'a'.
+                           182     ;
+                           183     ;                   It does this by the following steps
+                           184     ;                   1. Check sign and places sign if needed
+                           185     ;                   2. Continually divide the ARG by a PWR10 (starting with 10000
+                           186     ;                   and decrementing by a factor of 10) and grabbing the digit 
+                           187     ;                   to be placed.
+                           188     ;                   3. Call the StoreDaChar function to store the char
+                           189     ;                   4. Repeat until the PWR10 counter is 0.
+                           190     ;                   5. Add the ASCII_NULL
+                           191     ;
+                           192     ;Arguments:             n (AX) -> 16 - bit signed value
+                           193     ;                                       a (DS:SI) -> location in memory (DS:SI)
+                           194     ;
+                           195     ;Return Values:         Error Flag
+                           196     ;
+                           197     ;Shared Variables:      None.
+                           198     ;
+                           199     ;Local Variables:       AX -> arg, char digit, used for storing DIV answer
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    5
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           200     ;                                       BX -> stores arg, when AX is used 
+                           201     ;                                       CX -> PWR10 counter
+                           202     ;                                       DX -> Stores Remainder from DIV
+                           203     ;                   SI -> String pointer
+                           204     ;
+                           205     ;Global Variables:      None.
+                           206     ;                                       
+                           207     ;                                       
+                           208     ;Input:                 None.
+                           209     ;Output:                String in (DS:SI). Fixed size of 5 bytes.
+                           210     ;
+                           211     ;Registers Changed:     Flags
+                           212     ;
+                           213     ;Stack Depth:           6 (5 push pops and 1 CALL)
+                           214     ;
+                           215     ;Known Bugs:            None :D
+                           216     ;
+                           217     ;Data Structures:       None.
+                           218     ;
+                           219     ;Error Handling:        The program has an error flag that is raised if the Dec2BCD
+                           220     ;                                       runs into error. If so, the stored value is u
+                                   ndefined.
+                           221     ;
+                           222     ;Algorithms:        1. Continually divide the ARG by a PWR10 (starting with 10000
+                           223     ;                   and decrementing by a factors of 10) and grabbing the digit 
+                           224     ;                   to be placed.
+                           225     ;                   2. Call the StoreDaChar function to store the char digit
+                           226     ;                   3. Repeat until the PWR10 counter is 0.
+                           227     ;
+                           228     ;Limitations:           Only handles numbers less than 5 digits. Will always    
+                                              
+                           229     ;                                       allocate 5 characters worth space in mem for 
+                                   return
+                           230     ;                                       value (e.g. 1 -> +0001).
+                           231     ;
+                           232     ;Author:                        Anjian Wu
+                           233     ;
+                           234     ;History:                       Pseudo code: 10-21-2013
+                           235     ;                   Intial working: 10/23/2013
+                           236     ;                   Documentation Update: 10/24/2013
+                           237     ;-------------------------------------------------------------------------------
+                           238     
+                           239     
+002B                       240     Dec2String              PROC    NEAR
+                           241                                     PUBLIC  Dec2String
+                           242     
+002B 50                    243             PUSH    AX                      ; Store Registers used
+002C 52                    244             PUSH    DX
+002D 51                    245             PUSH    CX
+002E 56                    246             PUSH    SI
+002F 52                    247             PUSH    DX
+                           248             
+0030                       249     DecSignCheck:
+                           250     
+0030 3D0000                251                     CMP     AX, 0                   ; Check to see if Num is neg
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    6
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0033 7D0A                  252             JGE     DecIsPos                ; Num is not neg, thus no '-' needed
+                           253             ;JL                             ; Num is neg, need 2's complement and '-' 
+0035                       254     DecIsNeg:
+0035 F7D8                  255             NEG     AX                      ;
+0037 B32D                  256             MOV     BL, '-'                 ;
+0039 881C                  257             MOV     DS:[SI], BL             ;Place the character in mem
+003B 46                    258             INC     SI                      ;Update the char pointer
+                           259            
+003C EB0690                260             JMP     Bin2BCDInit             ;
+003F                       261     DecIsPos:
+003F B330                  262             MOV     BL, '0'                 ;
+0041 881C                  263             MOV     DS:[SI], BL             ;
+                           264     
+0043 46                    265             INC     SI                      ;Update the char pointer
+                           266                     ;JMP    Bin2BCDInit
+                           267             
+0044                       268     Bin2BCDInit:                            ;initialization
+0044 8BD8                  269             MOV     BX, AX                  ;BX = arg. Save the arg
+                           270     
+0046 B91027                271             MOV     CX, 10000               ;start with 10^3 (10000's digit)
+0049 F8                    272             CLC                             ;no error yet
+                           273             ;JMP    Bin2BCDLoop             ;now start looping to get digits
+                           274     
+                           275     
+004A                       276     Bin2BCDLoop:                            ;loop getting the digits in arg
+                           277     
+004A 722A                  278             JC      Dec2StringEND          ;if there is an error - we're done
+004C 83F900                279             CMP     CX, 0                   ;check if pwr10 > 0
+004F 7E25                  280             JLE     Dec2StringEND          ;if not, have done all digits, done
+                           281             ;JMP    Bin2BCDLoopBody         ;else get the next digit
+                           282     
+0051                       283     Bin2BCDLoopBody:                        ;get a digit
+0051 8BC3                  284             MOV     AX, BX
+0053 BA0000                285             MOV     DX, 0                   ;setup for arg/pwr10 remainder
+                           286     
+0056 F7F1                  287             DIV     CX                      ;digit (AX) = arg/pwr10
+0058 3D0A00                288             CMP     AX, 10                  ;check if digit < 10
+005B 7316                  289             JAE     TooBigError             ;if not, it's an error
+                           290             ;JB     HaveDigit               ;otherwise process the digit
+                           291     
+005D                       292     HaveDigit:                              ;put the digit into the result
+                           293           
+005D E82100                294             CALL    StoreDaChar             ;Store Char, BX is changed, but that's OK
+0060 46                    295             INC     SI                      ;Update the char pointer
+                           296             
+0061                       297     DecUpdatePWR10:
+                           298     
+0061 8BDA                  299             MOV     BX, DX                  ;now work with arg = arg MODULO pwr10
+0063 8BC1                  300             MOV     AX, CX                  ;setup to update pwr10
+0065 B90A00                301             MOV     CX, 10                  ;   (clears CH too)
+0068 BA0000                302             MOV     DX, 0                   ;setup for arg/pwr10 remainder   
+006B F7F1                  303             DIV     CX                      ;   (note: pwr10/10 <= 100 so no overflow)
+006D 8BC8                  304             MOV     CX, AX                  ;pwr10 = pwr10/10 (note: CH = 0)
+006F F8                    305             CLC                             ;no error
+0070 EB0290                306             JMP     EndBin2BCDLoopBody      ;done getting this digit
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    7
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           307     
+0073                       308     TooBigError:                            ;the value was too big
+0073 F9                    309             STC                             ;set the error flag
+                           310             ;JMP    EndBin2BCDLoopBody      ;and done with this loop iteration
+                           311     
+0074                       312     EndBin2BCDLoopBody:
+0074 EBD4                  313             JMP     Bin2BCDLoop             ;keep looping (end check is at top)
+                           314     
+0076                       315     Dec2StringEND:
+0076 B80000                316             MOV     AX, ASCII_NULL          ;
+0079 8804                  317             MOV     DS:[SI], AL             ;Place the character in mem
+                           318            
+007B 5A                    319             POP    DX                       ; Restore registers used
+007C 5E                    320             POP    SI
+007D 59                    321             POP    CX
+007E 5A                    322             POP    DX
+007F 58                    323             POP    AX
+                           324             
+0080 C3                    325             RET
+                           326            
+                           327     Dec2String      ENDP    
+                           328     
+                           329     
+                           330     ;Procedure:                     StoreDaChar
+                           331     ;
+                           332     ;Description:       This function takes AL and SI as the args. AL maps to its corresp
+                                   onding
+                           333     ;                   ASCII char. It will then take this char and store it at DS:SI
+                           334     ;
+                           335     ;Operation:         The passed integer is looked up in a table containing the
+                           336     ;                   ASCII char of every HEX char (from '0' to 'F').
+                           337     ;
+                           338     ; Arguments:         AL -> unsigned value for which to compute the square root.
+                           339     ;
+                           340     ; Return Value:      AL -> becomes last placed Char
+                           341     ;
+                           342     ;
+                           343     ;Shared Variables:      None.
+                           344     ;
+                           345     ;Local Variables:       AL -> INT sign flag
+                           346     ;                                       BX -> INT current power of 10
+                           347     ;
+                           348     ;Global Variables:      None.
+                           349     ;                                       
+                           350     ;                                       
+                           351     ;Input:                 None.
+                           352     ;
+                           353     ;Output:                A CHAR at (DS:SI)
+                           354     ;
+                           355     ;Registers Changed: flags, AL becomes last placed Char.
+                           356     ;
+                           357     ;Stack Depth:           1 WORD
+                           358     ;
+                           359     ;Known Bugs:            None :D
+                           360     ;
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    8
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           361     ;Data Structures:       None.
+                           362     ;
+                           363     ;Error Handling:        The program has an error flag that is raised if the Dec2BCD
+                           364     ;                                       runs into error. If so, the stored value is u
+                                   ndefined.
+                           365     ;
+                           366     ;Algorithms:            Table lookup.
+                           367     ;
+                           368     ;Limitations:           None.
+                           369     
+                           370     ;Author:                        Anjian Wu
+                           371     ;History:                       Pseudo code: 10-21-2013
+                           372     ;                   Intial working: 10/23/2013
+                           373     ;                   Documentation Update: 10/24/2013
+                           374     ;-------------------------------------------------------------------------------
+                           375     
+0081                       376     StoreDaChar             PROC    NEAR
+                           377                                     PUBLIC  StoreDaChar
+                           378     
+0081 53                    379             PUSH    BX
+                           380     
+                           381                     
+0082 BB8C0090       R      382             MOV         BX, OFFSET(ASCIICharTable);point into the table of square roots
+0086 2ED7                  383             XLAT    CS:ASCIICharTable               ;get the square root   
+                           384             
+0088 8804                  385             MOV     DS:[SI], AL             ;Place the character in mem
+                           386     
+008A 5B                    387             POP     BX
+008B C3                    388             RET
+                           389             
+                           390     StoreDaChar         ENDP
+                           391     
+                           392     ; ASCIICharTable
+                           393     ;
+                           394     ; Description:      This table contains the ASCII char of Hex 0 - F in code segment
+                           395     ;
+                           396     ; Author:           Anjian Wu
+                           397     ; Last Modified:    10-23-2013
+                           398     
+                           399     
+008C                       400     ASCIICharTable  LABEL   BYTE
+                           401     
+008C 30                    402             DB       '0'
+008D 31                    403         DB   '1'
+008E 32                    404         DB   '2'
+008F 33                    405         DB   '3'
+0090 34                    406         DB   '4'
+0091 35                    407         DB   '5'
+0092 36                    408         DB   '6'
+0093 37                    409         DB   '7'
+0094 38                    410         DB   '8'
+0095 39                    411         DB   '9'
+0096 41                    412         DB   'A'
+0097 42                    413         DB   'B'
+0098 43                    414         DB   'C'
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    9
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0099 44                    415         DB   'D'
+009A 45                    416         DB   'E'
+009B 46                    417         DB   'F'
+                           418         
+----                       419     CODE ENDS
+                           420     
+                           421             END
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND

@@ -493,6 +493,8 @@ DisplayHex  ENDP
 
 DisplayHandlerInit  PROC    NEAR
                     PUBLIC  DisplayHandlerInit
+                    
+                    
 
 
         MOV     digitchar, 0    ; Clear the digitchar counters
@@ -502,13 +504,20 @@ DisplayInitClearLowbyte:	; Also important to clear buffer in the beginning
 		LEA     SI, DHandlerVarLow.buffer   ; Grab address of lower byte seg buff
 		MOV     AL, SEGMENT_NULL            ; Want to fill with SEGMENT_NULLs
 		CALL    DisplayBufferFill           ; Fill display array with SEGMENT_NULLs
-
+        CALL    Scroll_Reset                ; Make sure scrolling starts with
+                                            ; chars in original position before
+                                            ; moving
+        MOV     ScrollFlag, FALSE           ; Turn scrolling OFF
 
 DisplayInitClearHighbyte:	
 
 		LEA     SI, DHandlerVarHigh.buffer  ; Grab address of high byte seg buff
 		MOV     AL, SEGMENT_NULL            ; Want to fill with SEGMENT_NULLs
 		CALL    DisplayBufferFill           ; Fill display array with SEGMENT_NULLs
+        
+DispalyBrightnessInit:
+        MOV     brightnessCTR, 0                ; Reset counter
+        MOV     brightnessSetting, MAX_BRIGHT   ; Initial State with highest brightness
 
 DisplayInitVectorSetting:
 
@@ -523,9 +532,29 @@ DisplayInitVectorSetting:
 
 
 DisplayHandlerInit  ENDP
-				
-  
 
+
+				
+ScrollControl       PROC    NEAR
+                    PUBLIC  ScrollControl
+
+    CMP     ScrollFlag, TRUE   ; Is the flag already true?
+    JE      ScrollOFF          ; If so, switch it to false
+    ;JNE    ScrollON           ;
+ScrollON:   
+    MOV     ScrollFlag, TRUE   ; Else it is NOT true (ToggleHandler will
+                               ; STOP immediately)
+    
+    JMP     ScrollDone         ; In which we switch TO true
+    
+ScrollOFF:
+    MOV     ScrollFlag, FALSE  ; Turn serial debug off
+    ;JMP    ScrollDone         ;
+ScrollDone:
+
+    RET                             ;                    
+
+ScrollControl   ENDP
 
 ;Procedure:			DisplayHandler
 ;
@@ -597,19 +626,40 @@ DisplayHandlerInit  ENDP
 ;History:			11-04-2013: Pseudo code - Anjian Wu
 ;       			Working 7 seg version   - 11-08-2013 - Anjian Wu
 ;       			Working 14 seg version  - 11-09-2013 - Anjian Wu
+;                   12-13-2013  -> Added Brightness Setting
 ;-------------------------------------------------------------------------------
 
 
 DisplayHandler		    PROC    NEAR
 				        PUBLIC  DisplayHandler
 
-        PUSH    AX                          ;save the registers
-        PUSH    BX                          ;Event Handlers should NEVER change
-        PUSH    DX                          ;any register values
-
+        PUSHA
+        
+DisplayScrollControl:
+        CMP     ScrollFlag, TRUE         ;
+        JNE     DisplayBrightnessControl ; 
+        
+        INC     scrollcounter            ;
+        CMP     scrollcounter, SCROLLRATE;
+        JL      DisplayBrightnessControl ;
+        ;JGE    DisplayScrollUpdate      ;
+DisplayScrollUpdate:
+        MOV     scrollcounter, 0         ;
+        INC     scrollindex              ;
+        CMP     scrollindex, Display_SIZE;
+        JL      DisplayBrightnessControl ;
+        MOV     scrollindex, 0           ;
+        
+DisplayBrightnessControl:
+        MOV     AX, brightnessCTR        ; Grab brightness counter
+        CMP     AX, brightnessSetting    ; Has the display been dimmed long enough?
+        JL      DisplayClearFirstChar    ; No, need to wait longer
+        ;JGE    DisplayHInit             ; Yes, so output the chars
+        
+;\/\/\/\/\/\/\/\/\/\/\/Regular DisplayHandler From Before (below)\/\/\/\/\/\/\/\/\/\/\/
 DisplayHInit:
 
-        MOV     BX, digitchar                   ;get offset for current digitchar
+        MOV     BX, digitchar               ;get offset for current digitchar
         CMP     BX, Display_SIZE            ;Is the offset too large?
         JL      DisplayHUpdate              ;no it isn't keep going
         ;JGE     DisplayDigitReset          ;yes it is, reset it
@@ -617,19 +667,27 @@ DisplayHInit:
 DisplayDigitReset:
 
         MOV    BX, 0                        ; Clear the digitchar index
+        MOV   brightnessCTR, 0              ; Clear brightness counter (in effect
+                                            ; the display muxes all chars and takes
 
-
-		;        
 DisplayHUpdate:                                 ; update the display
+
+        MOV     AX, BX                          ; Copy the digitchar index
+        ADD     AX, scrollindex                 ; Calc the scroll offset
+        MOV     CX, Display_SIZE                ; We need to WRAP around after Display_SIZE
+        XOR     DX, DX
+        DIV     CX                              ; MOD(digitindex + scrollindex, Display_SIZE)
+                                                ; -> MOD is in DX
+Check:                                               
         MOV     AL, DHandlerVarHigh.buffer[BX]  ; Grab HIGH byte seg pat from buffer    
         MOV     AH, DHandlerVarLow.buffer[BX]   ; Grab LOW byte seg pat from buffer    
 
-        MOV     DX, LEDDisplay2                 ; get the display address for UPPER seg pat   
-        ADD     DX, BX                          ; ADD digitchar offset for display
+        PUSH    DX
+        ADD     DX, LEDDisplay2                 ; ADD digitchar offset for display
         OUT     DX, AL                          ; output segment directly
-
-        MOV     DX, LEDDisplay                  ; get the display address for LOW seg pat        
-        ADD     DX, BX                          ; ADD digitchar offset for display
+        
+        POP     DX
+        ADD     DX, LEDDisplay                          ; ADD digitchar offset for display
         
         XCHG    AL, AH						; Only AL is allowed for OUT-ing bytes 
                                             ; (also a nifty operation)
@@ -643,24 +701,132 @@ DisplayDigitUpdate:                         ;Update digitchar
         INC     BX                          ;update segment digitchar
         
         MOV     digitchar, BX                   ;save it for next time
+        
+        JMP     EndDisplayHandler           ;
+;\/\/\/\/\/\/\/\/\/\/\/Regular DisplayHandler From Before (above)\/\/\/\/\/\/\/\/\/\/\/
 
+DisplayClearFirstChar:                  ;done taking care displaying
 
-EndDisplayHandler:                      ;done taking care displaying
+        INC     brightnessCTR           ;increment the brightness 
+        XOR     AL, AL                  ;
+        MOV     DX, LEDDisplay2         ; get the display address for UPPER seg pat   
+        OUT     DX, AL                  ; Clear first char
+
+        MOV     DX, LEDDisplay          ;get the display address for LOW seg pat                                                
+        OUT     DX, AL                  ; Clear first char
+
+EndDisplayHandler:
 
         MOV     DX, INTCtrlrEOI         ;send the EOI to the interrupt controller
         MOV     AX, TimerEOI
         OUT     DX, AL
 
-        POP     DX                      ;restore the registers
-        POP     BX
-        POP     AX
-
+        POPA
 
         IRET                            ;and return (Event Handlers end with IRET not RET)
 
 
 DisplayHandler       ENDP
+
+;Procedure:			Inc_Bright
+;
+;Description:      	Determines which Serial error occurred at the chip,
+;                   and informs the user to the issue. Note this is
+;                   serial errors from Remote Serial Chip.
+;
+;Operation:         * Table offset = AX = Display_SIZE*AL + OFFSET(SerErrTable)
+;                   * Just store that into Error_Buff_PTR.
+;                
+;Arguments:        	AL  -> Event Val
+;Return Values:    	none.
+;Shared Variables: 	Error_Buff_PTR (WRITE).
+;Local Variables:	AX  -> abs pointer address.
+;Global Variables:	None.			
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		none.
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None.
+;Algorithms:       	None.
+;Limitations:  		Only displays error to user, does not fix the error.
+;Author:			Anjian Wu
+;Revision History:
+;                   Edits by Anjian Wu:
+;       			12-06-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
+;------------------------------------------------------------------------------
+Inc_Bright      PROC    NEAR
+                PUBLIC  Inc_Bright
+
+        MOV     AX, brightnessSetting   ;  
+        SUB     AX, DELTA_BRIGHT        ;
+        CMP     AX, MAX_BRIGHT          ;
+        JLE     Inc_BrightMax           ;
+        ;JL     Inc_BrightGoodToGo      ;
         
+Inc_BrightGoodToGo:      
+        MOV     brightnessSetting, AX   ;
+        JMP     Inc_BrightDone          ;
+Inc_BrightMax:
+        MOV     brightnessSetting, MAX_BRIGHT;
+        
+Inc_BrightDone:
+
+        RET
+    
+Inc_Bright    ENDP   
+
+;Procedure:			Dec_Bright
+;
+;Description:      	Determines which Serial error occurred at the chip,
+;                   and informs the user to the issue. Note this is
+;                   serial errors from Remote Serial Chip.
+;
+;Operation:         * Table offset = AX = Display_SIZE*AL + OFFSET(SerErrTable)
+;                   * Just store that into Error_Buff_PTR.
+;                
+;Arguments:        	AL  -> Event Val
+;Return Values:    	none.
+;Shared Variables: 	Error_Buff_PTR (WRITE).
+;Local Variables:	AX  -> abs pointer address.
+;Global Variables:	None.			
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		none.
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None.
+;Algorithms:       	None.
+;Limitations:  		Only displays error to user, does not fix the error.
+;Author:			Anjian Wu
+;Revision History:
+;                   Edits by Anjian Wu:
+;       			12-06-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
+;------------------------------------------------------------------------------
+Dec_Bright      PROC    NEAR
+                PUBLIC  Dec_Bright
+
+        MOV     AX, brightnessSetting   ;  
+        ADD     AX, DELTA_BRIGHT        ;
+        CMP     AX, MIN_BRIGHT          ;
+        JGE     Dec_BrightMin           ;
+        ;JL     	Dec_BrightGoodToGo  ;
+        
+Dec_BrightGoodToGo:      
+        MOV     brightnessSetting, AX   ;
+        JMP     Dec_BrightDone          ;
+Dec_BrightMin:
+        MOV     brightnessSetting, MIN_BRIGHT;
+        
+Dec_BrightDone:
+
+        RET
+    
+Dec_Bright    ENDP   
 ;Procedure:			DisplayBufferFill
 ;
 ;
@@ -755,8 +921,46 @@ DisplayClrDone:
 
     RET                     
     
-DisplayBufferFill  ENDP           
+DisplayBufferFill  ENDP   
+        
+;Procedure:			Scroll_Reset
+;
+;Description:      	Determines which Serial error occurred at the chip,
+;                   and informs the user to the issue. Note this is
+;                   serial errors from Remote Serial Chip.
+;
+;Operation:         * Table offset = AX = Display_SIZE*AL + OFFSET(SerErrTable)
+;                   * Just store that into Error_Buff_PTR.
+;                
+;Arguments:        	AL  -> Event Val
+;Return Values:    	none.
+;Shared Variables: 	Error_Buff_PTR (WRITE).
+;Local Variables:	AX  -> abs pointer address.
+;Global Variables:	None.			
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		none.
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None.
+;Algorithms:       	None.
+;Limitations:  		Only displays error to user, does not fix the error.
+;Author:			Anjian Wu
+;Revision History:
+;                   Edits by Anjian Wu:
+;       			12-06-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
+;------------------------------------------------------------------------------
+Scroll_Reset    PROC    NEAR
+                PUBLIC  Scroll_Reset
 
+        MOV     scrollindex, 0      ;
+        MOV     scrollcounter, 0    ;
+        
+        RET
+    
+Scroll_Reset    ENDP
 
 CODE    ENDS 
     
@@ -771,6 +975,16 @@ DATA    SEGMENT PUBLIC  'DATA'
     DHandlerVarHigh       DISPLAYSTRUC <>      ;Where DisplayHandler's low byte buffer is stored
 
     digitchar               DW      ?           ;The shared Handler pointer to next digitchar
+    
+    brightnessSetting       DW      ?       ;
+    
+    brightnessCTR           DW      ?       ;
+    
+    scrollindex         DW      ?           ; The current scrolling index 
+    
+    scrollcounter       DW      ?           ; Counter to control scrolling speed
+    
+    ScrollFlag          DW      ?
 	
 DATA    ENDS
 

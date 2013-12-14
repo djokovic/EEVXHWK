@@ -89,7 +89,9 @@ CODE    SEGMENT PUBLIC 'CODE'
         EXTRN   EventAvailable:NEAR         ; Checks if event queue is empty
         EXTRN   SerialPutChar:NEAR          ; Serial output a char
         EXTRN   no_op:NEAR                  ; Just returns         
-
+        EXTRN   Inc_Bright:NEAR             ; Increases Brightness of Display
+        EXTRN   Dec_Bright:NEAR             ; Decreases Brightness of Display
+        EXTRN   ScrollControl:NEAR
 		
 ; Name:             Remote Main Loop
 ;
@@ -348,9 +350,11 @@ HandleKey   ENDP
 
 ; Name:             KeyCmdTable
 ;
-; Description:      Jump table for INTERNAL functions to be used for a key press.
+; Description:      Sometimes the designer might want to have INTERNAL functions
+;                   be called for a key press (not just only serial strings).
+;                   This CALL table is for just that!
 ;                   This table is design so any INTERNAL function can be executed
-;                   or added easily.
+;                   or added easily to be called after a keypress.
 ;                   
 ;Limitations:  		Fixed length size.
 ;Author:			Anjian Wu
@@ -365,8 +369,8 @@ Key_Call_Table	    LABEL	WORD
 	DW		no_op 	      ;0
 	DW		no_op         ;1
 	DW      no_op         ;2
-	DW      no_op         ;3
-    DW      no_op         ;4
+	DW      SerialDebug   ;3
+    DW      ScrollControl;4
     DW      no_op         ;5
     DW      no_op         ;6
     DW      no_op         ;7
@@ -455,8 +459,10 @@ KeyDisplayTables	    LABEL	BYTE
 	DB		'T ANG+  ', ASCII_NULL      ;Key 0
 	DB		'T RESET ', ASCII_NULL      ;Key 1
 	DB		'T ANG-  ', ASCII_NULL      ;Key 2
-	DB		'NoNoNoNo', ASCII_NULL      ;Key 3	
-	DB		'NoNoNoNo', ASCII_NULL      ;Key 4	
+	DB		'DebugOFF', ASCII_NULL      ;Key 3 <- The only time user sees this
+                                        ;         is when they turn off Serial
+                                        ;         Debug mode.
+	DB		'-SCROLL-', ASCII_NULL      ;Key 4	
 	DB		'LAZR OFF', ASCII_NULL      ;Key 5
 	DB		'S T O P ', ASCII_NULL      ;Key 6
 	DB		'LAZR ON ', ASCII_NULL      ;Key 7
@@ -474,100 +480,9 @@ KeyDisplayInit     LABEL	BYTE
     DB      'PressKey', ASCII_NULL      ;Initial Message
 KeyDisplayError     LABEL	BYTE
     DB      'TX FULL ', ASCII_NULL      ;TX queue is Full Error
+DisplayClear     	LABEL	BYTE
+    DB      '        ', ASCII_NULL      ;TX queue is Full Error
 
-;Procedure:			Inc_Bright
-;
-;Description:      	Determines which Serial error occurred at the chip,
-;                   and informs the user to the issue. Note this is
-;                   serial errors from Remote Serial Chip.
-;
-;Operation:         * Table offset = AX = Display_SIZE*AL + OFFSET(SerErrTable)
-;                   * Just store that into Error_Buff_PTR.
-;                
-;Arguments:        	AL  -> Event Val
-;Return Values:    	none.
-;Shared Variables: 	Error_Buff_PTR (WRITE).
-;Local Variables:	AX  -> abs pointer address.
-;Global Variables:	None.			
-;Input:            	None.
-;Output:           	None.
-;Registers Used:	None.
-;Stack Depth:		none.
-;Known Bugs:		None.
-;Data Structures:	None.
-;Error Handling:   	None.
-;Algorithms:       	None.
-;Limitations:  		Only displays error to user, does not fix the error.
-;Author:			Anjian Wu
-;Revision History:
-;                   Edits by Anjian Wu:
-;       			12-06-2013 -> Initial Version
-;                   12-13-2013 -> Working and documentation
-;------------------------------------------------------------------------------
-Inc_Bright    PROC    NEAR
-
-        MOV     DX, Tmr2MaxCnt      ;  setup max count at COUNT_FOR_30HZ
-        IN      AX, DX              ;
-        ADD     AX, DELTA_BRIGHT    ;
-        CMP     AX, MAX_BRIGHT      ;
-        JLE     Inc_BrightDone      ;
-        ;JG     Inc_BrightGoodToGo  ;
-        
-Inc_BrightGoodToGo:      
-        OUT     DX, AX              ;
-        
-Inc_BrightDone:
-
-    RET
-    
-Inc_Bright    ENDP
-
-;Procedure:			Dec_Bright
-;
-;Description:      	Determines which Serial error occurred at the chip,
-;                   and informs the user to the issue. Note this is
-;                   serial errors from Remote Serial Chip.
-;
-;Operation:         * Table offset = AX = Display_SIZE*AL + OFFSET(SerErrTable)
-;                   * Just store that into Error_Buff_PTR.
-;                
-;Arguments:        	AL  -> Event Val
-;Return Values:    	none.
-;Shared Variables: 	Error_Buff_PTR (WRITE).
-;Local Variables:	AX  -> abs pointer address.
-;Global Variables:	None.			
-;Input:            	None.
-;Output:           	None.
-;Registers Used:	None.
-;Stack Depth:		none.
-;Known Bugs:		None.
-;Data Structures:	None.
-;Error Handling:   	None.
-;Algorithms:       	None.
-;Limitations:  		Only displays error to user, does not fix the error.
-;Author:			Anjian Wu
-;Revision History:
-;                   Edits by Anjian Wu:
-;       			12-06-2013 -> Initial Version
-;                   12-13-2013 -> Working and documentation
-;------------------------------------------------------------------------------
-Dec_Bright    PROC    NEAR
-
-        MOV     DX, Tmr2MaxCnt      ;  setup max count at COUNT_FOR_30HZ
-        IN      AX, DX              ;
-        SUB     AX, DELTA_BRIGHT    ;
-        CMP     AX, MIN_BRIGHT      ;
-        JLE     Dec_BrightDone      ;
-        ;JL     	Dec_BrightGoodToGo  ;
-        
-Dec_BrightGoodToGo:      
-        OUT     DX, AX              ;
-        
-Dec_BrightDone:
-
-    RET
-    
-Dec_Bright    ENDP
     
 ;Procedure:			HandleSerErr
 ;
@@ -697,6 +612,7 @@ RemoteParseInit  PROC    NEAR
     MOV     ToggleCTR, zero             ; Start with first Status to toggle
     MOV     Rbt_error_Ptr, zero         ; Reset Robot Buff ptr
     MOV     TogglePreScaler, zero       ; Reset Toggle Prescale counter
+    MOV     SerialDebugFlag, FALSE      ; Start NOT in Debug Mode
     
     MOV     Action_Buff_PTR, OFFSET(KeyDisplayInit) ; Display NO actions yet
     MOV     Error_Buff_PTR, OFFSET(SerErrTable)     ; Display NO error yet
@@ -712,6 +628,7 @@ RemoteParseInitBufClear:
     MOV     Dir_Buffer[BX], ASCII_NULL  ; Clear direction displayed
     MOV     Spd_Buffer[BX], ASCII_NULL  ; Clear speed displayed
     MOV     Rbt_error_Buff[BX], ASCII_NULL  ; Clear Robot status
+    MOV     Serial_D_Buff[BX], ASCII_NULL ; Clear Serial Debug Buffer
 
     INC     BX                          ; Increment buffer/counter index
     JMP     RemoteParseInitBufClear     ; Loop until all entries are cleared
@@ -761,6 +678,13 @@ RemoteParseInit  ENDP
 ToggleHandler   PROC    NEAR
     
     PUSHA                               ; Save all Regs
+    
+ToggleCheckDebugMode:
+    CMP     SerialDebugFlag, TRUE      ; Are we in debug mode?
+
+    JE     T_Jump_Helper               ; Yes we are, leave display alone
+    ;JE    TogglePrescale              ; NOt in debug mode, so continue normal
+                                       ; toggling.
 TogglePrescale:
     INC     TogglePreScaler            ; Increase the prescale counter
     CMP     TogglePreScaler, PRESCALE  ; Are we done prescaling?
@@ -785,6 +709,11 @@ T_Action_Val:
     %DisplayCSStrPrep(AX)               ; This is in CS
     JMP     ToggleSet                   ; Display!
     
+T_Jump_Helper:
+    JMP     ToggleDone                  ; Procedure too long to jump immediately
+                                        ; thus this helper label makes that
+                                        ; possible!
+    
 T_Speed_Val: 	
     LEA     AX, Spd_Buffer              ; Time to display Speed buffer
     %DisplayDSStrPrep(AX)               ; This is in DS
@@ -801,7 +730,7 @@ T_Error_Val:
     JMP     ToggleSet                   ; Display!
     
 T_R_Error_Val:
-    LEA     AX, Rbt_error_Buff           ; Time to display error msg
+    LEA     AX, Rbt_error_Buff           ; Time to display robot msg
     %DisplayDSStrPrep(AX)                ; This is in DS
     JMP     ToggleSet                    ; Display!
     
@@ -958,8 +887,10 @@ ParseSerialInit:
 	
     MOV	Errorflag, FALSE	    ;Assume no errors
 	
-ParseGrabTokens:	
-	CALL	GetTokenTypeVal	        ; Grab next token key and val
+ParseGrabTokens:
+    CALL    SerialDebugRecord   ; Always record the char in SerialDebugBuffer
+	
+	CALL	GetTokenTypeVal	    ; Grab next token key and val
 	MOV		DH, AH			    ; Save token type
 	MOV		CH, AL			    ; Save token val
 	
@@ -1079,6 +1010,152 @@ EndGetFPToken:                     	     ;done looking up type and value
 
 
 GetTokenTypeVal	ENDP
+
+
+;Function:			SerialDebugRecord
+;Description:      	Resets all Parser variables to initial state and all display buffer ptrs  
+;                   Note that these are the ptrs for data segment buffers only since they are
+;                   the ones that get each char ele parsed and written.
+;           
+;Operation:         * Set FSM_state to initial, Dir_PTR, Spd_PTR, and Rbt_error_Ptr reset.
+;Arguments:        	None.
+;Return Values:    	none.
+;Shared Variables: 	none.
+;Local Variables:	None.
+;Global Variables:	None.			
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	none.
+;Stack Depth:		none.
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None
+;Algorithms:       	None.
+;Limitations:  		None.
+;Author:			Anjian Wu
+;History:			12-02-2013: Pseudo code - Anjian Wu
+;					12-10-2013: Created - Anjian Wu
+;                   12-13-2013: Working - Anjian Wu
+;                   12-14-2013: Documentation - Anjian Wu
+;------------------------------------------------------------------------------
+SerialDebugRecord  PROC    NEAR
+    PUSH    AX
+    PUSH    BX                      ; Save used reg
+
+    CMP     SerialDebugFlag, TRUE   ;
+    JNE     SerialDebugReset        ;
+    ;JE     SerialDebugRecordACTIVE ;
+    
+SerialDebugRecordACTIVE:
+	CMP		AL, CAR_RETURN			;
+	JE		SerialDebugCReturn	;
+    CMP     Debug_PTR, Display_SIZE ; Is the pointer out of Display_Size?	;
+    JL      SerialDebugRecordAddChar;
+	JGE		SerialDebugRecordWrap
+    ;JGe     SerialDebugRecordWrap
+SerialDebugCReturn:
+	XOR		BH, BH					 ;
+	MOV    	BL, Debug_PTR            ; Wrap the char to starting pos
+	
+    MOV     Debug_PTR, 0                      ; Clear Counter
+        
+SerialDebugRecordClear:
+
+    CMP     BX, Display_SIZE             ; FROM BX = 0 to Display_SIZE...
+    JG      SerialUpdateDebugDisplay   ; If each done, then leave loop
+    
+    MOV     Serial_D_Buff[BX], ASCII_NULL ; Clear Serial Debug Buffer
+
+    INC     BX                          ; Increment buffer/counter index
+    JMP     SerialDebugRecordClear     ; Loop until all entries are cleared
+
+SerialDebugRecordWrap:
+    
+    MOV    Debug_PTR, 0             ; Wrap the char to starting pos
+    
+SerialDebugRecordAddChar:
+    
+    XOR     BH, BH                  ; 
+    MOV     BL, Debug_PTR           ; Convert Rbt_error_Ptr BYTE into WORD
+ 
+    MOV     Serial_D_Buff[BX], AL   ; Insert the char arg
+    
+    INC     Debug_PTR               ; Update pointer 
+    
+SerialUpdateDebugDisplay:
+    
+    LEA     AX, Serial_D_Buff       ; Time to update serial debug mode string
+    %DisplayDSStrPrep(AX)           ; This is in DS
+    CALL    Display                 ; 
+        
+    JMP     SerialDebugRecordDone   ;    
+    
+SerialDebugReset:
+    MOV     Debug_PTR, 0            ;
+    ;JMP    SerialDebugRecordDone   ; 
+    
+SerialDebugRecordDone:
+
+    POP     BX                      ; Restore used reg
+    POP     AX
+    RET                             ;
+	
+SerialDebugRecord  ENDP 
+
+;Function:			SerialDebug
+;Description:      	Resets all Parser variables to initial state and all display buffer ptrs  
+;                   Note that these are the ptrs for data segment buffers only since they are
+;                   the ones that get each char ele parsed and written.
+;           
+;Operation:         * Set FSM_state to initial, Dir_PTR, Spd_PTR, and Rbt_error_Ptr reset.
+;Arguments:        	None.
+;Return Values:    	none.
+;Shared Variables: 	none.
+;Local Variables:	None.
+;Global Variables:	None.			
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	none.
+;Stack Depth:		none.
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None
+;Algorithms:       	None.
+;Limitations:  		None.
+;Author:			Anjian Wu
+;History:			12-02-2013: Pseudo code - Anjian Wu
+;					12-10-2013: Created - Anjian Wu
+;                   12-13-2013: Working - Anjian Wu
+;                   12-14-2013: Documentation - Anjian Wu
+;------------------------------------------------------------------------------
+SerialDebug  PROC    NEAR
+
+    
+    CMP     SerialDebugFlag, TRUE   ; Is the flag already true?
+    JE      SerialDebugOFF          ; If so, switch it to false
+    ;JNE    SerialDebugON           ;
+SerialDebugON:   
+    MOV     SerialDebugFlag, TRUE   ; Else it is NOT true (ToggleHandler will
+                                    ; STOP immediately)
+                                    
+    LEA     AX, Serial_D_Buff       ; Also immediately show what is inside
+                                    ; Serial Debug Buff
+    %DisplayDSStrPrep(AX)           ; This is in DS
+    CALL    Display                 ; UI enters Debug Mode
+    
+    JMP     SerialDebugDone         ; In which we switch TO true
+    
+SerialDebugOFF:
+    MOV     SerialDebugFlag, FALSE  ; Turn serial debug off
+    ;JMP    SerialDebugDone         ;
+SerialDebugDone:
+
+    RET                             ;
+	
+SerialDebug  ENDP 
+
+
+
 
 
 ;Function:			RemoteParseReset
@@ -1390,6 +1467,8 @@ RemoteFSMTable	LABEL	TRANSITION_ENTRY
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
 
 	;Current State = ST_Robot: Garbing chars into Robot Status Buffer
+    ;This status just displays anything the robot send back, as long
+    ;as it starts with TOKEN_R's char first.
                                                 ;Input Token Type
 	%TRANSITION(ST_Robot, AddRobotErrorChar)	;TOKEN_S - Set Speed
 	%TRANSITION(ST_Robot, AddRobotErrorChar)	;TOKEN_D - Set Dir
@@ -1566,6 +1645,12 @@ CODE    ENDS
 
 DATA    SEGMENT PUBLIC  'DATA'
 
+Serial_D_Buff   DB  Display_SIZE+1	DUP	(?)   ; The buffer containing Direction meant for Display
+Debug_PTR       DB  ?                         ; The ele index for Direction buff, used when inserting
+                                              ; each char.
+SerialDebugFlag DB  ?                         ; Indicates whether we are in debug
+                                              ; mode or not
+                                              
 Dir_Buffer      DB  Display_SIZE+1	DUP	(?)   ; The buffer containing Direction meant for Display
 Dir_PTR         DB  ?                         ; The ele index for Direction buff, used when inserting
                                               ; each char.

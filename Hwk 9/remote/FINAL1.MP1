@@ -5,7 +5,7 @@ INPUT FILES: CHIPS.OBJ, DISPLAY.OBJ, EVENT.OBJ, GENERAL.OBJ, KEYPAD.OBJ,
   KEYTABLE.OBJ
 OUTPUT FILE: FINAL1.LNK
 CONTROLS SPECIFIED IN INVOCATION COMMAND:
-DATE:  12/13/;3  TIME:  13:25:27
+DATE:  12/14/;3  TIME:  13:45:33
 
 
 LINK MAP OF MODULE CHIPS
@@ -13,8 +13,8 @@ LINK MAP OF MODULE CHIPS
 LOGICAL SEGMENTS INCLUDED:
 LENGTH ADDRESS ALIGN  SEGMENT         CLASS           OVERLAY
  0000H ------    G    ??SEG                                         
- 0260H ------    G    CODE            CODE                          
- 043AH ------    G    DATA            DATA                          
+ 0310H ------    G    CODE            CODE                          
+ 044AH ------    G    DATA            DATA                          
 
 INPUT MODULES INCLUDED:
 CHIPS.OBJ(CHIPS)

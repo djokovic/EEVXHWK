@@ -1,0 +1,30 @@
+
+
+set 0 remote.HandleKeyEnqueue
+set 1 keypad.KeyHandEnqueue
+set 2 remote.ParseRemoteChar
+set 3 remote.AddDirChar
+set 4 remote.AddSpeedChar
+set 5 remote.AddRobotErrorChar
+
+set 7 keypad.KeyHandlerInit
+set 6 remote.ParseRemoteWord
+set 8 serial.SerialInit
+set 9 display.DisplayHandlerInit
+set 10 event.EnqueueEventInit
+set 11 remote.RemoteParseInit
+set 12 remote.TogglePrescalePass
+set 13 display.displayhandler
+set 14 display.display
+
+        CALL    ClrIRQVectors              ; Clear whole vector table with Illegal Function
+        CALL    InitUserInterfaceCS        ; Initialize All UI hardware (keypad, display)
+        CALL    Timer0Init                 ; Initialize timer 0 interrupt
+        CALL    Timer1Init                 ; Initialize timer 1 interrupt
+        CALL    Timer2Init                 ; Initialize timer 2 interrupt
+        CALL    KeyHandlerInit             ; Initialize keypad function variables
+        CALL    SerialInit                 ; Initialize serial function variables
+        CALL    DisplayHandlerInit                ; Initialize display function variables
+        CALL    EnqueueEventInit           ; Initialize the Event queue function vars
+                                           
+        CALL    RemoteParseInit            ;

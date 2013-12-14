@@ -1,0 +1,1158 @@
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    1
+
+
+DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE DISPLAY
+OBJECT MODULE PLACED IN DISPLAY.OBJ
+ASSEMBLER INVOKED BY:  C:\5XTOOLS\ASM86.EXE DISPLAY.ASM M1 DB EP
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                             1     NAME        Display
+                             2     
+                             3 +1  $INCLUDE(display.inc);
+                      =1     4     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1     5     ;                                                                               ;
+                      =1     6     ;                                  Display.INC                                  ;
+                      =1     7     ;                               Display Constants                           ;
+                      =1     8     ;                                 Include File                              ;
+                      =1     9     ;                                                                           ;
+                      =1    10     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    11     
+                      =1    12     ; This file contains the definitions for the display functions
+                      =1    13     ;
+                      =1    14     ; Revision History:
+                      =1    15     ;    11/02/2013                 Created - Anjian Wu
+                      =1    16     
+                      =1    17     
+                      =1    18     
+                      =1    19     ; General Definitions
+                      =1    20     
+  0008                =1    21     Display_SIZE    EQU     8               ; Size of chars that can fit in display
+  0000                =1    22     SEGMENT_NULL    EQU     0               ; Byte value for Sseg pattern of ASCII_NULL
+  0001                =1    23     SegPTRAdjust    EQU     1               ; Since we want WORD, we need to adjust 
+                      =1    24      
+                      =1    25     
+                      =1    26     ; Display Addresses
+                      =1    27     
+  0000                =1    28     LEDDisplay      EQU     0               ; Display is hardware mapped to 0 - 7H
+  0008                =1    29     LEDDisplay2     EQU     8               ; 14- seg also hardware mapped to 8h - 0DH
+                      =1    30     
+                      =1    31     
+----                  =1    32     DISPLAYSTRUC     STRUC                      ;structure containing all display buffers
+0000                  =1    33         buffer              DB          Display_SIZE        DUP     (?) ;pointer to the f
+                                   unction to get switch 
+----                  =1    34     DISPLAYSTRUC      ENDS
+                      =1    35     
+                      =1    36     
+                      =1    37     
+                            38 +1  $INCLUDE(general.inc);
+                      =1    39     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    40     ;                                                                               ;
+                      =1    41     ;                                  General.INC                                  ;
+                      =1    42     ;                               General Constants                           ;
+                      =1    43     ;                                 Include File                              ;
+                      =1    44     ;                                                                           ;
+                      =1    45     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    46     
+                      =1    47     ; This file contains general operations
+                      =1    48     ;
+                      =1    49     ; Revision History:
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    2
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1    50     ;    11/02/2013                 Created - Anjian Wu
+                      =1    51     ;    11/23/2013                 Added WORD_LOOKUP_ADJUST - Anjian Wu
+                      =1    52     ;    12/05/2014         Added FMS_ERROR key, ZERO, changed other keys to 
+                      =1    53     ;                       ASCII based - Anjian
+                      =1    54     
+                      =1    55     
+                      =1    56     ; General Constants
+  000D                =1    57     CAR_RETURN              EQU             13                      ;
+  0000                =1    58     ASCII_NULL      EQU     0           ;
+  0001                =1    59     bit_size        EQU     1           ;
+  0004                =1    60     nibble_size     EQU     4           ;
+  0008                =1    61     BYTE_size       EQU     8           ;
+  0010                =1    62     WORD_size       EQU     16          ;
+  0000                =1    63     ArrayEmpty      EQU     0               ; Empty is set at 0 index
+                      =1    64     
+  0001                =1    65     TRUE            EQU     1           ;
+  0000                =1    66     FALSE           EQU     0           ;
+                      =1    67     
+  0000                =1    68     RESET           EQU     0           ; General Value for Resetting something
+                      =1    69     
+  0000                =1    70     CLEAR           EQU     0           ;
+                      =1    71     
+  0000                =1    72     ZERO            EQU     0           ;
+                      =1    73     
+  000A                =1    74     DIGIT           EQU     10          ; A digit in base 10 
+                      =1    75     
+  0001                =1    76     WORD_LOOKUP_ADJUST  EQU    1           ; Two bytes in one word -> SHL by 1
+                      =1    77     
+                      =1    78     ; General Definitions for Main Loops
+                      =1    79     
+  0001                =1    80     FIRST_RESERVED_VEC      EQU     1           ;reserve vectors 1-3
+  0003                =1    81     LAST_RESERVED_VEC       EQU     3       ;
+  0100                =1    82     NUM_IRQ_VECTORS     EQU 256     ;number of interrupt vectors
+                      =1    83     
+                      =1    84     ; MainLoop Key Codes
+                      =1    85     
+  0000                =1    86     KEY_EVENT_KEY       EQU     0   ; Event code indicating key pressed
+  0001                =1    87     SER_ERR_KEY         EQU     1   ; Event code indicating serial error
+  0002                =1    88     RX_ENQUEUED_KEY     EQU     2   ; Event code indicating new rx value gotten
+  0003                =1    89     MODEM_KEY           EQU     3   ; Event code indicating modem event
+  0004                =1    90     FSM_ERROR           EQU     4   ; Error key showing FSM error
+                      =1    91     
+                      =1    92     ; General Addresses
+                      =1    93     
+  FF22                =1    94     INTCtrlReg          EQU     0FF22H  ;EOI interrupt controller       
+                            95 +1  $INCLUDE(timer.inc);
+                      =1    96     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1    97     ;                                                                               ;
+                      =1    98     ;                                  Timer.INC                                    ;
+                      =1    99     ;                              Timer Constants                              ;
+                      =1   100     ;                                 Include File                              ;
+                      =1   101     ;                                                                           ;
+                      =1   102     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   103     
+                      =1   104     ; This file contains the definitions for timers and their interupts
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    3
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   105     ;
+                      =1   106     ; Revision History:
+                      =1   107     ;    11/23/2013                 Created - Anjian Wu
+                      =1   108     ;    12/10/2013         Added Timer2 vals - Anjian Wu
+                      =1   109     
+                      =1   110     
+                      =1   111                                             ; Timer Definitions
+                      =1   112     
+                      =1   113     ; Addresses
+  FF56                =1   114     Tmr0Ctrl        EQU     0FF56H          ;address of Timer 0 Control Register
+  FF52                =1   115     Tmr0MaxCntA     EQU     0FF52H          ;address of Timer 0 Max Count A Register
+  FF50                =1   116     Tmr0Count       EQU     0FF50H          ;address of Timer 0 Count Register
+                      =1   117     
+  FF5E                =1   118     Tmr1Ctrl        EQU     0FF5EH          ;address of Timer 1 Control Register
+  FF5A                =1   119     Tmr1MaxCntA     EQU     0FF5AH          ;address of Timer 1 Max Count A Register
+  FF58                =1   120     Tmr1Count       EQU     0FF58H          ;address of Timer 1 Count Register
+                      =1   121     
+                      =1   122     
+  FF66                =1   123     Tmr2Ctrl        EQU     0FF66H          ;address of Timer 2 Control Register
+  FF62                =1   124     Tmr2MaxCnt      EQU     0FF62H          ;address of Timer 2 Max Count A Register
+  FF60                =1   125     Tmr2Count       EQU     0FF60H          ;address of Timer 2 Count Register
+                      =1   126     
+                      =1   127     ; Control Register Values
+  E001                =1   128     Tmr0CtrlVal     EQU     0E001H          ;value to write to Timer 0 Control Register
+                      =1   129                                             ;1---------------  enable timer
+                      =1   130                                             ;-1--------------  write to control
+                      =1   131                                             ;--1-------------  enable interrupts
+                      =1   132                                             ;----000000------  reserved
+                      =1   133                                             ;---0------0-----  read only
+                      =1   134                                             ;-----------0----  Retrigger
+                      =1   135                                             ;------------0---  Prescaler
+                      =1   136                                             ;-------------0--  external clock
+                      =1   137                                             ;--------------0-  single counter mode
+                      =1   138                                             ;---------------1  continuous mode
+                      =1   139                                             
+  E001                =1   140     Tmr1CtrlVal     EQU     0E001H          ;value to write to Timer 1 Control Register
+                      =1   141                                             ;1---------------  enable timer
+                      =1   142                                             ;-1--------------  write to control
+                      =1   143                                             ;--1-------------  enable interrupts
+                      =1   144                                             ;----000000------  reserved
+                      =1   145                                             ;---0------0-----  read only
+                      =1   146                                             ;-----------0----  Retrigger
+                      =1   147                                             ;------------0---  Prescaler
+                      =1   148                                             ;-------------0--  external clock
+                      =1   149                                             ;--------------0-  single counter mode
+                      =1   150                                             ;---------------1  continuous mode
+                      =1   151     
+  E001                =1   152     Tmr2CtrlVal     EQU     0E001H          ;value to write to Timer 2 Control Register
+                      =1   153                                             ;1---------------  enable timer
+                      =1   154                                             ;-1--------------  write to control
+                      =1   155                                             ;--1-------------  enable interrupts
+                      =1   156                                             ;----0000000-----  reserved
+                      =1   157                                             ;-----------0----  MaxCount
+                      =1   158                                             ;------------000-  reserved
+                      =1   159                                             ;---------------1  continuous mode
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    4
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                      =1   160     ; Control Register Values
+                      =1   161                                           
+                      =1   162                                             ; Control Register Values
+  08CA                =1   163     CTS_PER_MILSEC  EQU     2250            ; 18MHZ/(8 * 1KHz) ~ 2250 counts per MS
+                      =1   164     
+  07D0                =1   165     PRESCALE_2SEC   EQU     2000            ; 2 seconds = CTS_PER_MILSEC * 2000
+                      =1   166     
+  0008                =1   167     TimerEOI        EQU     00008H          ;Timer EOI command (same for all timers)
+  8000                =1   168     NonSpecEOI      EQU     08000H          ;Non-specific EOI command
+                      =1   169     
+                      =1   170     
+  0258                =1   171     COUNT_FOR_30HZ  EQU     600             ; 18,000,000 HZ/(8 * 30 Hz * PWM_WIDTH_MAX) 
+                      =1   172                                             ; ~ 600 counts for 30 HZ of PWM
+                      =1   173                                             
+  00B1                =1   174     COUNT_FOR_100HZ EQU     177             ; 18,000,000 HZ/(8 * 100 Hz * PWM_WIDTH_MAX) 
+                      =1   175                                             ; ~ 177 counts for 100 HZ of PWM             
+                                                             
+                      =1   176                                             
+                      =1   177                                             ; NOTE THIS IS APPROXIMATE, Clock is actually
+                                    a bit faster
+                      =1   178                                             ; than 18 MHZ
+                      =1   179     
+                      =1   180     
+                           181 +1  $INCLUDE(vectors.inc);
+                      =1   182     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   183     ;                                                                               ;
+                      =1   184     ;                                  Vector.INC                                   ;
+                      =1   185     ;                              IVector Constants                            ;
+                      =1   186     ;                                 Include File                              ;
+                      =1   187     ;                                                                           ;
+                      =1   188     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      =1   189     
+                      =1   190     ; This file contains the definitions for timers and their interupts
+                      =1   191     ;
+                      =1   192     ; Revision History:
+                      =1   193     ;    11/23/2013                 Created - Anjian Wu
+                      =1   194     ;    12/10/2013         Added Timer 2 info - Anjian Wu
+                      =1   195     
+                      =1   196                                             ; IVector Definitions
+                      =1   197     
+                      =1   198     ; Interrupt Vectors and their control values
+  0008                =1   199     Tmr0Vec         EQU     8               ;interrupt vector for Timer 0
+  0012                =1   200     Tmr1Vec         EQU     18              ;interrupt vector for Timer 1
+  0013                =1   201     Tmr2Vec         EQU     19              ;interrupt vector for Timer 2
+                      =1   202     
+  FF32                =1   203     INTCtrlrCtrl    EQU     0FF32H          ;address of interrupt controller for timer
+  FF22                =1   204     INTCtrlrEOI     EQU     0FF22H          ;address of interrupt controller EOI register
+                      =1   205     
+  0001                =1   206     INTCtrlrCVal    EQU     00001H          ;set priority for timers to 1 and enable
+                      =1   207                                             ;000000000000----  reserved
+                      =1   208                                             ;------------0---  enable timer interrupt
+                      =1   209                                             ;-------------001  timer priority
+                           210     
+                           211     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           212     ;                                                                            ;
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    5
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           213     ;                                 HW4 Display Functions                      ;
+                           214     ;                                 EE51                                           ;
+                           215     ;                                 Anjian Wu                                  ;
+                           216     ;                                                                            ;
+                           217     ;                                 TA: Pipe-Mazo                              ;
+                           218     ;                                                                            ;
+                           219     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           220     ;                                 What's in here?
+                           221     ;
+                           222     ;                                   Code Segment
+                           223     ;
+                           224     ;   Display   -     This is pass a string to be displayed. The string is at
+                           225     ;                   ES:SI and is null terminated. 
+                           226     ;
+                           227     ;   DisplayNum  -   This function is passed a 16-bit signed value to be outputted
+                           228     ;                   to the display. The number is in AX, with at most 5 digits
+                           229     ;
+                           230     ;   DisplayHex   -  This function is passed a 16-bit HEX value to be outputted
+                           231     ;                   to the display. The number is in AX with at most 4 digits; 
+                           232     ;
+                           233     ;   DisplayHandlerInit - This installs the DisplayHandler into vector table
+                           234     ;
+                           235     ;   DisplayHandler - This is the interrupt function that multiplexes the display
+                           236     ;                    by grabbing the next char value to be outputted.
+                           237     ;
+                           238     ;   DisplayBufferFill - This function clears the display array with all ASCII_NULL
+                           239     ;
+                           240     ;                                   Data Segment
+                           241     ;
+                           242     ;   DisplayArray(DISPLAYSTRUC)  - Where DisplayArray's buffer is. This is only for
+                           243     ;                                 storing ASCII, which is then translated into seg.
+                           244     ;                                 (Easier to debug DisplayHex and DisplayNum)
+                           245     ;
+                           246     ;   DHandlerVarLow(DISPLAYSTRUC)  - Where DisplayHandler's high byte buffer is stored
+                                   ;
+                           247     ;
+                           248     ;   DHandlerVarHigh(DISPLAYSTRUC)  - Where DisplayHandler's low byte buffer is stored
+                                   ;
+                           249     ;
+                           250     ;   digitchar (DW)                  - The shared Handler pointer to next digitchar
+                           251     ;
+                           252     ;                                 What's was last edit?
+                           253     ;
+                           254     ;                               11-02-2013 Pseudo code - Anjian Wu
+                           255     ;                               11-08-2013 Initial Version - Anjian Wu
+                           256     ;                               11-08-2013 Working 7 seg version - Anjian Wu
+                           257     ;                               11-09-2013 Working 14 seg version - Anjian Wu
+                           258     ;                   12-10-2013 Renamed Digit to DigitChar - Anjian Wu
+                           259     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                           260     
+                           261     ;Procedure:                     Display
+                           262     ;
+                           263     ;Description:           This procedure will take the address of the string at ES:SI, 
+                                   and
+                           264     ;                   place that string into the Dhandler buffers. This display buffers
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    6
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           265     ;                   is shared with DisplayHandler.
+                           266     ;
+                           267     ;                   DHandlerVarHigh.buffer  - Stores upper byte of 14-seg code
+                           268     ;                   DHandlerVarLow.buffer   - Stores lower byte of 14-seg code 
+                           269     ;                   (Both buffer elements share same index)
+                           270     ;
+                           271     ;                   This function does this by first clearing BOTH buffers using the
+                           272     ;                   DisplayBufferFill to fill up buffers with SEGMENT_NULL. This help
+                                   s
+                           273     ;                   avoid displaying left over chars from previous strings.
+                           274     ;
+                           275     ;                   The function will then loop grabbing the ASCII_CHAR from ES:SI, a
+                                   nd
+                           276     ;                   mapping the character to it's 14-segment code. The code is then s
+                                   tored
+                           277     ;                   into both the high and low buffer.
+                           278     ;
+                           279     ;                   If the loop hits a ASCII_NULL before the full Display_SIZE is rea
+                                   ched,
+                           280     ;                   the loop will terminate early. This is ok since we already cleare
+                                   d the
+                           281     ;                   buffers beforehand.
+                           282     ;                   
+                           283     ;                   
+                           284     ;Operation:                     *   Call DisplayBufferFill(low byte buffer)
+                           285     ;                   *   Call DisplayBufferFill(high byte buffer)
+                           286     ;                   *   Clear Counter
+                           287     ;                   *   Loop grabbing each char at ES:SI until counter hits Display_s
+                                   ize
+                           288     ;                       or ASCII_NULL was hit.
+                           289     ;                       * Check counter
+                           290     ;                       * Grab next char, is this ASCII_NULL? Yes -> terminate, no->k
+                                   eep going
+                           291     ;                       * Grab segtable offset, double char index to get absolute WOR
+                                   D ptr
+                           292     ;                       * Grab the WORD and split storing high and low byte into buff
+                                   ers
+                           293     ;                       * update counter and char (source) byte ptr.
+                           294     ;
+                           295     ;                   *   DONE
+                           296     ;
+                           297     ;Arguments:             SI   -> starting point of string ptr
+                           298     ;                   ES   -> Can be either Data segment or Code segment
+                           299     ;
+                           300     ;Return Values:         None.
+                           301     ;
+                           302     ;Result:            New ASCII chars in the Dhander buffers.
+                           303     ;
+                           304     ;Shared Variables:      The buffer arrays is shared with DisplayHandler and DisplayBu
+                                   ffFill
+                           305     ;
+                           306     ;Local Variables:       AX - Used as arg, store char, 
+                           307     ;                   SI - Used to store ptr arg
+                           308     ;                   BX - Used as ptr to access code segment
+                           309     ;                   CX - Used as counter
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    7
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           310     ;                   
+                           311     ;
+                           312     ;Global Variables:      None.
+                           313     ;                                       
+                           314     ;                                       
+                           315     ;Input:                 None.
+                           316     ;
+                           317     ;Output:                None.
+                           318     ;
+                           319     ;Registers Used:        AX, SI, BX, CX
+                           320     ;
+                           321     ;Stack Depth:           4 words
+                           322     ;
+                           323     ;Known Bugs:            None.
+                           324     ;
+                           325     ;Data Structures:       DHandlerVarLow, DHandlerVarHigh (8 byte arrays)
+                           326     ;
+                           327     ;Error Handling:        None.  
+                           328     ;
+                           329     ;Algorithms:            None.
+                           330     ;
+                           331     ;Limitations:           Stores new chars in the same array while DisplayHandler inter
+                                   rupt 
+                           332     ;                   is running which also grabbing the chars out of same array.
+                           333     ;                   However it should not really affect user experience since
+                           334     ;                   interrupts will be very fast.
+                           335     ;
+                           336     ;
+                           337     ;Author:                        Anjian Wu
+                           338     ;History:                       11-04-2013: Pseudo code - Anjian Wu
+                           339     ;                               Working 7 seg version   - 11-08-2013 - Anjian Wu
+                           340     ;                               Working 14 seg version  - 11-09-2013 - Anjian Wu
+                           341     ;-------------------------------------------------------------------------------
+                           342     
+                           343     CGROUP  GROUP   CODE
+                           344     DGROUP  GROUP   DATA
+                           345     
+----                       346     CODE    SEGMENT PUBLIC 'CODE'
+                           347     
+                           348     
+                           349             ASSUME  CS:CGROUP, DS:DGROUP
+                           350     
+                           351     ;-------------------------------------------------------------------------------
+                           352     
+                           353             EXTRN   Dec2String:NEAR          ; Used to convert passed AX into dec ASCII
+                           354             EXTRN   Hex2String:NEAR          ; Used to convert passed AX into hex ASCII
+                           355             EXTRN   ASCIISegTable:NEAR          ; Used to convert passed AX into hex ASCI
+                                   I
+                           356     
+                           357     
+0000                       358     Display             PROC    NEAR
+                           359                                     PUBLIC  Display
+                           360                                     
+                           361             
+0000 51                    362             PUSH    CX;                     ; Store all Used Regs
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    8
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0001 50                    363             PUSH    AX;
+0002 53                    364             PUSH    BX;
+                           365     
+0003                       366     DisplayStrInit:
+                           367     
+0003 56                    368         PUSH    SI;                                         ; Save the original string po
+                                   inter arg
+0004                       369     DisplayClearLowbyte:
+                           370     
+0004 8D360800       R      371         LEA     SI, DHandlerVarLow.buffer   ; Grab address of lower byte seg buff
+0008 B000                  372         MOV     AL, SEGMENT_NULL            ; Want to fill with SEGMENT_NULLs
+000A E8CF00                373         CALL    DisplayBufferFill           ; Fill display array with SEGMENT_NULLs
+                           374     
+                           375     
+000D                       376     DisplayClearHighbyte:   
+                           377     
+000D 8D361000       R      378         LEA     SI, DHandlerVarHigh.buffer  ; Grab address of high byte seg buff
+0011 B000                  379         MOV     AL, SEGMENT_NULL            ; Want to fill with SEGMENT_NULLs
+0013 E8C600                380         CALL    DisplayBufferFill           ; Fill display array with SEGMENT_NULLs
+                           381             
+0016                       382     DisplayBufferClearDone:  
+                           383       
+0016 5E                    384             POP     SI                              ; Get that original string pointer ba
+                                   ck from stack
+0017 B90000                385         MOV     CX, 0           ; Clear the counter
+                           386                                
+                           387     
+001A                       388     DisplayStrLoop: ; Counter goes from 0 to DisplaySize - 1 or ends early if ASCII_NULL 
+                                   found
+                           389     
+001A 83F908                390         CMP     CX, Display_SIZE    ; Is the counter maxed out?
+001D 7D21                  391         JGE     DisplayStrDone      ; Yes, exit loop
+                           392                                     ; No, continue loop
+001F 33C0                  393             XOR             AX, AX                      ; Clear AX
+                           394             
+0021 268A04                395         MOV     AL, ES:[SI]         ; Grab char at address arg, put in AL
+0024 3C00                  396         CMP     AL, ASCII_NULL      ; Is it ASCII_NULL? Cuz if so, end loop
+0026 7418                  397         JE      DisplayStrDone      ; Yes, end loop
+                           398         ;JNE    DisplayLoopSegtable ; No, continue
+                           399         
+0028                       400     DisplayLoopSegtable:
+0028 BB0000         E      401         MOV     BX, OFFSET(ASCIISegTable);point into the table of seg table
+002B D1E0                  402             SHL             AX, SegPTRAdjust            ;Get absolute value from table by
+                                    mul 2^(SegPTRAdjust)
+002D 03D8                  403             ADD             BX, AX                          ; Get absolute appropriate se
+                                   g table addr
+                           404         
+002F 2E8B07                405         MOV         AX,     CS:[BX]                 ;Now seg val is in AX
+                           406      
+0032 8BD9                  407         MOV     BX, CX                  ; Move counter (which also acts as index) to
+                           408                                         ; BX as data seg ptr.
+                           409                                          
+                           410                                          
+0034 88870800       R      411         MOV     DHandlerVarLow.buffer[BX]   , AL   ; Split AX into low and high byte
+0038 88A71000       R      412         MOV     DHandlerVarHigh.buffer[BX]  , AH  
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    9
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           413             
+003C 41                    414         INC     CX                          ; Update Counter
+003D 46                    415         INC     SI                          ; Update char pointer (Str source)
+                           416         
+003E EBDA                  417         JMP     DisplayStrLoop  ; 
+                           418         
+0040                       419     DisplayStrDone:
+                           420     
+0040 5B                    421             POP    BX;
+0041 58                    422             POP    AX;
+0042 59                    423             POP    CX               ;    Restore all used regs          
+                           424             
+0043 C3                    425         RET                     
+                           426         
+                           427     Display  ENDP 
+                           428     
+                           429     
+                           430     
+                           431     ;Procedure:                     DisplayNum
+                           432     ;
+                           433     ;
+                           434     ;Description:           This procedure will take the value at AX, and convert that de
+                                   cimal
+                           435     ;                   value into a string placed inside DisplayArray (a buffer) and the
+                                   n
+                           436     ;                   finally call Display to convert the stored string of ASCII's.
+                           437     ;
+                           438     ;                   This buffer is not directly accessed by DisplayHandler, but is
+                           439     ;                   used to convert to seg pattern code if passed to Display.
+                           440     ;
+                           441     ;                   First it will clear the display buffer with ASCII_NULLs with Disp
+                                   layBufferFill,
+                           442     ;                   call Dec2String, which already places the a passed value into 
+                           443     ;                   the passed address accordingly into the display array. 
+                           444     ;                   
+                           445     ;                   The purpose of the separate Displayarray buffer is to help debugg
+                                   ing
+                           446     ;                   reasons, such that the user doesn't have to decode the segment bu
+                                   ff.
+                           447     ;
+                           448     ;                   
+                           449     ;                   
+                           450     ;Operation:                     *   Load address of DisplayArray buffer 
+                           451     ;                   *   Call DisplayBufferFill with ASCII-NULLs
+                           452     ;                   *   Pass address and value to Dec2String
+                           453     ;                   *   Prepare to pass ES:SI, by making ES = DS
+                           454     ;                   *   Call Display
+                           455     ;
+                           456     ;Arguments:             AX - Num to be displayed
+                           457     ;
+                           458     ;
+                           459     ;Return Values:         None.
+                           460     ;
+                           461     ;Result:            New ASCII chars in the display array and in DHandler buffers
+                           462     ;
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   10
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           463     ;Shared Variables:      DisplayArray buffer is  shared with Dec2String and Display
+                           464     ;
+                           465     ;Local Variables:       AX - Used as arg, store char, 
+                           466     ;                   SI - Used to store ptr arg
+                           467     ;                   ES - Used as ptr to pass data segmentp
+                           468     ;                   DisplayArray.buffer - stores new ASCII string to be passed to Dis
+                                   play
+                           469     ;
+                           470     ;Global Variables:      None.
+                           471     ;                                       
+                           472     ;                                       
+                           473     ;Input:                 None.
+                           474     ;
+                           475     ;Output:                None.
+                           476     ;
+                           477     ;Registers Used:        AX, ES, SI, DS
+                           478     ;
+                           479     ;Stack Depth:           4 Words;
+                           480     ;
+                           481     ;Known Bugs:            None.
+                           482     ;
+                           483     ;Data Structures:       DisplayArray.buffer (8 byte buffer)
+                           484     ;
+                           485     ;Error Handling:        If passed decimal length is too large, then DisplayArray is n
+                                   ot
+                           486     ;                   places and errorflag is raised. NOTE THIS FEATURE IS INSIDE
+                           487     ;                   DEC2STRING, thus the flags raised should also be passed back.
+                           488     ;                   
+                           489     ;
+                           490     ;Algorithms:            None.
+                           491     ;
+                           492     ;Limitations:           Stores new chars (after calling Display) in the same array 
+                           493     ;                   while DisplayHandler interrupt 
+                           494     ;                   is running which also grabbing the chars out of same array.
+                           495     ;                   However it should not really affect user experience since
+                           496     ;                   interrupts will be very fast.
+                           497     ;
+                           498     ;
+                           499     ;Author:                        Anjian Wu
+                           500     ;History:                       11-04-2013: Pseudo code - Anjian Wu
+                           501     ;                               Working 7 seg version   - 11-08-2013 - Anjian Wu
+                           502     ;                               Working 14 seg version  - 11-09-2013 - Anjian Wu
+                           503     ;-------------------------------------------------------------------------------
+                           504     
+                           505     
+0044                       506     DisplayNum              PROC    NEAR
+                           507                                     PUBLIC  DisplayNum
+                           508                     
+                           509                     
+0044 50                    510             PUSH    AX;                     Save all Used regs
+0045 56                    511         PUSH    SI
+0046 06                    512         PUSH    ES
+                           513         
+0047                       514     DisplayNumStrInit:
+0047 50                    515         PUSH    AX                      ; DisplayBufferFill also uses AX as arg, so save 
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   11
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                                   that
+                           516         
+0048 8D360000       R      517         LEA     SI, DisplayArray.buffer ; Grab address of display array buffer
+004C B000                  518         MOV     AL, ASCII_NULL          ; Fill with ASCII_NULL
+004E E88B00                519         CALL    DisplayBufferFill       ; 
+                           520         
+0051 58                    521         POP     AX                      ; Restore the arg  
+0052                       522     DisplayNumPlace:
+                           523     
+0052 E80000         E      524         CALL    Dec2String              ; Dec2String chars at DS:SI
+                           525         
+0055 8CD8                  526         MOV     AX, DS
+0057 8EC0                  527         MOV     ES, AX                  ; Prepare to access DS for display
+                           528             
+0059 E8A4FF                529         CALL    Display                 ; Translate ES:SI aka. DS:SI into Seg code
+                           530         
+005C                       531     DisplayNumDONE:
+                           532     
+005C 07                    533             POP    ES
+005D 5E                    534         POP    SI
+005E 58                    535         POP    AX;                      Restore all used Regs
+                           536     
+005F C3                    537         RET                             
+                           538         
+                           539     DisplayNum  ENDP      
+                           540     
+                           541     ;Procedure:                     DisplayHex
+                           542     ;
+                           543     ;
+                           544     ;Description:           This procedure will take the value at AX, and convert that he
+                                   x
+                           545     ;                   value into a string placed inside DisplayArray (a buffer) and the
+                                   n
+                           546     ;                   finally call Display to convert the stored string of ASCII's.
+                           547     ;
+                           548     ;                   This buffer is not directly accessed by DisplayHandler, but is
+                           549     ;                   used to convert to seg pattern code if passed to Display.
+                           550     ;
+                           551     ;                   First it will clear the display buffer with ASCII_NULLs with Disp
+                                   layBufferFill,
+                           552     ;                   call Hex2String, which already places the a passed value into 
+                           553     ;                   the passed address accordingly into the display array. 
+                           554     ;                   
+                           555     ;                   The purpose of the separate Displayarray buffer is for debugging
+                           556     ;                   reasons, such that the user doesn't have to decode the segment bu
+                                   ff.
+                           557     ;
+                           558     ;                   
+                           559     ;                   
+                           560     ;Operation:                     *   Load address of DisplayArray buffer 
+                           561     ;                   *   Call DisplayBufferFill with ASCII-NULLs
+                           562     ;                   *   Pass address and value to Hex2String
+                           563     ;                   *   Prepare to pass ES:SI, by making ES = DS
+                           564     ;                   *   Call Display
+                           565     ;
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   12
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           566     ;Arguments:             AX - Hex to be displayed
+                           567     ;
+                           568     ;
+                           569     ;Return Values:         None.
+                           570     ;
+                           571     ;Result:            New ASCII chars in the display array and in DHandler buffers
+                           572     ;
+                           573     ;Shared Variables:      DisplayArray buffer is  shared with Dec2String and Display
+                           574     ;
+                           575     ;Local Variables:       AX - Used as arg, store char, 
+                           576     ;                   SI - Used to store ptr arg
+                           577     ;                   ES - Used as ptr to pass data segmentp
+                           578     ;                   DisplayArray.buffer - stores new ASCII string to be passed to Dis
+                                   play
+                           579     ;
+                           580     ;Global Variables:      None.
+                           581     ;                                       
+                           582     ;                                       
+                           583     ;Input:                 None.
+                           584     ;
+                           585     ;Output:                None.
+                           586     ;
+                           587     ;Registers Used:        AX, ES, SI, DS
+                           588     ;
+                           589     ;Stack Depth:           4 Words;
+                           590     ;
+                           591     ;Known Bugs:            None.
+                           592     ;
+                           593     ;Data Structures:       DisplayArray.buffer (8 byte buffer)
+                           594     ;
+                           595     ;Error Handling:        If passed decimal length is too large, then DisplayArray is n
+                                   ot
+                           596     ;                   places and errorflag is raised. NOTE THIS FEATURE IS INSIDE
+                           597     ;                   DEC2STRING, thus the flags raised should also be passed back.
+                           598     ;                   
+                           599     ;
+                           600     ;Algorithms:            None.
+                           601     ;
+                           602     ;Limitations:           Stores new chars (after calling Display) in the same array 
+                           603     ;                   while DisplayHandler interrupt 
+                           604     ;                   is running which also grabbing the chars out of same array.
+                           605     ;                   However it should not really affect user experience since
+                           606     ;                   interrupts will be very fast.
+                           607     ;
+                           608     ;
+                           609     ;Author:                        Anjian Wu
+                           610     ;History:                       11-04-2013: Pseudo code - Anjian Wu
+                           611     ;                               Working 7 seg version   - 11-08-2013 - Anjian Wu
+                           612     ;                               Working 14 seg version  - 11-09-2013 - Anjian Wu
+                           613     ;-------------------------------------------------------------------------------
+                           614     
+                           615     
+0060                       616     DisplayHex              PROC    NEAR
+                           617                                     PUBLIC  DisplayHex
+                           618                                     
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   13
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0060 50                    619             PUSH    AX;                     Save all Used regs
+0061 56                    620         PUSH    SI
+0062 06                    621         PUSH    ES
+                           622         
+0063                       623     DisplayHexInit:
+                           624     
+0063 50                    625         PUSH    AX                       ; DisplayBufferFill also uses AX as arg, so save
+                                    that
+                           626         
+0064 8D360000       R      627         LEA     SI, DisplayArray.buffer  ; Grab address of display array
+0068 B000                  628         MOV     AL, ASCII_NULL           ;
+006A E86F00                629         CALL    DisplayBufferFill        ; Fill display array with ASCII_NULLs
+                           630         
+006D 58                    631         POP     AX                       ;  Restore the ARG
+                           632         
+006E                       633     DisplayHexPlace:
+                           634     
+006E E80000         E      635         CALL    Hex2String              ; Hex2String chars at DS:SI, with AX
+                           636         
+0071 8CD8                  637         MOV     AX, DS
+0073 8EC0                  638         MOV     ES, AX                  ; Prepare to access DS for display
+                           639             
+0075 E888FF                640         CALL    Display                 ; Translate ES:SI aka. DS:SI
+0078                       641     DisplayhexDONE:
+                           642     
+0078 07                    643             POP    ES
+0079 5E                    644         POP    SI
+007A 58                    645         POP    AX;                      Restore all used Regs
+                           646     
+007B C3                    647         RET       
+                           648              
+                           649     DisplayHex  ENDP   
+                           650     
+                           651     ; DisplayHandlerInit
+                           652     ;
+                           653     ; Description:       Does all initializations for DispalyHandler.
+                           654     ;
+                           655     ;                    Installs the displayhandler for the timer0 interrupt at 
+                           656     ;                    interrupt table index Tmr0Vec. ALso clears the digitchar
+                           657     ;                    used to index the segment digitchar to be displayed in
+                           658     ;                    in DisplayHandler.
+                           659     ;
+                           660     ; Operation:         *  First clear the digitchar to 0.
+                           661     ;                                        *      Then calls DisplayBuffFill, passing S
+                                   EG_NULLs to be filled
+                           662     ;                                               for DHandlerVarHigh and DHandlerVarLo
+                                   w buffers. That way
+                           663     ;                                               the display will not output random st
+                                   uff initially.
+                           664     ;                    *  Then writes the address of the displayhandler to the
+                           665     ;                    *  imer0 location in the interrupt vector table. Notice
+                           666     ;                       need to multiple by 4 since table stores a CS and IP.
+                           667     ;                     
+                           668     ;
+                           669     ; Arguments:         None.
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   14
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           670     ; Return Value:      None.
+                           671     ;
+                           672     ; Local Variables:   AX - Used to temporarily store vector table offset for ES
+                           673     ; 
+                           674     ; Shared Variables:  digitchar (WORD) - Stores segment ptr for DisplayHandler
+                           675     ;
+                           676     ; Global Variables:  None.
+                           677     ;
+                           678     ; Input:             None.
+                           679     ; Output:            None.
+                           680     ;
+                           681     ; Error Handling:    None.
+                           682     ;
+                           683     ; Algorithms:        None.
+                           684     ; Data Structures:   None.
+                           685     ;
+                           686     ; Registers Used:    AX, ES
+                           687     ;
+                           688     ; Stack Depth:       0 words
+                           689     ;
+                           690     ;Author:                        Anjian Wu
+                           691     ;History:                       11-04-2013: Pseudo code - Anjian Wu
+                           692     ;                               Working 7 seg version   - 11-08-2013 - Anjian Wu
+                           693     ;                               Working 14 seg version  - 11-09-2013 - Anjian Wu
+                           694     ;                               Added buffer clearing   - 11-10-2013 - Anjian Wu
+                           695     ;-------------------------------------------------------------------------------
+                           696     
+007C                       697     DisplayHandlerInit  PROC    NEAR
+                           698                         PUBLIC  DisplayHandlerInit
+                           699     
+                           700     
+007C C70618000000   R      701             MOV     digitchar, 0    ; Clear the digitchar counters
+                           702                     
+0082                       703     DisplayInitClearLowbyte:        ; Also important to clear buffer in the beginning
+                           704     
+0082 8D360800       R      705                     LEA     SI, DHandlerVarLow.buffer   ; Grab address of lower byte seg 
+                                   buff
+0086 B000                  706                     MOV     AL, SEGMENT_NULL            ; Want to fill with SEGMENT_NULLs
+0088 E85100                707                     CALL    DisplayBufferFill           ; Fill display array with SEGMENT
+                                   _NULLs
+                           708     
+                           709     
+008B                       710     DisplayInitClearHighbyte:       
+                           711     
+008B 8D361000       R      712                     LEA     SI, DHandlerVarHigh.buffer  ; Grab address of high byte seg b
+                                   uff
+008F B000                  713                     MOV     AL, SEGMENT_NULL            ; Want to fill with SEGMENT_NULLs
+0091 E84800                714                     CALL    DisplayBufferFill           ; Fill display array with SEGMENT
+                                   _NULLs
+                           715     
+0094                       716     DisplayInitVectorSetting:
+                           717     
+0094 33C0                  718             XOR     AX, AX          ;clear ES (interrupt vectors are in segment 0)
+0096 8EC0                  719             MOV     ES, AX
+                           720                                     ;store the vector
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   15
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0098 26C7064C00A700 R      721             MOV     ES: WORD PTR (4 * Tmr2Vec), OFFSET(DisplayHandler)
+009F 26C7064E00---- R      722             MOV     ES: WORD PTR (4 * Tmr2Vec + 2), SEG(DisplayHandler)
+                           723     
+                           724     
+00A6 C3                    725             RET                     ;all done, return
+                           726     
+                           727     
+                           728     DisplayHandlerInit  ENDP
+                           729                                     
+                           730       
+                           731     
+                           732     
+                           733     ;Procedure:                     DisplayHandler
+                           734     ;
+                           735     ;
+                           736     ;Description:           Does all necessary functions to display to 14-segment.
+                           737     ;                   This procedure will grab the next counter index. It will then use
+                           738     ;                   this to index for the next char to be output to the display. 
+                           739     ;
+                           740     ;                   If the counter is beyond the number of characters available to th
+                                   e display
+                           741     ;                   the counter will reset back to 0. Thus the display is effectively
+                           742     ;                   looping over all the chars as each interrupt comes.
+                           743     ;
+                           744     ;                   Since the counter value needs to be saved, I use a local variable
+                                    
+                           745     ;                   allocated in the data memory. Also since 14-seg requires two byte
+                                    writes,
+                           746     ;                   I have two Dhandler buffers for the HIGH and LOW byte array stora
+                                   ge.
+                           747     ;
+                           748     ;                   
+                           749     ;                   
+                           750     ;Operation:                     *   Save all regs
+                           751     ;                   *   Grab stored segment digitchar to be outputted, see if it is m
+                                   axed out
+                           752     ;                       * If so, then reset to 0 and keep going
+                           753     ;                       * If not, then use it and keep going
+                           754     ;                   *   Grab HIGH byte to AL and LOW byte to AH (This order matters)
+                           755     ;                   *   Grab the I/O address for UPPER byte write for 14-seg
+                           756     ;                   *   Use the digitchar as offset for I/O write location (ADD)
+                           757     ;                   *   OUT the AL (HIGH BYTE), this MUST be first to be outputted.
+                           758     ;                   *   Since LOW byte is in AH, just swap AH with AL.
+                           759     ;                   *   Again OUT AL (LOW BYTE), and update digitchar++
+                           760     ;                   *   Send appropriate EOI
+                           761     ;
+                           762     ;                   
+                           763     ;Arguments:         digitchar - stores counter 
+                           764     ;
+                           765     ;Return Values:         digitchar - updated counter for next interrupt
+                           766     ;
+                           767     ;Result:            New ASCII char in the display. Updated counter value
+                           768     ;
+                           769     ;Shared Variables:      digitchar - shared with DispalyHandlerInit (just accessed onc
+                                   e to reset)
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   16
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           770     ;                   DHandlerVarLow  (8 byte arrays) - Shared with Display
+                           771     ;                   DHandlerVarHigh (8 byte arrays) - Shared with Display
+                           772     ;
+                           773     ;Local Variables:       AX - stores all seg pattern codes. Also stores EOI value
+                           774     ;                   BX - stores counter and acts as seg ptr
+                           775     ;                   DX - stores seg pat right before output. stores I/O offsets
+                           776     ;
+                           777     ;Global Variables:      None.
+                           778     ;                                       
+                           779     ;                                       
+                           780     ;Input:                 None.
+                           781     ;
+                           782     ;Output:                New ASCII char in the display at next offset.
+                           783     ;
+                           784     ;Registers Used:        AX, BX, DX
+                           785     ;
+                           786     ;Stack Depth:           3 Words.
+                           787     ;
+                           788     ;Known Bugs:            None.
+                           789     ;
+                           790     ;Data Structures:       DHandlerVarLow, DHandlerVarHigh (8 byte arrays)
+                           791     ;
+                           792     ;Error Handling:        None.
+                           793     ;
+                           794     ;Algorithms:            None.
+                           795     ;
+                           796     ;Limitations:           Outputs new chars in the same array Display might bechanging
+                           797     ;
+                           798     ;
+                           799     ;Author:                        Anjian Wu
+                           800     ;History:                       11-04-2013: Pseudo code - Anjian Wu
+                           801     ;                               Working 7 seg version   - 11-08-2013 - Anjian Wu
+                           802     ;                               Working 14 seg version  - 11-09-2013 - Anjian Wu
+                           803     ;-------------------------------------------------------------------------------
+                           804     
+                           805     
+00A7                       806     DisplayHandler              PROC    NEAR
+                           807                                             PUBLIC  DisplayHandler
+                           808     
+00A7 50                    809             PUSH    AX                          ;save the registers
+00A8 53                    810             PUSH    BX                          ;Event Handlers should NEVER change
+00A9 52                    811             PUSH    DX                          ;any register values
+                           812     
+00AA                       813     DisplayHInit:
+                           814     
+00AA 8B1E1800       R      815             MOV     BX, digitchar                   ;get offset for current digitchar
+00AE 83FB08                816             CMP     BX, Display_SIZE            ;Is the offset too large?
+00B1 7C03                  817             JL      DisplayHUpdate              ;no it isn't keep going
+                           818             ;JGE     DisplayDigitReset          ;yes it is, reset it
+                           819     
+00B3                       820     DisplayDigitReset:
+                           821     
+00B3 BB0000                822             MOV    BX, 0                        ; Clear the digitchar index
+                           823     
+                           824     
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   17
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           825                     ;        
+00B6                       826     DisplayHUpdate:                                 ; update the display
+00B6 8A871000       R      827             MOV     AL, DHandlerVarHigh.buffer[BX]  ; Grab HIGH byte seg pat from buffer 
+                                      
+00BA 8AA70800       R      828             MOV     AH, DHandlerVarLow.buffer[BX]   ; Grab LOW byte seg pat from buffer  
+                                     
+                           829     
+00BE BA0800                830             MOV     DX, LEDDisplay2                 ; get the display address for UPPER s
+                                   eg pat   
+00C1 03D3                  831             ADD     DX, BX                          ; ADD digitchar offset for display
+00C3 EE                    832             OUT     DX, AL                          ; output segment directly
+                           833     
+00C4 BA0000                834             MOV     DX, LEDDisplay                  ; get the display address for LOW seg
+                                    pat        
+00C7 03D3                  835             ADD     DX, BX                          ; ADD digitchar offset for display
+                           836             
+00C9 86C4                  837             XCHG    AL, AH                                          ; Only AL is allowed 
+                                   for OUT-ing bytes 
+                           838                                                 ; (also a nifty operation)
+                           839                                                 
+00CB EE                    840             OUT     DX, AL                      ;output segment directly
+                           841                     
+                           842     
+                           843     
+00CC                       844     DisplayDigitUpdate:                         ;Update digitchar
+                           845     
+00CC 43                    846             INC     BX                          ;update segment digitchar
+                           847             
+00CD 891E1800       R      848             MOV     digitchar, BX                   ;save it for next time
+                           849     
+                           850     
+00D1                       851     EndDisplayHandler:                      ;done taking care displaying
+                           852     
+00D1 BA22FF                853             MOV     DX, INTCtrlrEOI         ;send the EOI to the interrupt controller
+00D4 B80800                854             MOV     AX, TimerEOI
+00D7 EE                    855             OUT     DX, AL
+                           856     
+00D8 5A                    857             POP     DX                      ;restore the registers
+00D9 5B                    858             POP     BX
+00DA 58                    859             POP     AX
+                           860     
+                           861     
+00DB CF                    862             IRET                            ;and return (Event Handlers end with IRET not
+                                    RET)
+                           863     
+                           864     
+                           865     DisplayHandler       ENDP
+                           866             
+                           867     ;Procedure:                     DisplayBufferFill
+                           868     ;
+                           869     ;
+                           870     ;Description:           This procedure will fill the any Display_SIZE byte buffer 
+                           871     ;                   with the PASSED arg value (AL).
+                           872     ;
+                           873     ;                   It does this by simply looping through 0 to Display_SIZE - 1
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   18
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           874     ;                   and writing AL to each char in DS:SI
+                           875     ;
+                           876     ;                   This function is used often to empty a buffer.
+                           877     ;                   
+                           878     ;Operation:                     *   Reset counter
+                           879     ;                   *   Loop Display_SIZE times and fill each char with AL.
+                           880     ;                   *   Update counter and Data seg ptr (SI)
+                           881     ;                   *   DONE
+                           882     ;
+                           883     ;                   
+                           884     ;Arguments:         AL -    The char to be filled with
+                           885     ;                   DS:SI - Location of buffer to be filled
+                           886     ;
+                           887     ;Return Values:         None.
+                           888     ;
+                           889     ;Result:            ASCII_NULL empty DisplayArray
+                           890     ;
+                           891     ;Shared Variables:      This function may fill buffers used by DisplayNum, DusplayHex
+                                   ,
+                           892     ;                   and Display. (DisplayArray, DHandler1, Dhandler2 Display_SIZE byt
+                                   e buffers)
+                           893     ;
+                           894     ;Local Variables:       SI - Pointer to DS:SI's char
+                           895     ;                   CX - Counter
+                           896     ;
+                           897     ;Global Variables:      None.
+                           898     ;                                       
+                           899     ;                                       
+                           900     ;Input:                 None.
+                           901     ;
+                           902     ;Output:                None.
+                           903     ;
+                           904     ;Registers Used:        CX, SI, AL
+                           905     ;
+                           906     ;Stack Depth:           4 Words.
+                           907     ;
+                           908     ;Known Bugs:            None.
+                           909     ;
+                           910     ;Data Structures:       Display_SIZE sized buffers
+                           911     ;
+                           912     ;Error Handling:        None.
+                           913     ;
+                           914     ;Algorithms:            None.
+                           915     ;
+                           916     ;Limitations:           Outputs new chars in the same array that DisplayHandler touch
+                                   es.
+                           917     ;
+                           918     ;
+                           919     ;Author:                        Anjian Wu
+                           920     ;History:                       11-04-2013: Pseudo code - Anjian Wu
+                           921     ;                               Working 7 seg version   - 11-08-2013 - Anjian Wu
+                           922     ;                               Working 14 seg version  - 11-09-2013 - Anjian Wu
+                           923     ;-------------------------------------------------------------------------------
+                           924     
+00DC                       925     DisplayBufferFill               PROC    NEAR
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   19
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           926                                             PUBLIC  DisplayBufferFill
+                           927                                             
+00DC 51                    928         PUSH    CX;             Save all Used Regs
+00DD 53                    929         PUSH    BX;             Important since many functions use this
+00DE 50                    930         PUSH    AX;
+00DF 56                    931         PUSH    SI;
+                           932                                     
+00E0                       933     DisplayClrInit:
+                           934     
+                           935     
+00E0 B90000                936         MOV     CX, 0           ; Clear the counter
+                           937                                 ; Counter goes from 0 to DisplaySize - 1
+                           938     
+00E3                       939     DisplayClrLoop:
+                           940     
+00E3 83F908                941         CMP     CX, Display_SIZE ; Is the counter maxed out?
+00E6 7D06                  942         JGE     DisplayClrDone  ; Yes, exit loop
+                           943                                 ; No, continue loop
+                           944                                 
+00E8 8804                  945         MOV     [SI] , AL       ; Fill that byte with ARG
+                           946             
+00EA 41                    947         INC     CX              ; Update Counter
+00EB 46                    948         INC     SI              ; Update Data seg ptr
+                           949         
+00EC EBF5                  950         JMP     DisplayClrLoop  ; 
+                           951         
+00EE                       952     DisplayClrDone:
+                           953     
+00EE 5E                    954         POP    SI;
+00EF 58                    955         POP    AX;
+00F0 5B                    956         POP    BX;
+00F1 59                    957         POP    CX;              Restore all used regs
+                           958     
+00F2 C3                    959         RET                     
+                           960         
+                           961     DisplayBufferFill  ENDP           
+                           962     
+                           963     
+----                       964     CODE    ENDS 
+                           965         
+----                       966     DATA    SEGMENT PUBLIC  'DATA'
+                           967     
+                           968     
+0000 (8                    969         DisplayArray       DISPLAYSTRUC <>      ;Where DisplayArray's buffer is. Use this
+                                    only for
+     ??
+     )
+                           970                                                 ;storing ASCII so that debugging is easie
+                                   r.
+                           971     
+0008 (8                    972         DHandlerVarLow       DISPLAYSTRUC <>      ;Where DisplayHandler's high byte buffe
+                                   r is stored
+     ??
+     )
+                           973     
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   20
+
+
+LOC  OBJ                  LINE     SOURCE
+
+0010 (8                    974         DHandlerVarHigh       DISPLAYSTRUC <>      ;Where DisplayHandler's low byte buffe
+                                   r is stored
+     ??
+     )
+                           975     
+0018 ????                  976         digitchar               DW      ?           ;The shared Handler pointer to next d
+                                   igitchar
+                           977             
+----                       978     DATA    ENDS
+                           979     
+                           980             END 
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND

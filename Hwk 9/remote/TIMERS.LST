@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:45:31  12/14/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE TIMERS
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1    48                                             ;1---------------  enable timer
                       =1    49                                             ;-1--------------  write to control
                       =1    50                                             ;--1-------------  enable interrupts
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:45:31  12/14/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   101     ;    11/23/2013                 Added WORD_LOOKUP_ADJUST - Anjian Wu
                       =1   102     ;    12/05/2014         Added FMS_ERROR key, ZERO, changed other keys to 
                       =1   103     ;                       ASCII based - Anjian
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:45:31  12/14/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   156     ; Revision History:
                       =1   157     ;    11/23/2013                 Created - Anjian Wu
                       =1   158     ;    12/10/2013         Added Timer 2 info - Anjian Wu
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:45:31  12/14/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
                            211     ; Local Variables:   None.
                            212     ; Shared Variables:  None.
                            213     ; Global Variables:  None.
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:45:31  12/14/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
 001E B80800                265             MOV     AX, TimerEOI
 0021 EE                    266             OUT     DX, AL
                            267     
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:45:31  12/14/;3  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -358,7 +358,7 @@ LOC  OBJ                  LINE     SOURCE
 0029                       319     Timer1InitMaxSet:
                            320     
 0029 BA5AFF                321             MOV     DX, Tmr1MaxCntA     ;  setup max count at COUNT_FOR_30HZ
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    7
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:45:31  12/14/;3  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -418,7 +418,7 @@ LOC  OBJ                  LINE     SOURCE
                            374     ; Output:            None.
                            375     ;
                            376     ; Error Handling:    None.
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    8
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:45:31  12/14/;3  PAGE    8
 
 
 LOC  OBJ                  LINE     SOURCE

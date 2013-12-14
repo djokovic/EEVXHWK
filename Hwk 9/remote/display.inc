@@ -10,6 +10,7 @@
 ;
 ; Revision History:
 ;    11/02/2013			Created - Anjian Wu
+;    12/13/2013         Added Brightness constants - Anjian Wu
 
 
 
@@ -30,5 +31,11 @@ DISPLAYSTRUC     STRUC           	    ;structure containing all display buffers
     buffer		DB	    Display_SIZE	DUP	(?) ;pointer to the function to get switch 
 DISPLAYSTRUC      ENDS
 
+; Brightness Values
+DELTA_BRIGHT        EQU     10      ;
+MIN_BRIGHT          EQU     100     ;
+MAX_BRIGHT          EQU     0       ;
 
+; Scroll Values
 
+SCROLLRATE          EQU     750    ;

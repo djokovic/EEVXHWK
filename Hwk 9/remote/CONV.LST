@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:45:32  12/14/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE HW2TEST
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
                                    is stored at 
                             44     ;                                       a memory location indicated by 'a'. AX - 'n',
                                     SI - 'a'.
-8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:45:32  12/14/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
                             94     ;Limitations:           Will always allocate 5 characters worth space in mem for 
                             95     ;                                       return value (e.g. 0xF -> 0x000F). 
                             96     ;
-8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:45:32  12/14/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
 0024 EBEC                  148             JMP     HexLoop             ;Loop
                            149     
 0026                       150     Hex2StringEND:
-8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:45:32  12/14/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
                            197     ;Shared Variables:      None.
                            198     ;
                            199     ;Local Variables:       AX -> arg, char digit, used for storing DIV answer
-8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:45:32  12/14/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
 0030                       249     DecSignCheck:
                            250     
 0030 3D0000                251                     CMP     AX, 0                   ; Check to see if Num is neg
-8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:45:32  12/14/;3  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -358,7 +358,7 @@ LOC  OBJ                  LINE     SOURCE
 006D 8BC8                  304             MOV     CX, AX                  ;pwr10 = pwr10/10 (note: CH = 0)
 006F F8                    305             CLC                             ;no error
 0070 EB0290                306             JMP     EndBin2BCDLoopBody      ;done getting this digit
-8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    7
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:45:32  12/14/;3  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -418,7 +418,7 @@ LOC  OBJ                  LINE     SOURCE
                            358     ;
                            359     ;Known Bugs:            None :D
                            360     ;
-8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    8
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:45:32  12/14/;3  PAGE    8
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -478,7 +478,7 @@ LOC  OBJ                  LINE     SOURCE
 0096 41                    412         DB   'A'
 0097 42                    413         DB   'B'
 0098 43                    414         DB   'C'
-8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:25:26  12/13/;3  PAGE    9
+8086/87/88/186 MACRO ASSEMBLER    HW2TEST                                                  13:45:32  12/14/;3  PAGE    9
 
 
 LOC  OBJ                  LINE     SOURCE
