@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    22:10:59  12/12/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    13:25:21  12/13/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE EVENT
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1    47     
                       =1    48     
                       =1    49     
-8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    22:10:59  12/12/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    13:25:21  12/13/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
   FF5E                =1   102     Tmr1Ctrl        EQU     0FF5EH          ;address of Timer 1 Control Register
   FF5A                =1   103     Tmr1MaxCntA     EQU     0FF5AH          ;address of Timer 1 Max Count A Register
   FF58                =1   104     Tmr1Count       EQU     0FF58H          ;address of Timer 1 Count Register
-8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    22:10:59  12/12/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    13:25:21  12/13/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   157                                             
   00B1                =1   158     COUNT_FOR_100HZ EQU     177             ; 18,000,000 HZ/(8 * 100 Hz * PWM_WIDTH_MAX) 
                       =1   159                                             ; ~ 177 counts for 100 HZ of PWM             
-8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    22:10:59  12/12/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    13:25:21  12/13/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
                            210     ; User Interface:   None.
                            211     ;
                            212     ; Error Handling:   None.
-8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    22:10:59  12/12/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    13:25:21  12/13/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
                            263     ;
                            264     ;Description:           Checks if EventQueue is empty
                            265     ;                
-8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    22:10:59  12/12/;3  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    13:25:21  12/13/;3  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -358,7 +358,7 @@ LOC  OBJ                  LINE     SOURCE
 001F C3                    318         RET
                            319         
                            320     EventFull   ENDP
-8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    22:10:59  12/12/;3  PAGE    7
+8086/87/88/186 MACRO ASSEMBLER    EVENT                                                    13:25:21  12/13/;3  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE

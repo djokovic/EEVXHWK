@@ -84,6 +84,7 @@ CODE SEGMENT PUBLIC 'CODE'
         EXTRN   Dec2String:NEAR
         EXTRN   StatusFeedback:NEAR
 		EXTRN   no_op:NEAR     
+		EXTRN	Hex2String:NEAR
 
 ;Procedure:			ParseSerialChar
 ;
@@ -339,22 +340,8 @@ ParseReset  ENDP
 ;                   12-08-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 UpdateStatus  PROC    NEAR
-            
-    MOV     AX, 'S'                 ;
-    CALL    SerialPutChar           ;
-    ; 'S'
-    CALL    GetMotorSpeed           ; Got the current speed
-    LEA     SI, Spd_Buffer           ; Prepare to convert it to a string
-    CALL    Dec2String              ; Convert the dec to string into Spd_Buffer
-    ; 'S...val...'
-    MOV     AX, DS                  ; String is in data segment
-    MOV     ES, AX                  ;
-    CALL    StatusFeedback          ; Now output the string body (ASCII_NULL terminated)
-    MOV     AX, CAR_RETURN          ;
-    CALL    SerialPutChar           ;
-    ; 'S...val...<CR>'  
-    
-    
+
+
     MOV     AX, 'D'                 ;
     CALL    SerialPutChar           ;
     ; 'D'
@@ -370,6 +357,22 @@ UpdateStatus  PROC    NEAR
     MOV     AX, CAR_RETURN          ;
     CALL    SerialPutChar           ;
     ; 'D...val...<CR>'  
+            
+    MOV     AX, 'S'                 ;
+    CALL    SerialPutChar           ;
+    ; 'S'
+    CALL    GetMotorSpeed           ; Got the current speed
+    LEA     SI, Spd_Buffer           ; Prepare to convert it to a string
+    CALL    Hex2String              ; Convert the dec to string into Spd_Buffer
+    ; 'S...val...'
+    MOV     AX, DS                  ; String is in data segment
+    MOV     ES, AX                  ;
+    CALL    StatusFeedback          ; Now output the string body (ASCII_NULL terminated)
+    MOV     AX, CAR_RETURN          ;
+    CALL    SerialPutChar           ;
+    ; 'S...val...<CR>'  
+    
+    
 	RET               ;
 	
 UpdateStatus  ENDP                

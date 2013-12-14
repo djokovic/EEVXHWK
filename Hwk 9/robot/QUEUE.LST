@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE QUEUE
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1    47     
                       =1    48     
                       =1    49     
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
   0003                =1   102     MODEM_KEY           EQU     3   ; Event code indicating modem event
   0004                =1   103     FSM_ERROR           EQU     4   ; Error key showing FSM error
                       =1   104     
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
                                    d
                            156     ;                       by BL being 0 or > 0.
                            157     ;                   *   DONE
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
                            208     CGROUP  GROUP   CODE
                            209     DGROUP  GROUP   DATA
                            210     
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
                            261     
                            262     ;Procedure:                     QueueEmpty
                            263     ;
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -358,7 +358,7 @@ LOC  OBJ                  LINE     SOURCE
 002D 50                    316         PUSH    AX
 002E 53                    317         PUSH    BX
                            318     
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE    7
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -418,7 +418,7 @@ LOC  OBJ                  LINE     SOURCE
                            371     ;Global Variables:      None.
                            372     ;
                            373     ;
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE    8
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE    8
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -478,7 +478,7 @@ LOC  OBJ                  LINE     SOURCE
                            425     
 004D 5A                    426         POP    DX
 004E 5B                    427         POP    BX
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE    9
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE    9
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -538,7 +538,7 @@ LOC  OBJ                  LINE     SOURCE
                            479     ;
                            480     ;Registers Used:        AX, BX, DX
                            481     ;
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE   10
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE   10
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -598,7 +598,7 @@ LOC  OBJ                  LINE     SOURCE
                            533     
 0072 8D1E0000       R      534         LEA     BX, qvars           ; Grab queue vars struc offset
 0076 8907                  535         MOV     [BX].dequeued , AX   ; Stored the return value
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE   11
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE   11
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -658,7 +658,7 @@ LOC  OBJ                  LINE     SOURCE
                            588     ;
                            589     ;Arguments:         SI -> location in memory (DS:SI)
                            590     ;                   AX/AL -> The value to be added to queue
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE   12
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE   12
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -718,7 +718,7 @@ LOC  OBJ                  LINE     SOURCE
                            641     
 0092                       642     EQBlock:; Reg changed: None
                            643     
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE   13
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE   13
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -778,7 +778,7 @@ LOC  OBJ                  LINE     SOURCE
                            695     
                            696      ;-------------------------------------------------------------------------------
                            697     
-8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    21:53:07  12/12/;3  PAGE   14
+8086/87/88/186 MACRO ASSEMBLER    QUEUE                                                    13:39:21  12/13/;3  PAGE   14
 
 
 LOC  OBJ                  LINE     SOURCE

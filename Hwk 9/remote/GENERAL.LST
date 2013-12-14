@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    GENERAL                                                  22:10:59  12/12/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    GENERAL                                                  13:25:22  12/13/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE GENERAL
@@ -29,7 +29,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1    19     
                       =1    20     
                       =1    21     ; General Constants
-                      =1    22     
+  000D                =1    22     CAR_RETURN              EQU             13                      ;
   0000                =1    23     ASCII_NULL      EQU     0           ;
   0001                =1    24     bit_size        EQU     1           ;
   0004                =1    25     nibble_size     EQU     4           ;
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1    48     
                       =1    49     ; MainLoop Key Codes
                       =1    50     
-8086/87/88/186 MACRO ASSEMBLER    GENERAL                                                  22:10:59  12/12/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    GENERAL                                                  13:25:22  12/13/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -87,101 +87,132 @@ LOC  OBJ                  LINE     SOURCE
                             72     ;                                   Code Segment
                             73     ;
                             74     ;   XWORDLAT  -   Sets the motor speed by changing PWM width
-                            75     ;
+                            75     ;   no_op     -   Does nothing except return.
                             76     ;
                             77     ;                                 What's was last edit?
                             78     ;
-                            79     ;                               Pseudo code -> 11-18-2013 - Anjian Wu
-                            80     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                            81     
-                            82     ;Procedure:                     XWORDLAT
-                            83     ;
-                            84     ;Description:           This function performs the WORD equivalent of XLAT instr.
-                            85     ;                   It takes arguments AX as the offset of the Table, BX as the
-                            86     ;                   element pointer, and ES as the location of the where the segment
-                            87     ;                   should be.
-                            88     ;           
-                            89     ;                   It will then return the table lookup value in AX.
-                            90     ;                   
-                            91     ;Operation:                     * Adjust element index for WORD look up
-                            92     ;                   * Add in the absolute offset of the table
-                            93     ;                   * Grab the value and store word in AX. Then return that.
-                            94     ;
-                            95     ;Arguments:             AX     -> Offset of WORD look up table
-                            96     ;                   BX     -> Element Pointer
-                            97     ;                   ES     -> Which segment, CS or DS
-                            98     ;
-                            99     ;Return Values:         AX     -> The element grabbed.
+                            79     ;                   Edits by Anjian Wu
+                            80     ;                               11-18-2013 - pseudo code
+                            81     ;                               12-12-2013 - Add no_op function here
+                            82     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            83     
+                            84     ;Procedure:                     XWORDLAT
+                            85     ;
+                            86     ;Description:           This function performs the WORD equivalent of XLAT instr.
+                            87     ;                   It takes arguments AX as the offset of the Table, BX as the
+                            88     ;                   element pointer, and ES as the location of the where the segment
+                            89     ;                   should be.
+                            90     ;           
+                            91     ;                   It will then return the table lookup value in AX.
+                            92     ;                   
+                            93     ;Operation:                     * Adjust element index for WORD look up
+                            94     ;                   * Add in the absolute offset of the table
+                            95     ;                   * Grab the value and store word in AX. Then return that.
+                            96     ;
+                            97     ;Arguments:             AX     -> Offset of WORD look up table
+                            98     ;                   BX     -> Element Pointer
+                            99     ;                   ES     -> Which segment, CS or DS
                            100     ;
-                           101     ;
-                           102     ;Shared Variables:      None.
+                           101     ;Return Values:         AX     -> The element grabbed.
+                           102     ;
                            103     ;
-                           104     ;Local Variables:       BX -   absolute pointer for table look up
-                           105     ;                   
-8086/87/88/186 MACRO ASSEMBLER    GENERAL                                                  22:10:59  12/12/;3  PAGE    3
+                           104     ;Shared Variables:      None.
+                           105     ;
+8086/87/88/186 MACRO ASSEMBLER    GENERAL                                                  13:25:22  12/13/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
 
-                           106     ;Global Variables:      None.
-                           107     ;                                                               
-                           108     ;Input:                 none.
-                           109     ;
-                           110     ;Output:                none.
+                           106     ;Local Variables:       BX -   absolute pointer for table look up
+                           107     ;                   
+                           108     ;Global Variables:      None.
+                           109     ;                                                               
+                           110     ;Input:                 none.
                            111     ;
-                           112     ;Registers Used:        none.
+                           112     ;Output:                none.
                            113     ;
-                           114     ;Stack Depth:           none.
+                           114     ;Registers Used:        none.
                            115     ;
-                           116     ;Known Bugs:            None.
+                           116     ;Stack Depth:           none.
                            117     ;
-                           118     ;Data Structures:       None.
+                           118     ;Known Bugs:            None.
                            119     ;
-                           120     ;Error Handling:        none.
+                           120     ;Data Structures:       None.
                            121     ;
-                           122     ;Algorithms:            none.
+                           122     ;Error Handling:        none.
                            123     ;
-                           124     ;Limitations:           None.
+                           124     ;Algorithms:            none.
                            125     ;
-                           126     ;
-                           127     ;Author:                        Anjian Wu
-                           128     ;History:                       11-22-2013: Created - Anjian Wu
-                           129     ;------------------------------------------------------------------------------
-                           130     
-                           131     CGROUP  GROUP   CODE
+                           126     ;Limitations:           None.
+                           127     ;
+                           128     ;
+                           129     ;Author:                        Anjian Wu
+                           130     ;History:                       11-22-2013: Created - Anjian Wu
+                           131     ;------------------------------------------------------------------------------
                            132     
-----                       133     CODE    SEGMENT PUBLIC 'CODE'
+                           133     CGROUP  GROUP   CODE
                            134     
-                           135     
-                           136             ASSUME  CS:CGROUP
+----                       135     CODE    SEGMENT PUBLIC 'CODE'
+                           136     
                            137     
-                           138     
-0000                       139     XWORDLAT                PROC    NEAR
-                           140                                     PUBLIC  XWORDLAT    ; Used by many functions
-                           141     
-                           142     
-                           143         
-0000 53                    144         PUSH    BX;
-0001                       145     XWORDLATBODY:    
-0001 D1E3                  146         SHL     BX, WORD_LOOKUP_ADJUST  ; Adjust relative pointer for WORD entries
-0003 03D8                  147         ADD     BX, AX                  ; Grab absolute address by adding offset
-0005 268B07                148         MOV     AX, ES:[BX]             ; Grab the word from table
-                           149         
-0008 5B                    150         POP     BX;
+                           138             ASSUME  CS:CGROUP
+                           139     
+                           140     
+0000                       141     XWORDLAT                PROC    NEAR
+                           142                                     PUBLIC  XWORDLAT    ; Used by many functions
+                           143     
+                           144     
+                           145         
+0000 53                    146         PUSH    BX;
+0001                       147     XWORDLATBODY:    
+0001 D1E3                  148         SHL     BX, WORD_LOOKUP_ADJUST  ; Adjust relative pointer for WORD entries
+0003 03D8                  149         ADD     BX, AX                  ; Grab absolute address by adding offset
+0005 268B07                150         MOV     AX, ES:[BX]             ; Grab the word from table
                            151         
-0009 C3                    152         RET
+0008 5B                    152         POP     BX;
                            153         
-                           154     XWORDLAT ENDP
-                           155     
-                           156                                     
-----                       157     CODE    ENDS
-                           158         
-                           159     
-                           160             END 
-8086/87/88/186 MACRO ASSEMBLER    GENERAL                                                  22:10:59  12/12/;3  PAGE    4
+0009 C3                    154         RET
+                           155         
+                           156     XWORDLAT ENDP
+                           157     
+                           158     
+                           159     ;Procedure:                     no_op
+                           160     ;
+8086/87/88/186 MACRO ASSEMBLER    GENERAL                                                  13:25:22  12/13/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
 
+                           161     ;Description:           Just return (stub function)
+                           162     ;        
+                           163     ;Arguments:             None.
+                           164     ;Return Values:         none.
+                           165     ;Shared Variables:      none.
+                           166     ;Local Variables:       None.
+                           167     ;Global Variables:      None.                   
+                           168     ;Input:                 None.
+                           169     ;Output:                None.
+                           170     ;Registers Used:        None.
+                           171     ;Stack Depth:           none.
+                           172     ;Known Bugs:            None.
+                           173     ;Data Structures:       None.
+                           174     ;Error Handling:        None
+                           175     ;Algorithms:            None.
+                           176     ;Limitations:           None.
+                           177     ;Author:                        Anjian Wu
+                           178     ;History:                       12-02-2013: Pseudo code - Anjian Wu
+                           179     ;                   12-08-2013: Documentation - Anjian Wu
+                           180     ;------------------------------------------------------------------------------
+000A                       181     no_op        PROC    NEAR
+                           182                 PUBLIC   no_op
+                           183     
+000A C3                    184         RET
+                           185         
+                           186     no_op   ENDP
+                           187                             
+----                       188     CODE    ENDS
+                           189         
+                           190     
+                           191             END 
 
 ASSEMBLY COMPLETE, NO ERRORS FOUND

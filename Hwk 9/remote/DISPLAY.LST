@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE DISPLAY
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1    47     ; This file contains general operations
                       =1    48     ;
                       =1    49     ; Revision History:
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -70,7 +70,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1    54     
                       =1    55     
                       =1    56     ; General Constants
-                      =1    57     
+  000D                =1    57     CAR_RETURN              EQU             13                      ;
   0000                =1    58     ASCII_NULL      EQU     0           ;
   0001                =1    59     bit_size        EQU     1           ;
   0004                =1    60     nibble_size     EQU     4           ;
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   102     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                       =1   103     
                       =1   104     ; This file contains the definitions for timers and their interupts
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   157                                             ;-----------0----  MaxCount
                       =1   158                                             ;------------000-  reserved
                       =1   159                                             ;---------------1  continuous mode
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
                            210     
                            211     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                            212     ;                                                                            ;
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
                            263     ;Description:           This procedure will take the address of the string at ES:SI, 
                                    and
                            264     ;                   place that string into the Dhandler buffers. This display buffers
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -358,7 +358,7 @@ LOC  OBJ                  LINE     SOURCE
                            307     ;                   SI - Used to store ptr arg
                            308     ;                   BX - Used as ptr to access code segment
                            309     ;                   CX - Used as counter
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE    7
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -418,7 +418,7 @@ LOC  OBJ                  LINE     SOURCE
                            360                                     
                            361             
 0000 51                    362             PUSH    CX;                     ; Store all Used Regs
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE    8
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    8
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -478,7 +478,7 @@ LOC  OBJ                  LINE     SOURCE
                            410                                          
 0034 88870800       R      411         MOV     DHandlerVarLow.buffer[BX]   , AL   ; Split AX into low and high byte
 0038 88A71000       R      412         MOV     DHandlerVarHigh.buffer[BX]  , AH  
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE    9
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE    9
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -538,7 +538,7 @@ LOC  OBJ                  LINE     SOURCE
                            460     ;
                            461     ;Result:            New ASCII chars in the display array and in DHandler buffers
                            462     ;
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE   10
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   10
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -598,7 +598,7 @@ LOC  OBJ                  LINE     SOURCE
                            513         
 0047                       514     DisplayNumStrInit:
 0047 50                    515         PUSH    AX                      ; DisplayBufferFill also uses AX as arg, so save 
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE   11
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   11
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -658,7 +658,7 @@ LOC  OBJ                  LINE     SOURCE
                            563     ;                   *   Prepare to pass ES:SI, by making ES = DS
                            564     ;                   *   Call Display
                            565     ;
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE   12
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   12
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -718,7 +718,7 @@ LOC  OBJ                  LINE     SOURCE
 0060                       616     DisplayHex              PROC    NEAR
                            617                                     PUBLIC  DisplayHex
                            618                                     
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE   13
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   13
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -778,7 +778,7 @@ LOC  OBJ                  LINE     SOURCE
                            667     ;                     
                            668     ;
                            669     ; Arguments:         None.
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE   14
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   14
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -838,7 +838,7 @@ LOC  OBJ                  LINE     SOURCE
 0094 33C0                  718             XOR     AX, AX          ;clear ES (interrupt vectors are in segment 0)
 0096 8EC0                  719             MOV     ES, AX
                            720                                     ;store the vector
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE   15
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   15
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -898,7 +898,7 @@ LOC  OBJ                  LINE     SOURCE
                            768     ;
                            769     ;Shared Variables:      digitchar - shared with DispalyHandlerInit (just accessed onc
                                    e to reset)
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE   16
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   16
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -958,7 +958,7 @@ LOC  OBJ                  LINE     SOURCE
 00B3 BB0000                822             MOV    BX, 0                        ; Clear the digitchar index
                            823     
                            824     
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE   17
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   17
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1018,7 +1018,7 @@ LOC  OBJ                  LINE     SOURCE
                            871     ;                   with the PASSED arg value (AL).
                            872     ;
                            873     ;                   It does this by simply looping through 0 to Display_SIZE - 1
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE   18
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   18
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1078,7 +1078,7 @@ LOC  OBJ                  LINE     SOURCE
                            923     ;-------------------------------------------------------------------------------
                            924     
 00DC                       925     DisplayBufferFill               PROC    NEAR
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE   19
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   19
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1138,7 +1138,7 @@ LOC  OBJ                  LINE     SOURCE
      ??
      )
                            973     
-8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  22:10:59  12/12/;3  PAGE   20
+8086/87/88/186 MACRO ASSEMBLER    DISPLAY                                                  13:25:20  12/13/;3  PAGE   20
 
 
 LOC  OBJ                  LINE     SOURCE

@@ -16,7 +16,7 @@
 
 
 ; General Constants
-
+CAR_RETURN		EQU		13			;
 ASCII_NULL      EQU     0           ;
 bit_size        EQU     1           ;
 nibble_size     EQU     4           ;

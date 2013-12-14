@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  22:11:01  12/12/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  13:25:25  12/13/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE VECTORS
@@ -57,8 +57,8 @@ LOC  OBJ                  LINE     SOURCE
                       =1    47     
                       =1    48     
                       =1    49     ; General Constants
-                      =1    50     
-8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  22:11:01  12/12/;3  PAGE    2
+  000D                =1    50     CAR_RETURN              EQU             13                      ;
+8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  13:25:25  12/13/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   103     
                       =1   104                                             ; Timer Definitions
                       =1   105     
-8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  22:11:01  12/12/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  13:25:25  12/13/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
   07D0                =1   158     PRESCALE_2SEC   EQU     2000            ; 2 seconds = CTS_PER_MILSEC * 2000
                       =1   159     
   0008                =1   160     TimerEOI        EQU     00008H          ;Timer EOI command (same for all timers)
-8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  22:11:01  12/12/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  13:25:25  12/13/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
                            211     ; Global Variables: None.
                            212     ;
                            213     ; Input:            None.
-8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  22:11:01  12/12/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  13:25:25  12/13/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
 0022 E2E6                  263             LOOP    ClrVectorLoop   ;loop until have cleared all vectors
                            264             ;JMP    EndClrIRQVectors;and all done
                            265     
-8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  22:11:01  12/12/;3  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  13:25:25  12/13/;3  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -358,7 +358,7 @@ LOC  OBJ                  LINE     SOURCE
                            318     
                            319     
                            320     IllegalEventHandler     ENDP
-8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  22:11:01  12/12/;3  PAGE    7
+8086/87/88/186 MACRO ASSEMBLER    VECTORS                                                  13:25:25  12/13/;3  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE

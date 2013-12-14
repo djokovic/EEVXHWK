@@ -71,18 +71,18 @@ Timer0InitCountSet:
                                 ;initialize Timer #0 for interrupt every COUNT_FOR_30HZ
         MOV     DX, Tmr0Count   ;initialize the count register to 0
         XOR     AX, AX
-        OUT     DX, AL
+        OUT     DX, AX
 Timer0InitMaxSet:
 
         MOV     DX, Tmr0MaxCntA      ;  setup max count at COUNT_FOR_30HZ
         MOV     AX, CTS_PER_MILSEC  ;  count so can time the segments
-        OUT     DX, AL
+        OUT     DX, AX
 
 Timer0InitControlSet:
 
         MOV     DX, Tmr0Ctrl    ;setup the control register
         MOV     AX, Tmr0CtrlVal ;Set appropriate bits to timer register
-        OUT     DX, AL
+        OUT     DX, AX
 
 Timer0InitIntControlSet:
 
@@ -146,25 +146,25 @@ Timer1InitCountSet:
                                 ;initialize Timer #0 for interrupt every COUNT_FOR_30HZ
         MOV     DX, Tmr1Count   ;initialize the count register to 0
         XOR     AX, AX
-        OUT     DX, AL
+        OUT     DX, AX
 Timer1InitMaxSet:
 
         MOV     DX, Tmr1MaxCntA     ;  setup max count at COUNT_FOR_30HZ
         MOV     AX, CTS_PER_MILSEC  ;  count so can time the segments
-        OUT     DX, AL
+        OUT     DX, AX
 
 Timer1InitControlSet:
 
         MOV     DX, Tmr1Ctrl    ;setup the control register
         MOV     AX, Tmr1CtrlVal ;Set appropriate bits to timer register
-        OUT     DX, AL
+        OUT     DX, AX
 
 Timer1InitIntControlSet:
 
                                 ;initialize interrupt controller for timers
         MOV     DX, INTCtrlrCtrl;setup the interrupt control register
         MOV     AX, INTCtrlrCVal
-        OUT     DX, AL
+        OUT     DX, AX
 Timer1InitDone:
 
         MOV     DX, INTCtrlrEOI ;send a timer EOI (to clear out controller)
@@ -221,18 +221,18 @@ Timer2InitCountSet:
                                 ;initialize Timer 2 for interrupt every COUNT_FOR_30HZ
         MOV     DX, Tmr2Count   ;initialize the count register 
         XOR     AX, AX
-        OUT     DX, AL
+        OUT     DX, AX
 Timer2InitMaxSet:
 
         MOV     DX, Tmr2MaxCnt          ;  setup max count at COUNT_FOR_30HZ
         MOV     AX, CTS_PER_MILSEC      ;  count so can time the segments
-        OUT     DX, AL
+        OUT     DX, AX
 
 Timer2InitControlSet:
 
         MOV     DX, Tmr2Ctrl    ;setup the control register
         MOV     AX, Tmr2CtrlVal ;Set appropriate bits to timer register
-        OUT     DX, AL
+        OUT     DX, AX
 
 Timer2InitIntControlSet:
 

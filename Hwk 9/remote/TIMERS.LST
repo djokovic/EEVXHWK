@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   22:11:01  12/12/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE TIMERS
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1    48                                             ;1---------------  enable timer
                       =1    49                                             ;-1--------------  write to control
                       =1    50                                             ;--1-------------  enable interrupts
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   22:11:01  12/12/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   101     ;    11/23/2013                 Added WORD_LOOKUP_ADJUST - Anjian Wu
                       =1   102     ;    12/05/2014         Added FMS_ERROR key, ZERO, changed other keys to 
                       =1   103     ;                       ASCII based - Anjian
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   22:11:01  12/12/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -126,7 +126,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   104     
                       =1   105     
                       =1   106     ; General Constants
-                      =1   107     
+  000D                =1   107     CAR_RETURN              EQU             13                      ;
   0000                =1   108     ASCII_NULL      EQU     0           ;
   0001                =1   109     bit_size        EQU     1           ;
   0004                =1   110     nibble_size     EQU     4           ;
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   156     ; Revision History:
                       =1   157     ;    11/23/2013                 Created - Anjian Wu
                       =1   158     ;    12/10/2013         Added Timer 2 info - Anjian Wu
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   22:11:01  12/12/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
                            211     ; Local Variables:   None.
                            212     ; Shared Variables:  None.
                            213     ; Global Variables:  None.
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   22:11:01  12/12/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -273,18 +273,18 @@ LOC  OBJ                  LINE     SOURCE
                                    HZ
 0000 BA50FF                241             MOV     DX, Tmr0Count   ;initialize the count register to 0
 0003 33C0                  242             XOR     AX, AX
-0005 EE                    243             OUT     DX, AL
+0005 EF                    243             OUT     DX, AX
 0006                       244     Timer0InitMaxSet:
                            245     
 0006 BA52FF                246             MOV     DX, Tmr0MaxCntA      ;  setup max count at COUNT_FOR_30HZ
 0009 B8CA08                247             MOV     AX, CTS_PER_MILSEC  ;  count so can time the segments
-000C EE                    248             OUT     DX, AL
+000C EF                    248             OUT     DX, AX
                            249     
 000D                       250     Timer0InitControlSet:
                            251     
 000D BA56FF                252             MOV     DX, Tmr0Ctrl    ;setup the control register
 0010 B801E0                253             MOV     AX, Tmr0CtrlVal ;Set appropriate bits to timer register
-0013 EE                    254             OUT     DX, AL
+0013 EF                    254             OUT     DX, AX
                            255     
 0014                       256     Timer0InitIntControlSet:
                            257     
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
 001E B80800                265             MOV     AX, TimerEOI
 0021 EE                    266             OUT     DX, AL
                            267     
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   22:11:01  12/12/;3  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -354,30 +354,30 @@ LOC  OBJ                  LINE     SOURCE
                                    HZ
 0023 BA58FF                316             MOV     DX, Tmr1Count   ;initialize the count register to 0
 0026 33C0                  317             XOR     AX, AX
-0028 EE                    318             OUT     DX, AL
+0028 EF                    318             OUT     DX, AX
 0029                       319     Timer1InitMaxSet:
                            320     
 0029 BA5AFF                321             MOV     DX, Tmr1MaxCntA     ;  setup max count at COUNT_FOR_30HZ
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   22:11:01  12/12/;3  PAGE    7
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE
 
 002C B8CA08                322             MOV     AX, CTS_PER_MILSEC  ;  count so can time the segments
-002F EE                    323             OUT     DX, AL
+002F EF                    323             OUT     DX, AX
                            324     
 0030                       325     Timer1InitControlSet:
                            326     
 0030 BA5EFF                327             MOV     DX, Tmr1Ctrl    ;setup the control register
 0033 B801E0                328             MOV     AX, Tmr1CtrlVal ;Set appropriate bits to timer register
-0036 EE                    329             OUT     DX, AL
+0036 EF                    329             OUT     DX, AX
                            330     
 0037                       331     Timer1InitIntControlSet:
                            332     
                            333                                     ;initialize interrupt controller for timers
 0037 BA32FF                334             MOV     DX, INTCtrlrCtrl;setup the interrupt control register
 003A B80100                335             MOV     AX, INTCtrlrCVal
-003D EE                    336             OUT     DX, AL
+003D EF                    336             OUT     DX, AX
 003E                       337     Timer1InitDone:
                            338     
 003E BA22FF                339             MOV     DX, INTCtrlrEOI ;send a timer EOI (to clear out controller)
@@ -418,7 +418,7 @@ LOC  OBJ                  LINE     SOURCE
                            374     ; Output:            None.
                            375     ;
                            376     ; Error Handling:    None.
-8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   22:11:01  12/12/;3  PAGE    8
+8086/87/88/186 MACRO ASSEMBLER    TIMERS                                                   13:25:25  12/13/;3  PAGE    8
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -440,18 +440,18 @@ LOC  OBJ                  LINE     SOURCE
                                    Z
 0046 BA60FF                391             MOV     DX, Tmr2Count   ;initialize the count register 
 0049 33C0                  392             XOR     AX, AX
-004B EE                    393             OUT     DX, AL
+004B EF                    393             OUT     DX, AX
 004C                       394     Timer2InitMaxSet:
                            395     
 004C BA62FF                396             MOV     DX, Tmr2MaxCnt          ;  setup max count at COUNT_FOR_30HZ
 004F B8CA08                397             MOV     AX, CTS_PER_MILSEC      ;  count so can time the segments
-0052 EE                    398             OUT     DX, AL
+0052 EF                    398             OUT     DX, AX
                            399     
 0053                       400     Timer2InitControlSet:
                            401     
 0053 BA66FF                402             MOV     DX, Tmr2Ctrl    ;setup the control register
 0056 B801E0                403             MOV     AX, Tmr2CtrlVal ;Set appropriate bits to timer register
-0059 EE                    404             OUT     DX, AL
+0059 EF                    404             OUT     DX, AX
                            405     
 005A                       406     Timer2InitIntControlSet:
                            407     

@@ -21,30 +21,31 @@ $INCLUDE(timer.inc);
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;                                 What's in here?
 ;
-;                                   Code Segment
+;                                   Code Segment (* indicates PUBLIC)
 ;
 ;   Procedures
 ;
-;   Remote_FSM_LOOP     -   If available, dequeue next WORD in rx_queue
-;   ParseRemoteWord     -   Parses four types of Event Handlers
+;   Remote_FSM_LOOP     -   Remote Main Loop
 ;
-;   HandleKey           -   Updates display and tx_queue with command
-;   HandleSerErr        -   Displays serial chip error
-;   ParseRemoteChar     -   Concatenates the status message as string. Then
-;                           will display to user.
+;   ParseRemoteWord     -   Parses four types of Events into respective functions
+;
+;   HandleKey           -   Loads tx_queue with command and updates display buff
+;   HandleSerErr        -   Updates display with error (Error_Buff_PTR)
+;   ParseRemoteChar     -   Parses chars from input serial (from Robot)
 ;   HandleModem         -   Stub function for now, since no flow control
 ;
 ;   RemoteParseInit     -   Initializes all parsing variables and ToggleHandler
-;   ToggleHandler       -   Timer handler that actually Calls Display and cycles
+;   ToggleHandler       -   Timer0 handler that actually Calls Display and cycles
 ;                           between displaying statuses.
 ;   GetTokenTypeVal     -   Grabs next token type and val
-;   RemoteParseReset    -   Resets state machine variables for Remote FSM
-;   SetError            -   Indicates RemoteFSM error
-;   no_op               -   Just Returns
+;   RemoteParseReset    -   Resets state machine variables for ParseRemoteChar FSM
+;   SetError            -   Indicates RemoteFSM error, forces FSM reset
 ;   AddDirChar          -   Concat the Direction Status String from Robot
 ;   AddSpeedChar        -   Concat the Speed Status String from Robot
+;   AddRobotErrorChar   -   Concat the Robot Status String from Robot
 ;
 ;   Tables
+;
 ;   Token Tables        -   Contains all tokens/token vals for Remote FSM
 ;   Toggle_JMP_Table    -   Jump table inside Toggle handler, muxes what value display                    
 ;   Toggle_Label_Table  -   Muxes which value label to display
@@ -54,8 +55,11 @@ $INCLUDE(timer.inc);
 ;
 ;                              What's was last edit?
 ;
-;       			Pseudo code ->  12-06-2013 - Anjian Wu
-;                   Added KeyDisplayError/KeyDisplayInit Table -> 12-10-13 -AW
+;                   Edits by Anjian Wu:
+;       			12-06-2013 -> Pseudo code 
+;                   12-10-2013 -> Added KeyDisplayError/KeyDisplayInit Table
+;                   12-13-2013 -> Added AddRobotErrorChar into FSM, removed no_op
+;                   12-13-2013 -> Working and updated documentation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CGROUP  GROUP   CODE
 DGROUP  GROUP   STACK, DATA
@@ -68,29 +72,31 @@ CODE    SEGMENT PUBLIC 'CODE'
 ;external function declarations
  
 ;Init/Setup Functions 
-        EXTRN   InitUserInterfaceCS:NEAR  
-        EXTRN   EnqueueEventInit:NEAR
-        EXTRN   Timer0Init:NEAR  
-        EXTRN   Timer1Init:NEAR  
-        EXTRN   Timer2Init:NEAR  
-        EXTRN   ClrIRQVectors:NEAR  
-        EXTRN   KeyHandlerInit:NEAR  
-        EXTRN   DisplayHandlerInit:NEAR  
-        EXTRN   SerialInit:NEAR       
+        EXTRN   InitUserInterfaceCS:NEAR    ; Initialize hardware ports for keypad and display
+        EXTRN   EnqueueEventInit:NEAR       ; Initialize event queue
+        EXTRN   Timer0Init:NEAR             ; Setup and enable Timer0
+        EXTRN   Timer1Init:NEAR             ; Setup and enable Timer1
+        EXTRN   Timer2Init:NEAR             ; Setup and enable Timer2
+        EXTRN   ClrIRQVectors:NEAR          ; Clear interrupt vector table
+        EXTRN   KeyHandlerInit:NEAR         ; Initialize keypad variables
+        EXTRN   DisplayHandlerInit:NEAR     ; Initialize display variables
+        EXTRN   SerialInit:NEAR             ; Initialize serial variables
         
-;Main Loop Fuctions
-        EXTRN   Display:NEAR        
-        EXTRN   DequeueEvent:NEAR    
-        EXTRN   EnqueueEvent:NEAR           
-        EXTRN   EventAvailable:NEAR        
-        EXTRN   SerialPutChar:NEAR             
-         
+;Main Loop Functions
+        EXTRN   Display:NEAR                ; Displays string
+        EXTRN   DequeueEvent:NEAR           ; Enqueues event queue
+        EXTRN   EnqueueEvent:NEAR           ; Dequeues event queue
+        EXTRN   EventAvailable:NEAR         ; Checks if event queue is empty
+        EXTRN   SerialPutChar:NEAR          ; Serial output a char
+        EXTRN   no_op:NEAR                  ; Just returns         
 
 		
 ; Name:             Remote Main Loop
-; Description:      This is the remote main loop
 ;
-;                   *   Set up all initializations
+; Description:      This is the remote main loop that does all initializations 
+;                   and then loops forever waiting for event-available.
+;
+; Operation:        *   Set up all initializations
 ;                   *   Enter remote_fsm_loop
 ;                   *   LOOP forever checking whether an event is available
 ;                       , if so dequeue it and pass to ParseRemoteWord
@@ -98,7 +104,8 @@ CODE    SEGMENT PUBLIC 'CODE'
 ; Input:            None.
 ; Output:           None.
 ;
-; User Interface:   None.
+; User Interface:   Keypad -> user input
+;                   Display -> 14-seg display with 8 chars
 ;
 ; Error Handling:   None.
 ;
@@ -110,7 +117,9 @@ CODE    SEGMENT PUBLIC 'CODE'
 ; Limitations:      None.
 ;
 ; Revision History:
-;       			Initial Version ->  12-05-2013 - Anjian Wu
+;                   Edits by Anjian Wu:
+;       			Initial Version ->  12-05-2013 
+;                   WORKING! I think->  12-13-2013
 ;----------------------------------------------------------------------------------------		
 START:
 
@@ -129,13 +138,13 @@ MAIN:
         CALL    Timer2Init                 ; Initialize timer 2 interrupt
         CALL    KeyHandlerInit             ; Initialize keypad function variables
         CALL    SerialInit                 ; Initialize serial function variables
-        CALL    DisplayHandlerInit                ; Initialize display function variables
+        CALL    DisplayHandlerInit         ; Initialize display function variables
         CALL    EnqueueEventInit           ; Initialize the Event queue function vars
                                            
-        CALL    RemoteParseInit            ;
+        CALL    RemoteParseInit            ; Initialize remote parser FSM and handler
         
         STI                                ; Start interrupts
-        ;JMP     REMOTE_FSM_LOOP            ;
+        ;JMP     REMOTE_FSM_LOOP           ; Enter loop
 
     
 REMOTE_FSM_LOOP:
@@ -153,25 +162,40 @@ RemoteFSMIdle:
 JMP     REMOTE_FSM_LOOP                     ; Loop forever
 
 ; Name:             ParseRemoteWord
+;
 ; Description:      Uses a call table to select the next function to call to handle
-;                   the event type. The event val is passed to this function call.
+;                   the event type. The event val is always passed to this 
+;                   function call. AH is the event key, and AL is the event val.
 ;
-; Input:            None.
-; Output:           None.
-;
-; User Interface:   None.
-;
-; Error Handling:   None.
-;
-; Algorithms:       None.
-;
-; Data Structures:  None.
-;
-; Known Bugs:       None.
-; Limitations:      None.
+; Operation:        * Isolate event key into a 16-bit value.
+;                   * Adjust the event key value for WORD table lookup
+;                   * Isolate event value into 16-bit value.
+;                   * CALL Remote_Call_Table using the event key and passing
+;                     the event value.
+;                   
+;Arguments:        	AH  -> Event Key
+;                   AL  -> Event Value
+;Return Values:    	None.
+;Shared Variables: 	None.
+;Local Variables:	BL  -> Copy of event value
+;                   AX  -> copy of event key
+;                   BX  -> pointer for CALL table look up
+;Global Variables:	None.			
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	AX, BX
+;Stack Depth:		none.
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	If tx_queue is FULL, then stop and return.
+;Algorithms:       	None.
+;Limitations:  		None.
+;Author:			Anjian Wu
 ;
 ; Revision History:
-;       			Initial Version ->  12-05-2013 - Anjian Wu
+;                   Edits by Anjian Wu:
+;       			12-05-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
 ;----------------------------------------------------------------------------------------	
 ParseRemoteWord     PROC    NEAR
 
@@ -191,6 +215,19 @@ ParseRemoteWord     PROC    NEAR
     
 ParseRemoteWord ENDP
 
+; Name:             Remote_Call_Table
+;
+; Description:      Call table for ParseRemoteWord. The event key value is mapped
+;                   to the functions below.
+;                   
+;Limitations:  		None.
+;Author:			Anjian Wu
+;
+; Revision History:
+;                   Edits by Anjian Wu:
+;       			12-05-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
+;----------------------------------------------------------------------------------------	
 Remote_Call_Table	    LABEL	WORD
                                     
 	DW		HandleKey 	        ;KEY_EVENT_KEY - An internal key press
@@ -201,26 +238,48 @@ Remote_Call_Table	    LABEL	WORD
 
 ;Procedure:			HandleKey
 ;
-;Description:      	Maps the key pressed into the command string with fixed length.
-;                   Then that command is stored into the tx_queue. Also displays
-;                   the proper message to the user describing the command.
+;Description:      	Send out appropriate command over serial to Robot and updates
+;                   display with what action was just sent.
+;
+;                   Maps the key pressed into the command string with fixed length.
+;                   Then all of the chars of that cmd string is push out to serial. 
+;                   Also displays the proper message to the user describing the command.
+;                   Finally also forces Togglehandler to immediately display what
+;                   was just pressed, so that user doesn't have to wait for it to
+;                   come around.
+;
+;Operation:         * AL is the key value that is going to be mapped to the serial CMD
+;                   * BX = CMD_LENGTH*AL + OFFSET(KeyCmdTable) = CMD string offset
+;                   * For AL = 0 to CMD_LENGTH - 1, grab each char from KeyCmdTable
+;                     at CS:BX[AL]. Each char is pushed to serial with SerialPutChar.
+;                       * IF tx_queue in Serial is full, USER is told so and function returns
+;                   * BX = (Display_SIZE+1)*AL + OFFSET(KeyDisplayTable) = action string offset
+;                   * Store that offset into Action_Buff_PTR for Togglehandler.
+;                   * Also force ToggleHandler to display ACTION VAL next.
 ;                
-;Arguments:        	hexcode.
+;Arguments:        	AL -> Event Val
 ;Return Values:    	None.
-;Shared Variables: 	None.
-;Local Variables:	None.
+;Shared Variables: 	Action_Buff_PTR (WRITE)
+;                   ToggleCTR (WRITE)
+;Local Variables:	CL  -> copy of event val
+;                   BX  -> Table offset
+;                   AX  -> table ele pointer
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
-;Registers Used:	None.
-;Stack Depth:		none.
+;Registers Used:	AL, AH, AX, BX, CL
+;Stack Depth:		None.
 ;Known Bugs:		None.
 ;Data Structures:	None.
-;Error Handling:   	If tx_queue is FULL, then stop and return.
+;Error Handling:   	If serial tx_queue is FULL, then stop, tell USER, and return.
 ;Algorithms:       	None.
 ;Limitations:  		None.
 ;Author:			Anjian Wu
-;History:			12-06-2013: Pseudo code - Anjian Wu
+;Revision History:
+;                   Edits by Anjian Wu:
+;                   12-06-2013  -> Pseudo code
+;                   12-12-2013  -> Added forcing Toggle to show ACTION VAL
+;                   12-13-2013  -> Working and documentation
 ;------------------------------------------------------------------------------
 HandleKey       PROC    NEAR
 
@@ -239,13 +298,13 @@ HandleKey       PROC    NEAR
 ;-----------------------Loop enqueue the char string-----------------------------
 HandleKeyEnqueue:
     CMP     AL, CMD_LENGTH          ; Go from AL = 0 to CMD_LENGTH - 1
-    JGE     HandleKeyEnqueueDone    ; Yes, so exit loop
+    JGE     HandleKeyEnqueueInternalOps    ; Yes, so exit loop
     
     PUSH    AX                      ; Save counter
     XLAT	CS:KeyCmdTable			; Get next char (at CS:BX[AL] -> AL by design)      
     CALL    SerialPutChar           ; Is TX_queue Full?
     
-    POP     AX
+    POP     AX                      ; Restore counter
 
     JC      HandleKeyError          ; Yes it is, tell user.
                                     ; Cannot send this char, exit this function
@@ -259,6 +318,13 @@ HandleKeyEnqueueOk:
     INC     AL                      ; Increment Counter
     
     JMP     HandleKeyEnqueue
+    
+HandleKeyEnqueueInternalOps:
+;-----------------------Now do any INTERNAL operations-------------------------
+    XOR     BX, BX                      ;
+    MOV     BL, CL                      ;
+    SHL     BX, WORD_LOOKUP_ADJUST      ; Prepare for WORD table lookup
+    CALL    CS:Key_Call_Table[BX]       ; Go to that FSM  function, passing Event val in AX
 ;-----------------------Now update display for USER-----------------------------
 HandleKeyEnqueueDone:
     XOR     AX, AX          ; 
@@ -273,14 +339,61 @@ HandleKeyError:
     ;JMP     HandleKeyDone
 HandleKeyDone:
 
-    MOV     Action_Buff_PTR, AX ;   
-    MOV     ToggleCTR, ACTION_VAL;
+    MOV     Action_Buff_PTR, AX     ;  Update the Action buffer pointer
+    MOV     ToggleCTR, ACTION_VAL   ;  Force ToggleHandler to immediately show ACTION VAL
     
     RET     
     
 HandleKey   ENDP
 
-KeyCmdTable	    LABEL	BYTE
+; Name:             KeyCmdTable
+;
+; Description:      Jump table for INTERNAL functions to be used for a key press.
+;                   This table is design so any INTERNAL function can be executed
+;                   or added easily.
+;                   
+;Limitations:  		Fixed length size.
+;Author:			Anjian Wu
+;
+; Revision History:
+;                   Edits by Anjian Wu:
+;       			12-13-2013 -> Initial Version
+;                   12-13-2013 -> 
+
+Key_Call_Table	    LABEL	WORD
+                                    
+	DW		no_op 	      ;0
+	DW		no_op         ;1
+	DW      no_op         ;2
+	DW      no_op         ;3
+    DW      no_op         ;4
+    DW      no_op         ;5
+    DW      no_op         ;6
+    DW      no_op         ;7
+    DW      Inc_Bright    ;8
+    DW      no_op         ;9
+    DW      no_op         ;10
+    DW      no_op         ;11
+    DW      Dec_Bright    ;12
+    DW      no_op         ;13
+    DW      no_op         ;14
+    DW      no_op         ;15
+    
+
+; Name:             KeyCmdTable
+;
+; Description:      String table containing fixed command lengths of chars that is
+;                   ouputted to serial to the Robot for parsing. Every string
+;                   must end with CAR_RETURN and be size CMD_LENGTH.
+;                   
+;Limitations:  		Fixed length size.
+;Author:			Anjian Wu
+;
+; Revision History:
+;                   Edits by Anjian Wu:
+;       			12-05-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
+;----------------------------------------------------------------------------------------	
 ;                   The way KEYS are mapped physically is...
 ;                   __________________________
 ;                  | [0]  |  [1]  | [2] | [3] |  
@@ -291,27 +404,41 @@ KeyCmdTable	    LABEL	BYTE
 ;                  |__________________________|
 ;                  | [12] |  [13] | [14]| [15]|  
 ;                  |_____ |_______|_____|_____|   
+
+KeyCmdTable	    LABEL	BYTE
                              
-	DB		'T',        '+',   '0015',     13 ;Key 0
-	DB		'T',        ' ',   '0000',     13 ;Key 1
-	DB      'T',        '-',   '0015',     13 ;Key 2
-	DB      ' ',        ' ',   '    ',     13 ;Key 3
-	DB      ' ',        ' ',   '    ',     13 ;Key 4
-	DB      'O',        ' ',   '    ',     13 ;Key 5
-	DB      'S',        ' ',   '0000',     13 ;Key 6
-	DB      'F',        ' ',   '    ',     13 ;Key 7
-	DB      ' ',        ' ',   '    ',     13 ;Key 8
-	DB      'D',        '+',   '0015',     13 ;Key 9
-	DB      'V',        '+',   '4369',     13 ;Key 10
-	DB      'D',        '-',   '0015',     13 ;Key 11
-	DB      ' ',        ' ',   '    ',     13 ;Key 12
-	DB      'D',        '-',   '0090',     13 ;Key 13
-	DB      'V',        '-',   '4369',     13 ;Key 14 
-	DB      'D',        '+',   '0090',     13 ;Key 15
-	DB      ' ',        ' ',   '    ',     13 ;Key Not assigned
+	DB		'T',        '+',   '0015',     CAR_RETURN ;Key 0
+	DB		'T',        ' ',   '0000',     CAR_RETURN ;Key 1
+	DB      'T',        '-',   '0015',     CAR_RETURN ;Key 2
+	DB      ' ',        ' ',   '    ',     CAR_RETURN ;Key 3
+	DB      ' ',        ' ',   '    ',     CAR_RETURN ;Key 4
+	DB      'O',        ' ',   '    ',     CAR_RETURN ;Key 5
+	DB      'S',        ' ',   '0000',     CAR_RETURN ;Key 6
+	DB      'F',        ' ',   '    ',     CAR_RETURN ;Key 7
+	DB      ' ',        ' ',   '    ',     CAR_RETURN ;Key 8
+	DB      'D',        '+',   '0015',     CAR_RETURN ;Key 9
+	DB      'V',        '+',   '4369',     CAR_RETURN ;Key 10
+	DB      'D',        '-',   '0015',     CAR_RETURN ;Key 11
+	DB      ' ',        ' ',   '    ',     CAR_RETURN ;Key 12
+	DB      'D',        '-',   '0090',     CAR_RETURN ;Key 13
+	DB      'V',        '-',   '4369',     CAR_RETURN ;Key 14 
+	DB      'D',        '+',   '0090',     CAR_RETURN ;Key 15
+	DB      ' ',        ' ',   '    ',     CAR_RETURN ;Key Not assigned
 	
 
-KeyDisplayTables	    LABEL	BYTE
+; Name:             KeyDisplayTables (KeyDisplayInit and KeyDisplayError)
+;
+; Description:      String table containing fixed command lengths of chars that is
+;                   outputted to display of Remote. Every string
+;                   must end with ASCII_NULL and be size Display_SIZE + 1.
+;                   
+;Limitations:  		Fixed length size.
+;Author:			Anjian Wu
+;
+; Revision History:
+;                   Edits by Anjian Wu:
+;       			12-05-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
 ;                   The way KEYS are mapped physically is...
 ;                   __________________________
 ;                  | [0]  |  [1]  | [2] | [3] |  
@@ -322,9 +449,9 @@ KeyDisplayTables	    LABEL	BYTE
 ;                  |__________________________|
 ;                  | [12] |  [13] | [14]| [15]|  
 ;                  |_____ |_______|_____|_____|     
-; The addition of KeyDisplayInit and KeyDisplayError Tables
-; to ease coding.
-                          
+; The addition of KeyDisplayInit and KeyDisplayError Tables is for
+; easier coding and are NOT mapped ot any keys.
+KeyDisplayTables	    LABEL	BYTE
 	DB		'T ANG+  ', ASCII_NULL      ;Key 0
 	DB		'T RESET ', ASCII_NULL      ;Key 1
 	DB		'T ANG-  ', ASCII_NULL      ;Key 2
@@ -333,11 +460,11 @@ KeyDisplayTables	    LABEL	BYTE
 	DB		'LAZR OFF', ASCII_NULL      ;Key 5
 	DB		'S T O P ', ASCII_NULL      ;Key 6
 	DB		'LAZR ON ', ASCII_NULL      ;Key 7
-	DB		'NoNoNoNo', ASCII_NULL      ;Key 8	
+	DB		'Bright +', ASCII_NULL      ;Key 8	
 	DB		'DIR +15 ', ASCII_NULL      ;Key 9
 	DB		'SPEED+  ', ASCII_NULL      ;Key 10
 	DB		'DIR -15 ', ASCII_NULL      ;Key 11
-	DB		'NoNoNoNo', ASCII_NULL      ;Key 12	
+	DB		'Bright -', ASCII_NULL      ;Key 12	
 	DB		'DIR -90 ', ASCII_NULL      ;Key 13
 	DB		'SPEED-  ', ASCII_NULL      ;Key 14
 	DB		'DIR +90 ', ASCII_NULL      ;Key 15
@@ -348,15 +475,19 @@ KeyDisplayInit     LABEL	BYTE
 KeyDisplayError     LABEL	BYTE
     DB      'TX FULL ', ASCII_NULL      ;TX queue is Full Error
 
-;Procedure:			HandleSerErr
+;Procedure:			Inc_Bright
 ;
 ;Description:      	Determines which Serial error occurred at the chip,
-;                   and informs the user to the issue.
+;                   and informs the user to the issue. Note this is
+;                   serial errors from Remote Serial Chip.
+;
+;Operation:         * Table offset = AX = Display_SIZE*AL + OFFSET(SerErrTable)
+;                   * Just store that into Error_Buff_PTR.
 ;                
-;Arguments:        	None.
+;Arguments:        	AL  -> Event Val
 ;Return Values:    	none.
-;Shared Variables: 	None.
-;Local Variables:	None.
+;Shared Variables: 	Error_Buff_PTR (WRITE).
+;Local Variables:	AX  -> abs pointer address.
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
@@ -366,9 +497,106 @@ KeyDisplayError     LABEL	BYTE
 ;Data Structures:	None.
 ;Error Handling:   	None.
 ;Algorithms:       	None.
-;Limitations:  		None.
+;Limitations:  		Only displays error to user, does not fix the error.
 ;Author:			Anjian Wu
-;History:			12-06-2013: Pseudo code - Anjian Wu
+;Revision History:
+;                   Edits by Anjian Wu:
+;       			12-06-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
+;------------------------------------------------------------------------------
+Inc_Bright    PROC    NEAR
+
+        MOV     DX, Tmr2MaxCnt      ;  setup max count at COUNT_FOR_30HZ
+        IN      AX, DX              ;
+        ADD     AX, DELTA_BRIGHT    ;
+        CMP     AX, MAX_BRIGHT      ;
+        JLE     Inc_BrightDone      ;
+        ;JG     Inc_BrightGoodToGo  ;
+        
+Inc_BrightGoodToGo:      
+        OUT     DX, AX              ;
+        
+Inc_BrightDone:
+
+    RET
+    
+Inc_Bright    ENDP
+
+;Procedure:			Dec_Bright
+;
+;Description:      	Determines which Serial error occurred at the chip,
+;                   and informs the user to the issue. Note this is
+;                   serial errors from Remote Serial Chip.
+;
+;Operation:         * Table offset = AX = Display_SIZE*AL + OFFSET(SerErrTable)
+;                   * Just store that into Error_Buff_PTR.
+;                
+;Arguments:        	AL  -> Event Val
+;Return Values:    	none.
+;Shared Variables: 	Error_Buff_PTR (WRITE).
+;Local Variables:	AX  -> abs pointer address.
+;Global Variables:	None.			
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		none.
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None.
+;Algorithms:       	None.
+;Limitations:  		Only displays error to user, does not fix the error.
+;Author:			Anjian Wu
+;Revision History:
+;                   Edits by Anjian Wu:
+;       			12-06-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
+;------------------------------------------------------------------------------
+Dec_Bright    PROC    NEAR
+
+        MOV     DX, Tmr2MaxCnt      ;  setup max count at COUNT_FOR_30HZ
+        IN      AX, DX              ;
+        SUB     AX, DELTA_BRIGHT    ;
+        CMP     AX, MIN_BRIGHT      ;
+        JLE     Dec_BrightDone      ;
+        ;JL     	Dec_BrightGoodToGo  ;
+        
+Dec_BrightGoodToGo:      
+        OUT     DX, AX              ;
+        
+Dec_BrightDone:
+
+    RET
+    
+Dec_Bright    ENDP
+    
+;Procedure:			HandleSerErr
+;
+;Description:      	Determines which Serial error occurred at the chip,
+;                   and informs the user to the issue. Note this is
+;                   serial errors from Remote Serial Chip.
+;
+;Operation:         * Table offset = AX = Display_SIZE*AL + OFFSET(SerErrTable)
+;                   * Just store that into Error_Buff_PTR.
+;                
+;Arguments:        	AL  -> Event Val
+;Return Values:    	none.
+;Shared Variables: 	Error_Buff_PTR (WRITE).
+;Local Variables:	AX  -> abs pointer address.
+;Global Variables:	None.			
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		none.
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None.
+;Algorithms:       	None.
+;Limitations:  		Only displays error to user, does not fix the error.
+;Author:			Anjian Wu
+;Revision History:
+;                   Edits by Anjian Wu:
+;       			12-06-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
 ;------------------------------------------------------------------------------
 HandleSerErr    PROC    NEAR
 
@@ -383,6 +611,19 @@ HandleSerErr    PROC    NEAR
     
 HandleSerErr    ENDP
 
+; Name:             SerErrTable
+;
+; Description:      String table containing fixed command lengths of chars that is
+;                   outputted to display of Remote. Every string
+;                   must end with ASCII_NULL and be size Display_SIZE + 1.
+;                   
+;Limitations:  		Fixed length size.
+;Author:			Anjian Wu
+;
+; Revision History:
+;                   Edits by Anjian Wu:
+;       			12-05-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
 SerErrTable     LABEL       BYTE
 
     DB     'NO ERROR', ASCII_NULL   ;
@@ -416,7 +657,10 @@ SerErrTable     LABEL       BYTE
 ;Algorithms:       	None.
 ;Limitations:  		None.
 ;Author:			Anjian Wu
-;History:			12-06-2013: Pseudo code - Anjian Wu
+;Revision History:
+;                   Edits by Anjian Wu:
+;                   12-06-2013 -> Pseudo code
+;                   12-13-2013 -> Working and documentation
 ;------------------------------------------------------------------------------
 HandleModem    PROC    NEAR
 
@@ -448,30 +692,26 @@ HandleModem    ENDP
 ;------------------------------------------------------------------------------
 RemoteParseInit  PROC    NEAR
             
-    MOV     Dir_PTR, zero               ; Initialize Direction Buff
-    MOV     Spd_PTR, zero               ; Initialize Speed Buff
+    MOV     Dir_PTR, zero               ; Reset Direction Buff ptr
+    MOV     Spd_PTR, zero               ; Reset Speed Buff ptr
     MOV     ToggleCTR, zero             ; Start with first Status to toggle
-    MOV     Rbt_error_Ptr, zero         ;
-    MOV     TogglePreScaler, zero
+    MOV     Rbt_error_Ptr, zero         ; Reset Robot Buff ptr
+    MOV     TogglePreScaler, zero       ; Reset Toggle Prescale counter
     
     MOV     Action_Buff_PTR, OFFSET(KeyDisplayInit) ; Display NO actions yet
     MOV     Error_Buff_PTR, OFFSET(SerErrTable)     ; Display NO error yet
-    MOV     FSM_state, ST_INITIAL                   ;
-    
-    %DisplayCSStrPrep(AX)                           ;
-    MOV     SI, Action_Buff_PTR                     ;
-    CALL    Display                                 ;
+    MOV     FSM_state, ST_INITIAL                   ; Initialize FSM at start state
     
     XOR     BX, BX                      ; Clear Counter
         
 RemoteParseInitBufClear:
 
-    CMP     BX, Display_SIZE             ; For each motor PWM counter
-    JGE     RemoteParseInitBufClearDone ; If each done, then leave loop
+    CMP     BX, Display_SIZE             ; FROM BX = 0 to Display_SIZE...
+    JG     RemoteParseInitBufClearDone   ; If each done, then leave loop
     
-    MOV     Dir_Buffer[BX], ASCII_NULL  ; Tell user we are going straight
-    MOV     Spd_Buffer[BX], ASCII_NULL  ; Tell user we are not moving
-    MOV     Rbt_error_Buff[BX], ASCII_NULL  ; Tell user no error from robot yet
+    MOV     Dir_Buffer[BX], ASCII_NULL  ; Clear direction displayed
+    MOV     Spd_Buffer[BX], ASCII_NULL  ; Clear speed displayed
+    MOV     Rbt_error_Buff[BX], ASCII_NULL  ; Clear Robot status
 
     INC     BX                          ; Increment buffer/counter index
     JMP     RemoteParseInitBufClear     ; Loop until all entries are cleared
@@ -490,7 +730,13 @@ RemoteParseInitBufClearDone:
 RemoteParseInit  ENDP  
 
 ;Function:			ToggleHandler
-;Description:      	Resets all Parser variables to initial state, zero magnitude, and pos sign     
+;Description:      	This timer event actually outputs various display buffers to be displayed.
+;                   Based on the ToggleCTR, the display muxes the ACTION, SPEED, DIRECTION, 
+;                   INTERNAL SERIAL ERRORS, and ROBOT ERRORS vals, as well as their labels.
+;                   To enable toggling on magnitude of seconds, there is a prescale counter
+;                   that effectively muxes what is displayed every PRESCALE interrupts. Thus
+;                   this is a nested counter
+;
 ;Operation:         * Set sign as POS, set FSM_state as ST_INITIAL, and set magnitude as zero         
 ;Arguments:        	None.
 ;Return Values:    	none.
@@ -516,65 +762,63 @@ ToggleHandler   PROC    NEAR
     
     PUSHA                               ; Save all Regs
 TogglePrescale:
-    INC     TogglePreScaler            ;
-    CMP     TogglePreScaler, PRESCALE  ;
-    JL      ToggleDone                  ; Not yet
-    ;JGE     TogglePrescalePass          ;
+    INC     TogglePreScaler            ; Increase the prescale counter
+    CMP     TogglePreScaler, PRESCALE  ; Are we done prescaling?
+    JL      ToggleDone                 ; Not yet, just exit
+    ;JGE     TogglePrescalePass        ; Yes! So change what is displayed
 TogglePrescalePass:    
-    MOV     TogglePreScaler, zero      ;
+    MOV     TogglePreScaler, zero      ; Reset Prescale counter
 
-    CMP     ToggleCTR, numOfStatus      ;
-    JL      ToggleMux
-    ;JGE    ToggleMuxReset
+    CMP     ToggleCTR, numOfStatus     ; Finished with all status?
+    JL      ToggleMux                  ; Not yet, grab next one
+    ;JGE    ToggleMuxReset             ; yes so loop back
 ToggleMuxReset:
-    MOV     ToggleCTR, zero             ;
-    ;JMP    ToggleMux                   ;
+    MOV     ToggleCTR, zero             ; Reset Toggle index
+    ;JMP    ToggleMux                   ; Go display initial message
 ToggleMux:
-    MOV     BX, ToggleCTR               ;
-    SHL     BX, 1                       ;
-    JMP     CS:Toggle_JMP_Table[BX]     ;
+    MOV     BX, ToggleCTR               ; Use ToggleCTR for table look up
+    SHL     BX, WORD_LOOKUP_ADJUST      ; Adjust for WORD table
+    JMP     CS:Toggle_JMP_Table[BX]     ; Call jump into properly mapped function
     
 T_Action_Val:    
-    MOV     AX, Action_Buff_PTR
-    %DisplayCSStrPrep(AX)                ;
-    JMP     ToggleSet
+    MOV     AX, Action_Buff_PTR         ; Time to display Action msg
+    %DisplayCSStrPrep(AX)               ; This is in CS
+    JMP     ToggleSet                   ; Display!
     
-T_Speed_Val: 	;3
-    LEA     AX, Spd_Buffer
-    %DisplayDSStrPrep(AX)                ;
-    JMP     ToggleSet
+T_Speed_Val: 	
+    LEA     AX, Spd_Buffer              ; Time to display Speed buffer
+    %DisplayDSStrPrep(AX)               ; This is in DS
+    JMP     ToggleSet                   ; Display!
     
-T_Angle_Val:	    ;5
-    LEA     AX, Dir_Buffer
-    %DisplayDSStrPrep(AX)                ;
-    JMP     ToggleSet
+T_Angle_Val:	    
+    LEA     AX, Dir_Buffer              ; Time to display direction buffer
+    %DisplayDSStrPrep(AX)               ; This is in DS
+    JMP     ToggleSet                   ; Display!
     
-T_Error_Val:	    ;7
-    MOV     AX, Error_Buff_PTR
-    %DisplayCSStrPrep(AX)                ;
-    JMP     ToggleSet
+T_Error_Val:	    
+    MOV     AX, Error_Buff_PTR          ; Time to display error msg
+    %DisplayCSStrPrep(AX)               ; This is in CS
+    JMP     ToggleSet                   ; Display!
     
 T_R_Error_Val:
-    LEA     AX, Rbt_error_Buff           ;
-    %DisplayDSStrPrep(AX)                ;
-    JMP     ToggleSet
+    LEA     AX, Rbt_error_Buff           ; Time to display error msg
+    %DisplayDSStrPrep(AX)                ; This is in DS
+    JMP     ToggleSet                    ; Display!
     
 T_Label:
-    MOV     AX, ToggleCTR                ;
+    MOV     AX, ToggleCTR               ; Display LABEL of that action
     SHR     AX, bit_size                ; All 'labels' are EVEN indexed, thus we can
                                         ; map the JMP table offset to the string offset
                                         ; with just a simple SHR 1.
     %StrTblOffsetCalc_AX(Display_SIZE+1, Toggle_Label_Table); Calc ABS address into AX
     
-    MOV     SI, AX                      ; Need abs address in SI
-    
     %DisplayCSStrPrep(AX)               ; String in CS
     ;JMP     ToggleSet
     
 ToggleSet:
-    CALL    Display                     ; Pass ES:SI to be displayed
+    CALL    Display                     ; Pass ES:SI to be displayed, ASCII_NULL terminated
     
-    INC     ToggleCTR                   ;
+    INC     ToggleCTR                   ; Increment counter for next time
     
 ToggleDone:; Send out EOI as usual
 
@@ -589,7 +833,21 @@ ToggleDone:; Send out EOI as usual
     
 ToggleHandler   ENDP
 
-
+; Name:             Toggle_Label_Table
+;
+; Description:      String table containing fixed command lengths of chars that is
+;                   outputted to display of Remote and shows LABELS. This is because
+;                   the actual values take up much of the 8 chars, so it is more
+;                   effective to first display the label and then the val afterwards.
+;                   Must end with ASCII_NULL and be size Display_SIZE + 1.
+;                   
+;Limitations:  		Fixed length size.
+;Author:			Anjian Wu
+;
+; Revision History:
+;                   Edits by Anjian Wu:
+;       			12-05-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
 Toggle_Label_Table	    LABEL	BYTE
 
                           
@@ -599,19 +857,32 @@ Toggle_Label_Table	    LABEL	BYTE
 	DB		'Errors:?', ASCII_NULL      ;3
 	DB		'Robot: ?', ASCII_NULL      ;4
 
-
+; Name:             Toggle_JMP_Table
+;
+; Description:      String table contains the jmp labels, which is mapped from
+;                   the Toggle counter. Notice that T_Label occurs every OTHER
+;                   EVEN value. This is convenient since Label values are FIXED
+;                   any ways.
+;                   
+;Limitations:  		None.
+;Author:			Anjian Wu
+;
+; Revision History:
+;                   Edits by Anjian Wu:
+;       			12-05-2013 -> Initial Version
+;                   12-13-2013 -> Working and documentation
 Toggle_JMP_Table	    LABEL	WORD
                                     
 	DW		T_Label 	    ;0 - Action Label
-	DW		T_Action_Val    ;1
+	DW		T_Action_Val    ;1 - Action Val
 	DW		T_Label 	    ;2 - Speed Label
-	DW		T_Speed_Val 	;3
+	DW		T_Speed_Val 	;3 - Speed Val
 	DW		T_Label 	    ;4 - Angle Label
-	DW		T_Angle_Val	    ;5
+	DW		T_Angle_Val	    ;5 - Angle Val
 	DW		T_Label 	    ;6 - Error Label
-	DW		T_Error_Val	    ;7
+	DW		T_Error_Val	    ;7 = Error Val
 	DW		T_Label 	    ;8 - Robot Error Label
-	DW		T_R_Error_Val	;9    
+	DW		T_R_Error_Val	;9 - Robot Error Val   
     
 ;Procedure:			ParseRemoteChar
 ;
@@ -811,8 +1082,11 @@ GetTokenTypeVal	ENDP
 
 
 ;Function:			RemoteParseReset
-;Description:      	Resets all Parser variables to initial state, zero magnitude, and pos sign     
-;Operation:         * Set sign as POS, set FSM_state as ST_INITIAL, and set magnitude as zero         
+;Description:      	Resets all Parser variables to initial state and all display buffer ptrs  
+;                   Note that these are the ptrs for data segment buffers only since they are
+;                   the ones that get each char ele parsed and written.
+;           
+;Operation:         * Set FSM_state to initial, Dir_PTR, Spd_PTR, and Rbt_error_Ptr reset.
 ;Arguments:        	None.
 ;Return Values:    	none.
 ;Shared Variables: 	none.
@@ -828,15 +1102,17 @@ GetTokenTypeVal	ENDP
 ;Algorithms:       	None.
 ;Limitations:  		None.
 ;Author:			Anjian Wu
-;Author:			Anjian Wu
-;History:			12-10-2013: Created - Anjian Wu
+;History:			12-02-2013: Pseudo code - Anjian Wu
+;					12-10-2013: Created - Anjian Wu
+;                   12-13-2013: Working - Anjian Wu
+;                   12-14-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 RemoteParseReset  PROC    NEAR
             
-    MOV     Dir_PTR, zero               ; Set default val as positive
-    MOV     Spd_PTR, zero               ; Set Default FSM machine state
-    MOV     Rbt_error_Ptr, zero           ;
-    MOV     FSM_state, ST_INITIAL       ;
+    MOV     Dir_PTR, zero               ; Reset Direction Buffer
+    MOV     Spd_PTR, zero               ; Reset Speed Buffer
+    MOV     Rbt_error_Ptr, zero         ; Reset Robot Status Buffer
+    MOV     FSM_state, ST_INITIAL       ; Reset FSM
 	RET
 	
 RemoteParseReset  ENDP                   
@@ -873,201 +1149,202 @@ SetError        PROC    NEAR
     
 SetError ENDP
 
-;Procedure:			no_op
-;
-;Description:      	Just return (stub function)
-;        
-;Arguments:        	None.
-;Return Values:    	none.
-;Shared Variables: 	none.
-;Local Variables:	None.
-;Global Variables:	None.			
-;Input:            	None.
-;Output:           	None.
-;Registers Used:	None.
-;Stack Depth:		none.
-;Known Bugs:		None.
-;Data Structures:	None.
-;Error Handling:   	None
-;Algorithms:       	None.
-;Limitations:  		None.
-;Author:			Anjian Wu
-;History:			12-02-2013: Pseudo code - Anjian Wu
-;                   12-08-2013: Documentation - Anjian Wu
-;------------------------------------------------------------------------------
-no_op        PROC    NEAR
-
-    RET
-    
-no_op   ENDP
-
 ;Procedure:			AddRobotErrorChar
 ;
-;Description:      	Turns the laser ON
+;Description:      	Inserts the next parsed CHAR into the Robot status buffer
+;                   which is the direct buffer passed to Display in TogleHandler.
+;                   Function uses Rbt_error_Ptr to index which ele in buffer.
 ;
-;Operation:        
+;Operation:         * Is the pointer > Dispaly_Size?
+;                       * IF so, then there is an error, so set it and exit
+;                   * Else put the pointer into BX and move Rbt_error_Buff[BX] 
+;                     into AL.
+;                   * Increment the pointer
 ;                
-;Arguments:         None.
+;Arguments:         AL - The char to be inserted
 ;Return Values:    	None.
-;Shared Variables: 	None.
-;Local Variables:	None.
+;Shared Variables: 	Rbt_error_Ptr(WRITE/READ)
+;Local Variables:	BX  -> Holds element index
+;                   
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
-;Registers Used:	None.
-;Stack Depth:		none.
+;Registers Used:	BX, AL
+;Stack Depth:		1 Word
 ;Known Bugs:		None.
 ;Data Structures:	None.
-;Error Handling:   	None.
+;Error Handling:   	If the pointer exceeds the display size, then DO NOT insert
+;                   the next char, instead call error. That way the FSM will auto
+;                   reset.
 ;Algorithms:       	None.
-;Limitations:  		None.
+;Limitations:  		Cannot display a robot status string longer than display.
+;                   Instead it is truncated.
 ;Author:			Anjian Wu
-;History:			12-02-2013: Pseudo code - Anjian Wu
-;                   12-04-2013: Initial assembly - Anjian Wu
-;                   12-08-2013: Documentation - Anjian Wu
+;History:			12-12-2013: created - Anjian Wu
+;                   12-13-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 AddRobotErrorChar    PROC    NEAR
 
-    PUSH    BX
+    PUSH    BX                             ; Save used reg
 
-    CMP     Rbt_error_Ptr, Display_SIZE    ;
+    CMP     Rbt_error_Ptr, Display_SIZE    ; Is the pointer out of Display_Size?
     
-    JG      AddRobotErrorCharNoNo          ;
+    JG      AddRobotErrorCharNoNo          ; Yes, so set error to reset state machine.
     
-    XOR     BH, BH                  ;
-    MOV     BL, Rbt_error_Ptr             ;
+    XOR     BH, BH                  ; 
+    MOV     BL, Rbt_error_Ptr       ; Convert Rbt_error_Ptr BYTE into WORD
  
-    MOV     Rbt_error_Buff[BX], AL     ;
+    MOV     Rbt_error_Buff[BX], AL  ; Insert the char arg
     
-    INC     Rbt_error_Ptr                 ;
+    INC     Rbt_error_Ptr           ; Update pointer 
     
-    JMP     AddRobotErrorCharDone
+    JMP     AddRobotErrorCharDone   ; Done
 AddRobotErrorCharNoNo:
     
-    CALL    SetError                        ;
+    CALL    SetError                ; Set the error to reset FSM
    
 AddRobotErrorCharDone:
-    POP     BX                      ;
+    POP     BX                      ; Restore used reg
 
-    RET                     ;
+    RET                             ;
 
 AddRobotErrorChar    ENDP
 
 ;Procedure:			AddDirChar
 ;
-;Description:      	Turns the laser ON
+;Description:      	Inserts the next parsed CHAR into the Direction status buffer
+;                   which is the direct buffer passed to Display in TogleHandler.
+;                   Function uses Dir_PTR to index which ele in buffer.
 ;
-;Operation:         * SetLaser(TRUE)
+;Operation:         * Is the pointer > Dispaly_Size?
+;                       * IF so, then there is an error, so set it and exit
+;                   * Else put the pointer into BX and move Dir_Buffer[BX] 
+;                     into AL.
+;                   * Increment the pointer
 ;                
-;Arguments:         None.
+;Arguments:         AL - The char to be inserted
 ;Return Values:    	None.
-;Shared Variables: 	None.
-;Local Variables:	None.
+;Shared Variables: 	Dir_PTR(WRITE/READ)
+;Local Variables:	BX  -> Holds element index
+;                   
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
-;Registers Used:	None.
-;Stack Depth:		none.
+;Registers Used:	BX, AL
+;Stack Depth:		1 Word
 ;Known Bugs:		None.
 ;Data Structures:	None.
-;Error Handling:   	None.
+;Error Handling:   	If the pointer exceeds the display size, then DO NOT insert
+;                   the next char, instead call error. That way the FSM will auto
+;                   reset.
 ;Algorithms:       	None.
-;Limitations:  		None.
+;Limitations:  		Cannot display a robot status string longer than display.
+;                   Instead it is truncated.
 ;Author:			Anjian Wu
-;History:			12-02-2013: Pseudo code - Anjian Wu
-;                   12-04-2013: Initial assembly - Anjian Wu
-;                   12-08-2013: Documentation - Anjian Wu
+;History:			12-11-2013: created/ worked - Anjian Wu
+;                   12-13-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 AddDirChar    PROC    NEAR
 
-    PUSH    BX
-
-    CMP     Dir_Ptr, Display_SIZE    ;
+    PUSH    BX                      ; Save used reg                      
     
-    JG      AddDirCharNoNo          ;
+    CMP     Dir_Ptr, Display_SIZE   ; Save used reg
     
-    XOR     BH, BH                  ;
-    MOV     BL, Dir_PTR             ;
+    JG      AddDirCharNoNo          ;Is the pointer out of Display_Size?
+    
+    XOR     BH, BH                  ;Yes, so set error to reset state machine.
+    MOV     BL, Dir_PTR             ;Convert pointer BYTE into WORD
  
-    MOV     Dir_Buffer[BX], AL     ;
+    MOV     Dir_Buffer[BX], AL      ;Insert the char arg
     
-    INC     Dir_PTR                 ;
+    INC     Dir_PTR                 ;Update pointer 
     
-    JMP     AddDirCharDone
+    JMP     AddDirCharDone          ; Done
     
 AddDirCharNoNo:
     
-    CALL    SetError                        ;   
+    CALL    SetError                ; Set the error to reset FSM   
     
 AddDirCharDone:
-    POP     BX                      ;
+    POP     BX                      ; Restore used reg
 
-    RET                     ;
+    RET                             ;
 
 AddDirChar    ENDP
 
 ;Procedure:			AddSpeedChar
 ;
-;Description:      	Turns the laser OFF
+;Description:      	Inserts the next parsed CHAR into the Direction status buffer
+;                   which is the direct buffer passed to Display in TogleHandler.
+;                   Function uses Spd_Ptr to index which ele in buffer.
 ;
-;Operation:         * SetLaser(FALSE)  
-;Arguments:         None.
+;Operation:         * Is the pointer > Dispaly_Size?
+;                       * IF so, then there is an error, so set it and exit
+;                   * Else put the pointer into BX and move Spd_Buffer[BX] 
+;                     into AL.
+;                   * Increment the pointer
+;                
+;Arguments:         AL - The char to be inserted
 ;Return Values:    	None.
-;Shared Variables: 	None.
-;Local Variables:	None.
+;Shared Variables: 	Spd_Ptr(WRITE/READ)
+;Local Variables:	BX  -> Holds element index
+;                   
 ;Global Variables:	None.			
 ;Input:            	None.
 ;Output:           	None.
-;Registers Used:	None.
-;Stack Depth:		none.
+;Registers Used:	BX, AL
+;Stack Depth:		1 Word
 ;Known Bugs:		None.
 ;Data Structures:	None.
-;Error Handling:   	None.
+;Error Handling:   	If the pointer exceeds the display size, then DO NOT insert
+;                   the next char, instead call error. That way the FSM will auto
+;                   reset.
 ;Algorithms:       	None.
-;Limitations:  		None.
+;Limitations:  		Cannot display a robot status string longer than display.
+;                   Instead it is truncated.
 ;Author:			Anjian Wu
-;History:			12-02-2013: Pseudo code - Anjian Wu
-;                   12-04-2013: Initial assembly - Anjian Wu
-;                   12-08-2013: Documentation - Anjian Wu
+;History:			12-11-2013: created/ worked - Anjian Wu
+;                   12-13-2013: Documentation - Anjian Wu
 ;------------------------------------------------------------------------------
 AddSpeedChar    PROC    NEAR
 
-    PUSH    BX
+    PUSH    BX                         ; Save used reg
 
-    CMP     Spd_Ptr, Display_SIZE    ;
+    CMP     Spd_Ptr, Display_SIZE     ; Is the pointer out of Display_Size?
     
-    JG      AddSpeedCharNoNo          ;
+    JG      AddSpeedCharNoNo          ; Yes, so set error to reset state machine.
     
-    XOR     BH, BH                  ;
-    MOV     BL, Spd_Ptr             ;
+    XOR     BH, BH                  ; 
+    MOV     BL, Spd_Ptr             ; Convert Rbt_error_Ptr BYTE into WORD
  
-    MOV     Spd_Buffer[BX], AL     ;
+    MOV     Spd_Buffer[BX], AL      ; Insert the char arg
     
-    INC     Spd_Ptr                 ;
+    INC     Spd_Ptr                 ; Update pointer 
 
-    JMP     AddSpeedCharDone
+    JMP     AddSpeedCharDone        ; Done
     
 AddSpeedCharNoNo:
     
-    CALL    SetError                        ;       
+    CALL    SetError                ; Set the error to reset FSM 
  
 AddSpeedCharDone:
 
-    POP     BX
+    POP     BX                       ; Restore used reg
     
-    RET                     ;
+    RET                    
 
 AddSpeedChar    ENDP
 
 ; RemoteFSMTable
 ;
-; Description:      This is the state transition table for the robot side.
+; Description:      This is the state transition table for the remote side.
 ;                   Each entry consists of the next state and actions for that
 ;                   transition.  The rows are associated with the current
 ;                   state and the columns with the input type.
 ;
 ; Author:           Anjian Wu
-; Last Modified:    12-10-2013: Initial Version - Anjian Wu
+; Last Modified:    12-11-2013: Adapted for Remote - Anjian Wu\
+;                   12-13-2013: Documentation - Anjian Wu
 
 
 TRANSITION_ENTRY        STRUC           ;structure used to define table
@@ -1085,25 +1362,25 @@ TRANSITION_ENTRY      ENDS
 
 RemoteFSMTable	LABEL	TRANSITION_ENTRY
 
-	;Current State = ST_INITIAL: Waiting for status    
+	;Current State = ST_INITIAL: Waiting for a Serial Char...
 	                                    ;Input Token Type
 	%TRANSITION(ST_SPEED, no_op)	    ;TOKEN_S - Set Speed
 	%TRANSITION(ST_DIR, no_op)	        ;TOKEN_D - Set Dir
-	%TRANSITION(ST_Robot, no_op)	;TOKEN_R - Robot Error
+	%TRANSITION(ST_Robot, no_op)	    ;TOKEN_R - Robot Error
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_NUM - A digit or ASCII_NULL
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_END - C Return
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
 	
-	;Current State = ST_SPEED: Grab speed chars   
+	;Current State = ST_SPEED: Garbing chars into Speed Buffer
 	                                    ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_S - Set Speed
-	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_D - Set Dir
+	%TRANSITION(ST_SPEED, AddSpeedChar)	;TOKEN_D - Set Dir
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_R - Robot Error
 	%TRANSITION(ST_SPEED, AddSpeedChar) ;TOKEN_NUM - A digit
 	%TRANSITION(ST_INITIAL, no_op)	    ;TOKEN_END - C Return
-	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
+	%TRANSITION(ST_SPEED, AddSpeedChar)	;TOKEN_OTHER	
 	
-	;Current State = ST_DIR: Grab dir chars   
+	;Current State = ST_DIR: Garbing chars into Direction Buffer
 	                                    ;Input Token Type
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_S - Set Speed
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_D - Set Dir
@@ -1112,13 +1389,13 @@ RemoteFSMTable	LABEL	TRANSITION_ENTRY
 	%TRANSITION(ST_INITIAL, no_op)		;TOKEN_END - C Return
 	%TRANSITION(ST_INITIAL, SetError)	;TOKEN_OTHER	
 
-	;Current State = ST_Robot: Grab robot error chars
-	                                    ;Input Token Type
+	;Current State = ST_Robot: Garbing chars into Robot Status Buffer
+                                                ;Input Token Type
 	%TRANSITION(ST_Robot, AddRobotErrorChar)	;TOKEN_S - Set Speed
 	%TRANSITION(ST_Robot, AddRobotErrorChar)	;TOKEN_D - Set Dir
 	%TRANSITION(ST_Robot, AddRobotErrorChar)	;TOKEN_R - Robot Error
-	%TRANSITION(ST_Robot, AddRobotErrorChar)   ;TOKEN_NUM - A digit or ASCII_NULL
-	%TRANSITION(ST_INITIAL, no_op)		;TOKEN_END - C Return
+	%TRANSITION(ST_Robot, AddRobotErrorChar)    ;TOKEN_NUM - A digit or ASCII_NULL
+	%TRANSITION(ST_INITIAL, no_op)		        ;TOKEN_END - C Return
 	%TRANSITION(ST_Robot, AddRobotErrorChar)	;TOKEN_OTHER	
 	
 ; Token Tables
@@ -1130,8 +1407,9 @@ RemoteFSMTable	LABEL	TRANSITION_ENTRY
 ;                   TokenValueTable for token values.
 ;
 ; Author:           Anjian Wu
-; Last Modified:    12-02-2013
 ; Last Modified:    12-05-2013: Just made Laser tokens return True/False - Anjian Wu
+;                   12-11-2013: Adapted for Remote - Anjian Wu
+;                   12-13-2013: Documentation - Anjian Wu
 %*DEFINE(TABLE)  (
         %TABENT(TOKEN_NUM, 0)	;<null>  (end of string)
         %TABENT(TOKEN_OTHER, 1)		;SOH
@@ -1288,26 +1566,35 @@ CODE    ENDS
 
 DATA    SEGMENT PUBLIC  'DATA'
 
-Dir_Buffer      DB  Display_SIZE+1	DUP	(?)   ;
-Dir_PTR         DB  ?                         ;
+Dir_Buffer      DB  Display_SIZE+1	DUP	(?)   ; The buffer containing Direction meant for Display
+Dir_PTR         DB  ?                         ; The ele index for Direction buff, used when inserting
+                                              ; each char.
 
-Spd_Buffer      DB  Display_SIZE+1	DUP	(?)   ; 
-Spd_PTR         DB  ?                         ;
+Spd_Buffer      DB  Display_SIZE+1	DUP	(?)   ; The buffer containing Speed meant for Display
+Spd_PTR         DB  ?                         ; The ele index for Speed buff, used when inserting
+                                              ; each char.
 
-Rbt_error_Buff  DB  Display_SIZE+1	DUP	(?)   ; 
-Rbt_error_Ptr   DB  ?                         ;
+Rbt_error_Buff  DB  Display_SIZE+1	DUP	(?)   ; The buffer containing Robot status meant for Display
+Rbt_error_Ptr   DB  ?                         ; The ele index for Robot status buff, used when inserting
+                                              ; each char. This buffer has whatever the robot sends back
+                                              ; so long as it began with TOKEN_R's char.
 
-Action_Buff_PTR DW  ?                         ;
+Action_Buff_PTR DW  ?                         ; Pointer into String table for ACTION string for Display
+                                              ; ACTIONS are the the string displayed to user to describe
+                                              ; what button they just pressed.
 
-Error_Buff_PTR  DW  ?                         ;
+Error_Buff_PTR  DW  ?                         ; Pointer into String table for ERROR string for Display
+                                              ; ERROR are the the string displayed to user to describe
+                                              ; what internal serial error occurred.
 
 Errorflag       DW      ?                     ; Holds error type
 
 FSM_state       DB      ?                     ; Holds the current state of FSM
 
-ToggleCTR       DW      ?                     ;
+ToggleCTR       DW      ?                     ; Counter for ToggleHanler's next buffer/string to display
 
-TogglePreScaler DW      ?                     ;
+TogglePreScaler DW      ?                     ; Effectively a pre-scaler to slow down toggling in ToggleHandler
+                                              ; to basically arbitrary rates. 
 
 
 DATA    ENDS

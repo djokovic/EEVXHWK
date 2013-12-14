@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    SEGTAB14                                                 22:11:02  12/12/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    SEGTAB14                                                 13:25:26  12/13/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE SEGTAB14
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
                             48     ;
                             49     ; Description:      This is the segment pattern table for ASCII characters.
                             50     ;                   It contains the active-high segment patterns for all
-8086/87/88/186 MACRO ASSEMBLER    SEGTAB14                                                 22:11:02  12/12/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    SEGTAB14                                                 13:25:26  12/13/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
                            103     
                            104     ;       DW       pmlkhgn.jfedcba                ;ASCII character
                            105     
-8086/87/88/186 MACRO ASSEMBLER    SEGTAB14                                                 22:11:02  12/12/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    SEGTAB14                                                 13:25:26  12/13/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
 00A2 3F08                  158             DW      0000100000111111B               ;Q
 00A4 7309                  159             DW      0000100101110011B               ;R
 00A6 6D01                  160             DW      0000000101101101B               ;S
-8086/87/88/186 MACRO ASSEMBLER    SEGTAB14                                                 22:11:02  12/12/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    SEGTAB14                                                 13:25:26  12/13/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
                            213     ;
                            214     ; Description:      This is the segment pattern table for hexadecimal digits.
                            215     ;                   It contains the active-high segment patterns for all hex
-8086/87/88/186 MACRO ASSEMBLER    SEGTAB14                                                 22:11:02  12/12/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    SEGTAB14                                                 13:25:26  12/13/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE

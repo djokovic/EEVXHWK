@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE MOTORS
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1    48     
   0002                =1    49     EXTRA_SIGN_BITS EQU     2               ; There are two extra sign bits in
                       =1    50                                             ; Setmotorspeed's S[i] calc
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   103     ;    12/12/2014         Added CAR_RETURN
                       =1   104     
                       =1   105     
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
                       =1   158     ;    12/10/2013         Added Timer2 vals - Anjian Wu
                       =1   159     
                       =1   160     
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
   08CA                =1   213     CTS_PER_MILSEC  EQU     2250            ; 18MHZ/(8 * 1KHz) ~ 2250 counts per MS
                       =1   214     
   07D0                =1   215     PRESCALE_2SEC   EQU     2000            ; 2 seconds = CTS_PER_MILSEC * 2000
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
                            266             ASSUME  CS:CGROUP, DS:DGROUP
                            267             
                            268     ;External Procedures needed
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -358,7 +358,7 @@ LOC  OBJ                  LINE     SOURCE
                            321     ;                               Added Stack Variables -> 11-24-2013 - Anjian Wu
                            322     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                            323     
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    7
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -418,7 +418,7 @@ LOC  OBJ                  LINE     SOURCE
                            375     ;                   ES      -   Used to pass Code Segment
                            376     ;                   Fx (SP -2)  - Holds Fx component per i'th motor
                            377     ;                   Fy (SP -4)  - Holds Fy component per i'th motor
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    8
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE    8
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -478,7 +478,7 @@ LOC  OBJ                  LINE     SOURCE
 0002                       428     SetMotorStackFrameInit:
 0002 55                    429         PUSH    BP                      ;save BP
 0003 8BEC                  430         MOV     BP, SP                  ;and get BP pointing at our stack frame
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE    9
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE    9
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -538,7 +538,7 @@ LOC  OBJ                  LINE     SOURCE
                            480         ;JL     SetMotor_GrabAllArgs    ; No, keep going
                            481         
 003E                       482     SetMotor_GrabAllArgs:     
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   10
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   10
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -598,7 +598,7 @@ LOC  OBJ                  LINE     SOURCE
                                    General.asm).
                            532     ;                   Note this function is only use in SetMotorSpeed since COS_VAL and
                                     SIN_VAL
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   11
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   11
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -658,7 +658,7 @@ LOC  OBJ                  LINE     SOURCE
                            582     ;Error Handling:        none.
                            583     ;
                            584     ;Algorithms:            Table look up. Stack frame
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   12
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   12
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -718,7 +718,7 @@ LOC  OBJ                  LINE     SOURCE
                            635     ;
                            636     ;                   By doing this, the SetMotorSpeed is easier to debug since stack v
                                    ariables
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   13
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   13
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -778,7 +778,7 @@ LOC  OBJ                  LINE     SOURCE
                            686     ;
                            687     ;
                            688     ;Author:                        Anjian Wu
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   14
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   14
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -838,7 +838,7 @@ LOC  OBJ                  LINE     SOURCE
                            740     ;Output:                None.
                            741     ;Registers Used:        AX
                            742     ;Stack Depth:           N/A
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   15
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   15
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -898,7 +898,7 @@ LOC  OBJ                  LINE     SOURCE
                            793     ;Description:           This function will turn the robot laser on or off depending
                            794     ;                   on the passed arg in AX. If AX is 0 then lazer is turned off.
                            795     ;                   Else it is turned on. Also will record laser status in LaserFlag.
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   16
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   16
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -958,7 +958,7 @@ LOC  OBJ                  LINE     SOURCE
                            846     ;Limitations:           None.
                            847     ;Author:                        Anjian Wu
                            848     ;History:                       11-18-2013: Pseudo code - Anjian Wu
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   17
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   17
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1018,7 +1018,7 @@ LOC  OBJ                  LINE     SOURCE
                            900     ; Algorithms:        None.
                            901     ; Data Structures:   None.
                            902     ;
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   18
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   18
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1078,7 +1078,7 @@ LOC  OBJ                  LINE     SOURCE
                            955     
                            956     ;Procedure:                     MotorHandler
                            957     ;
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   19
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   19
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1138,7 +1138,7 @@ LOC  OBJ                  LINE     SOURCE
                                    SetMotorSpeed
                           1000     ;                   s_pwm(WRITE/READ)       - This is the PWM counter that keeps trac
                                    k of
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   20
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   20
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1198,7 +1198,7 @@ LOC  OBJ                  LINE     SOURCE
 00FD 33DB                 1050         XOR     BX, BX              ; Start with motor 0/ clear counter
 00FF C6060A000090   R     1051         MOV     portb_buff, RESET   ; Clear portB such that we only need to turn on
                           1052                                     ; bits we want. (No AND MASKs needed)
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   21
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   21
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1258,7 +1258,7 @@ LOC  OBJ                  LINE     SOURCE
                           1099        
 0151                      1100     LaserHandler:
 0151 833E040000     R     1101         CMP     LaserFlag, FALSE            ; Laser time?
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   22
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   22
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1318,7 +1318,7 @@ LOC  OBJ                  LINE     SOURCE
                           1152     ;------------------------------------------------------------------------------
 0177                      1153     GetTurretAngle      PROC    NEAR
                           1154                         PUBLIC  GetTurretAngle
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   23
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   23
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1378,7 +1378,7 @@ LOC  OBJ                  LINE     SOURCE
                           1205     ;Algorithms:            None.
                           1206     ;Limitations:           None.
                           1207     ;Author:                        Anjian Wu
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   24
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   24
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1438,7 +1438,7 @@ LOC  OBJ                  LINE     SOURCE
                           1258     ;Registers Used:        None.
                           1259     ;Stack Depth:           N/A
                           1260     ;Known Bugs:            None.
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   25
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   25
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -1498,7 +1498,7 @@ LOC  OBJ                  LINE     SOURCE
 018A 20                   1313             DB              FORWARD_M3      ;MASK FORWARD for Motor 3
                           1314     
                           1315     
-8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   21:53:07  12/12/;3  PAGE   26
+8086/87/88/186 MACRO ASSEMBLER    MOTORS                                                   13:39:21  12/13/;3  PAGE   26
 
 
 LOC  OBJ                  LINE     SOURCE

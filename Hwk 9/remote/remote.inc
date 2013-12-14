@@ -23,6 +23,11 @@ SPEED_LABEL        EQU     2       ;
 ANGLE_LABEL        EQU     4       ;
 ERROR_LABEL        EQU     6       ;
 
+; Brightness Values
+DELTA_BRIGHT        EQU     500    ;
+MIN_BRIGHT          EQU     100     ;
+MAX_BRIGHT          EQU     50000   ;
+
 ; Key Commands  
 
 

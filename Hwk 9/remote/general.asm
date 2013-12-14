@@ -16,11 +16,13 @@ $INCLUDE(general.inc);
 ;                                   Code Segment
 ;
 ;   XWORDLAT  -   Sets the motor speed by changing PWM width
-;
+;   no_op     -   Does nothing except return.
 ;
 ;                                 What's was last edit?
 ;
-;       			Pseudo code -> 11-18-2013 - Anjian Wu
+;                   Edits by Anjian Wu
+;       			11-18-2013 - pseudo code
+;       			12-12-2013 - Add no_op function here
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;Procedure:			XWORDLAT
@@ -97,7 +99,36 @@ XWORDLATBODY:
     
 XWORDLAT ENDP
 
-				
+
+;Procedure:			no_op
+;
+;Description:      	Just return (stub function)
+;        
+;Arguments:        	None.
+;Return Values:    	none.
+;Shared Variables: 	none.
+;Local Variables:	None.
+;Global Variables:	None.			
+;Input:            	None.
+;Output:           	None.
+;Registers Used:	None.
+;Stack Depth:		none.
+;Known Bugs:		None.
+;Data Structures:	None.
+;Error Handling:   	None
+;Algorithms:       	None.
+;Limitations:  		None.
+;Author:			Anjian Wu
+;History:			12-02-2013: Pseudo code - Anjian Wu
+;                   12-08-2013: Documentation - Anjian Wu
+;------------------------------------------------------------------------------
+no_op        PROC    NEAR
+            PUBLIC   no_op
+
+    RET
+    
+no_op   ENDP
+			
 CODE    ENDS
     
 
